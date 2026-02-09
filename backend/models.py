@@ -12,3 +12,15 @@ class KPIRecord(SQLModel, table=True):
     
     # Store flexible numeric data: daily_actual, daily_forecast, var1, mtd_actual, etc.
     data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True, unique=True)
+    email: Optional[str] = Field(default=None)
+    full_name: Optional[str] = Field(default=None)
+    hashed_password: str
+    disabled: Optional[bool] = Field(default=False)
+    department: Optional[str] = Field(default=None)
+    role: Optional[str] = Field(default="user")
+    phone_number: Optional[str] = Field(default=None)
+

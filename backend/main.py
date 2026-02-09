@@ -1,13 +1,17 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from typing import List, Optional, Dict, Any
 from datetime import date, timedelta, datetime
+from pydantic import BaseModel
+from jose import JWTError, jwt
 import os
 
 # Relative imports from within the backend package
 from .database import create_db_and_tables, get_session
-from .models import KPIRecord
+from .models import KPIRecord, User
+from . import security
 
 app = FastAPI()
 
@@ -15,21 +19,115 @@ app = FastAPI()
 def on_startup():
     create_db_and_tables()
 
+# Auth Infrastructure
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    full_name: Optional[str] = None
+    department: Optional[str] = None
+    role: Optional[str] = "user"
+
+async def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    statement = select(User).where(User.username == username)
+    user = session.exec(statement).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
 # API Endpoints
+
+@app.post("/api/register", response_model=User)
+def register_user(user: UserCreate, session: Session = Depends(get_session)):
+    statement = select(User).where(User.username == user.username)
+    existing_user = session.exec(statement).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    
+    hashed_password = security.get_password_hash(user.password)
+    db_user = User(
+        username=user.username,
+        email=user.email,
+        full_name=user.full_name,
+        hashed_password=hashed_password,
+        department=user.department,
+        role=user.role,
+        phone_number=user.phone_number
+    )
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
+
+@app.post("/api/token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    statement = select(User).where(User.username == form_data.username)
+    user = session.exec(statement).first()
+    
+    if not user or not security.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
 @app.post("/api/login")
-def login(data: Dict[str, Any]):
-    # Mock login logic
+def login(data: Dict[str, Any], session: Session = Depends(get_session)):
+    # Support for JSON based login from frontend
     username = data.get("username")
-    # In a real app, verify credentials.
-    # For now, return a mock user based on input or default to Admin.
-    return {
-        "token": "mock-token-xyz",
-        "user": {
-            "name": username or "Admin User", 
-            "role": "Admin",
-            "department": "IT" 
+    password = data.get("password")
+    
+    if not username or not password:
+         raise HTTPException(status_code=400, detail="Username and password required")
+
+    statement = select(User).where(User.username == username)
+    user = session.exec(statement).first()
+    
+    if user and security.verify_password(password, user.hashed_password):
+        # Valid user
+        access_token = security.create_access_token(data={"sub": user.username})
+        return {
+            "token": access_token,
+            "user": {
+                "name": user.full_name or user.username,
+                "username": user.username, 
+                "role": user.role,
+                "department": user.department 
+            }
         }
-    }
+
+    raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
 
