@@ -98,36 +98,49 @@ function initApp() {
         }
     }
 
+    const app = document.getElementById('app');
     const sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.style.display = 'block';
+    const content = document.getElementById('content');
+
+    // Switch to dashboard mode
+    app.classList.remove('auth-mode');
+    content.classList.remove('auth-layout');
+    content.classList.add('main-content');
+    sidebar.classList.add('show');
 
     renderSidebar();
     loadDepartmentView(STATE.currentDept);
 }
 
 function renderLoginScreen() {
+    const app = document.getElementById('app');
     const sidebar = document.getElementById('sidebar');
     const content = document.getElementById('content');
 
-    if (sidebar) sidebar.style.display = 'none';
-
+    // Switch to auth mode
+    app.classList.add('auth-mode');
+    sidebar.classList.remove('show');
+    content.className = 'main-content auth-layout';
     content.innerHTML = '';
 
     const container = document.createElement('div');
-    container.style.maxWidth = '400px';
-    container.style.margin = '80px auto';
-    container.style.padding = '30px';
-    container.style.background = 'white';
-    container.style.borderRadius = '12px';
-    container.style.boxShadow = 'var(--shadow-lg)';
-    container.style.textAlign = 'center';
-    container.style.border = '1px solid var(--border)';
+    container.className = 'auth-container text-center fade-in';
+
+    // Logo
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'mb-4';
+    iconWrapper.innerHTML = '<img src="images/adamus_logo.png" alt="Adamus" style="height: 80px;">';
+    container.appendChild(iconWrapper);
 
     const title = document.createElement('h2');
-    title.textContent = 'Adamus KPI Login';
-    title.style.marginBottom = '20px';
-    title.style.color = 'var(--primary)';
+    title.className = 'text-primary mb-2';
+    title.textContent = 'Adamus KPI';
     container.appendChild(title);
+
+    const subtitle = document.createElement('p');
+    subtitle.className = 'subtitle';
+    subtitle.textContent = 'Sign in to your account';
+    container.appendChild(subtitle);
 
     const username = DOM.createInputGroup('Username', 'login-username');
     const password = DOM.createInputGroup('Password', 'login-password', 'password');
@@ -136,38 +149,34 @@ function renderLoginScreen() {
     container.appendChild(password.container);
 
     const btnContainer = document.createElement('div');
-    btnContainer.style.display = 'flex';
-    btnContainer.style.gap = '10px';
-    btnContainer.style.marginTop = '20px';
-    btnContainer.style.flexDirection = 'column';
+    btnContainer.className = 'd-grid gap-2 mt-4';
 
-    const loginBtn = DOM.createButton('Login', () => {
+    const loginBtn = DOM.createButton('Sign In', () => {
         performLogin(username.input.value, password.input.value);
-    });
-    loginBtn.style.width = '100%';
+    }, 'primary', 'bi-box-arrow-in-right');
+    loginBtn.className = 'btn btn-primary btn-lg';
 
-    const cancelBtn = DOM.createButton('Cancel', () => {
+    const cancelBtn = DOM.createButton('Clear', () => {
         username.input.value = '';
         password.input.value = '';
-    }, 'ghost');
-    cancelBtn.style.width = '100%';
+    }, 'outline-secondary');
 
     const forgotLink = document.createElement('a');
+    forgotLink.className = 'd-block mt-3 text-muted small';
+    forgotLink.href = '#';
     forgotLink.textContent = 'Forgot Password?';
-    forgotLink.style.display = 'block';
-    forgotLink.style.marginTop = '15px';
-    forgotLink.style.color = 'var(--primary)';
-    forgotLink.style.cursor = 'pointer';
-    forgotLink.style.fontSize = '13px';
-    forgotLink.onclick = () => {
+    forgotLink.onclick = (e) => {
+        e.preventDefault();
         alert('Please contact your administrator to reset password.');
     };
 
     const registerLink = document.createElement('div');
-    registerLink.innerHTML = "New user? <span style='color:var(--primary); cursor:pointer; font-weight:600;'>Create Account</span>";
-    registerLink.style.marginTop = '20px';
-    registerLink.style.fontSize = '14px';
-    registerLink.querySelector('span').onclick = () => renderRegisterScreen();
+    registerLink.className = 'mt-4 text-muted';
+    registerLink.innerHTML = `New user? <a href="#" class="text-primary fw-semibold">Create Account</a>`;
+    registerLink.querySelector('a').onclick = (e) => {
+        e.preventDefault();
+        renderRegisterScreen();
+    };
 
     // Append all
     btnContainer.appendChild(loginBtn);
@@ -180,40 +189,38 @@ function renderLoginScreen() {
 }
 
 function renderSetupScreen() {
+    const app = document.getElementById('app');
     const sidebar = document.getElementById('sidebar');
     const content = document.getElementById('content');
-    if (sidebar) sidebar.style.display = 'none';
 
+    // Switch to auth mode
+    app.classList.add('auth-mode');
+    sidebar.classList.remove('show');
+    content.className = 'main-content auth-layout';
     content.innerHTML = '';
 
     const container = document.createElement('div');
-    container.style.maxWidth = '400px';
-    container.style.margin = '40px auto';
-    container.style.padding = '30px';
-    container.style.background = 'white';
-    container.style.borderRadius = '12px';
-    container.style.boxShadow = 'var(--shadow-lg)';
-    container.style.textAlign = 'center';
-    container.style.border = '2px solid var(--primary)'; // Highlight for setup
+    container.className = 'auth-container text-center fade-in border border-2 border-primary';
+
+    // Logo
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'mb-4';
+    iconWrapper.innerHTML = '<img src="images/adamus_logo.png" alt="Adamus" style="height: 80px;">';
+    container.appendChild(iconWrapper);
 
     const title = document.createElement('h2');
+    title.className = 'text-primary mb-2';
     title.textContent = 'Initial Admin Setup';
-    title.style.marginBottom = '20px';
-    title.style.color = 'var(--primary)';
     container.appendChild(title);
 
     const subtitle = document.createElement('p');
-    subtitle.textContent = 'Welcome! Please create the first Administrator account.';
-    subtitle.style.marginBottom = '20px';
-    subtitle.style.fontSize = '14px';
-    subtitle.style.color = '#6b7280';
+    subtitle.className = 'subtitle';
+    subtitle.textContent = 'Please create the first Administrator account.';
     container.appendChild(subtitle);
 
     const username = DOM.createInputGroup('Username (Admin)', 'reg-username');
     const password = DOM.createInputGroup('Password', 'reg-password', 'password');
     const confirm = DOM.createInputGroup('Confirm Password', 'reg-confirm', 'password');
-
-    // Admin Dept/Role are hidden/fixed
 
     container.appendChild(username.container);
     container.appendChild(password.container);
@@ -231,136 +238,74 @@ function renderSetupScreen() {
             await registerUser({
                 username: u,
                 password: p,
-                department: 'Management', // Default for admin
-                role: 'Admin' // Backend will enforce this anyway for first user
+                department: 'Management',
+                role: 'Admin'
             });
             DOM.showToast('Admin account created! Please login.');
             renderLoginScreen();
         } catch (e) {
             DOM.showToast(e.message, 'error');
         }
-    });
-    createBtn.style.width = '100%';
-    createBtn.style.marginTop = '20px';
+    }, 'primary', 'bi-person-plus-fill');
+    createBtn.className = 'btn btn-primary btn-lg w-100 mt-4';
 
     container.appendChild(createBtn);
     content.appendChild(container);
 }
 
 function renderRegisterScreen() {
+    const app = document.getElementById('app');
     const sidebar = document.getElementById('sidebar');
     const content = document.getElementById('content');
-    if (sidebar) sidebar.style.display = 'none';
 
+    // Switch to auth mode
+    app.classList.add('auth-mode');
+    sidebar.classList.remove('show');
+    content.className = 'main-content auth-layout';
     content.innerHTML = '';
 
     const container = document.createElement('div');
-    container.style.maxWidth = '400px';
-    container.style.margin = '40px auto';
-    container.style.padding = '30px';
-    container.style.background = 'white';
-    container.style.borderRadius = '12px';
-    container.style.boxShadow = 'var(--shadow-lg)';
-    container.style.textAlign = 'center';
-    container.style.border = '1px solid var(--border)';
+    container.className = 'auth-container text-center fade-in';
+
+    // Logo
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'mb-4';
+    iconWrapper.innerHTML = '<img src="images/adamus_logo.png" alt="Adamus" style="height: 80px;">';
+    container.appendChild(iconWrapper);
 
     const title = document.createElement('h2');
+    title.className = 'text-primary mb-2';
     title.textContent = 'Create Account';
-    title.style.marginBottom = '20px';
     container.appendChild(title);
+
+    const subtitle = document.createElement('p');
+    subtitle.className = 'subtitle';
+    subtitle.textContent = 'Fill in your details to register';
+    container.appendChild(subtitle);
 
     const username = DOM.createInputGroup('Username', 'reg-username');
     const password = DOM.createInputGroup('Password', 'reg-password', 'password');
     const confirm = DOM.createInputGroup('Confirm Password', 'reg-confirm', 'password');
 
-    // Department Select
-    const deptDiv = document.createElement('div');
-    deptDiv.style.marginBottom = '10px';
-    deptDiv.style.textAlign = 'left';
-
-    const deptLabel = document.createElement('label');
-    deptLabel.className = 'small';
-    deptLabel.textContent = 'Department';
-    deptLabel.style.display = 'block';
-    deptLabel.style.marginBottom = '4px';
-    deptLabel.style.fontSize = '12px';
-    deptLabel.style.color = '#6b7280';
-
-    const deptSelect = document.createElement('select');
-    deptSelect.id = 'reg-dept';
-    deptSelect.style.width = '100%';
-    deptSelect.style.padding = '8px';
-    deptSelect.style.border = '1px solid #d1d5db';
-    deptSelect.style.borderRadius = '6px';
-    deptSelect.style.boxSizing = 'border-box';
-    deptSelect.style.backgroundColor = 'white';
-
-    const defOpt = document.createElement('option');
-    defOpt.value = '';
-    defOpt.textContent = 'Select Department';
-    deptSelect.appendChild(defOpt);
-
-    DEPARTMENTS.forEach(d => {
-        const op = document.createElement('option');
-        op.value = d;
-        op.textContent = d.replace('_', ' ');
-        deptSelect.appendChild(op);
-    });
-
-    deptLabel.appendChild(deptSelect);
-    deptDiv.appendChild(deptLabel);
+    // Department Select using DOM helper
+    const deptGroup = DOM.createSelect('Department', 'reg-dept', DEPARTMENTS, 'Select Department');
 
     // Role Select
-    const roleDiv = document.createElement('div');
-    roleDiv.style.marginBottom = '10px';
-    roleDiv.style.textAlign = 'left';
-
-    const roleLabel = document.createElement('label');
-    roleLabel.className = 'small';
-    roleLabel.textContent = 'Role';
-    roleLabel.style.display = 'block';
-    roleLabel.style.marginBottom = '4px';
-    roleLabel.style.fontSize = '12px';
-    roleLabel.style.color = '#6b7280';
-
-    const roleSelect = document.createElement('select');
-    roleSelect.id = 'reg-role';
-    roleSelect.style.width = '100%';
-    roleSelect.style.padding = '8px';
-    roleSelect.style.border = '1px solid #d1d5db';
-    roleSelect.style.borderRadius = '6px';
-    roleSelect.style.boxSizing = 'border-box';
-    roleSelect.style.backgroundColor = 'white';
-
-    // Default option
-    const defRole = document.createElement('option');
-    defRole.value = '';
-    defRole.textContent = 'Select Role';
-    roleSelect.appendChild(defRole);
-
     const ROLES = ['GM', 'HOD', 'Admin', 'Staff'];
-    ROLES.forEach(r => {
-        const op = document.createElement('option');
-        op.value = r;
-        op.textContent = r;
-        roleSelect.appendChild(op);
-    });
-
-    roleLabel.appendChild(roleSelect);
-    roleDiv.appendChild(roleLabel);
+    const roleGroup = DOM.createSelect('Role', 'reg-role', ROLES, 'Select Role');
 
     container.appendChild(username.container);
     container.appendChild(password.container);
     container.appendChild(confirm.container);
-    container.appendChild(deptDiv);
-    container.appendChild(roleDiv);
+    container.appendChild(deptGroup.container);
+    container.appendChild(roleGroup.container);
 
-    const createBtn = DOM.createButton('Create User', async () => {
+    const createBtn = DOM.createButton('Create Account', async () => {
         const u = username.input.value;
         const p = password.input.value;
         const c = confirm.input.value;
-        const d = deptSelect.value;
-        const r = roleSelect.value;
+        const d = deptGroup.select.value;
+        const r = roleGroup.select.value;
 
         if (!u || !p || !d || !r) { DOM.showToast('Please fill all fields', 'error'); return; }
         if (p !== c) { DOM.showToast('Passwords do not match', 'error'); return; }
@@ -377,15 +322,13 @@ function renderRegisterScreen() {
         } catch (e) {
             DOM.showToast(e.message, 'error');
         }
-    });
-    createBtn.style.width = '100%';
-    createBtn.style.marginTop = '20px';
+    }, 'primary', 'bi-check-circle');
+    createBtn.className = 'btn btn-primary btn-lg w-100 mt-4';
 
     const backBtn = DOM.createButton('Back to Login', () => {
         renderLoginScreen();
-    }, 'ghost');
-    backBtn.style.width = '100%';
-    backBtn.style.marginTop = '10px';
+    }, 'outline-secondary', 'bi-arrow-left');
+    backBtn.className = 'btn btn-outline-secondary w-100 mt-2';
 
     container.appendChild(createBtn);
     container.appendChild(backBtn);
@@ -419,27 +362,34 @@ function logout() {
 function renderSidebar() {
     const nav = document.getElementById('sidebar');
     const userDisplay = STATE.currentUser ? STATE.currentUser.username : 'User';
+    const userRole = STATE.currentUser ? STATE.currentUser.role : '';
 
     nav.innerHTML = `
-        <h2 style="margin-bottom: 20px;">Adamus KPI</h2>
-        <div style="margin-bottom:20px; padding:10px; background:var(--bg-secondary); border-radius:6px; font-size:14px;">
-            Logged in as: <strong>${userDisplay}</strong>
-            <div style="margin-top:5px; text-align:right;">
-                <a href="#" onclick="logout()" style="color:var(--danger); font-size:12px; text-decoration:none;">Logout</a>
+        <h2 class="d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-fill"></i>
+            Adamus KPI
+        </h2>
+        <div class="user-info">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-person-circle" style="font-size: 1.5rem;"></i>
+                <div>
+                    <strong>${userDisplay}</strong>
+                    <small class="d-block text-muted">${userRole}</small>
+                </div>
+            </div>
+            <div class="text-end">
+                <a href="#" onclick="logout()" class="logout-link"><i class="bi bi-box-arrow-left me-1"></i>Logout</a>
             </div>
         </div>
-        <ul style="list-style: none; padding: 0;">
+        <nav class="nav flex-column">
             ${DEPARTMENTS.map(dept => `
-                <li style="margin-bottom: 10px;">
-                    <a href="#" onclick="loadDepartmentView('${dept}')" 
-                       style="text-decoration: none; color: var(--text-primary); display: block; padding: 8px; border-radius: 6px;"
-                       onmouseover="this.style.backgroundColor='#f3f4f6'"
-                       onmouseout="this.style.backgroundColor='transparent'">
-                       ${dept.replace('_', ' ')}
-                    </a>
-                </li>
+                <a href="#" onclick="loadDepartmentView('${dept}'); return false;" 
+                   class="nav-link ${STATE.currentDept === dept ? 'active' : ''}">
+                   <i class="bi bi-folder2"></i>
+                   ${dept.replace('_', ' ')}
+                </a>
             `).join('')}
-        </ul>
+        </nav>
     `;
 }
 
@@ -452,35 +402,49 @@ window.loadDepartmentView = async function (dept) {
         STATE.currentMetric = availableMetrics[0];
     }
 
+    // Update sidebar active state
+    renderSidebar();
+
     const content = document.getElementById('content');
+    content.className = 'main-content fade-in';
     content.innerHTML = `
-        <h2 style="margin-bottom: 20px;">${dept.replace('_', ' ')} Dashboard</h2>
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <h2 class="mb-0"><i class="bi bi-speedometer2 me-2 text-primary"></i>${dept.replace('_', ' ')} Dashboard</h2>
+        </div>
         
         <!-- Submenu Navigation -->
-        <div id="submenu-nav" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+        <div id="submenu-nav" class="d-flex gap-2 mb-4 flex-wrap">
             ${availableMetrics.map(metric => `
-                <button class="btn" style="background-color: ${STATE.currentMetric === metric ? 'var(--primary)' : 'white'}; color: ${STATE.currentMetric === metric ? 'white' : 'var(--text-primary)'}; border: 1px solid #d1d5db;" 
+                <button class="metric-btn ${STATE.currentMetric === metric ? 'active' : ''}" 
                     onclick="loadMetricView('${metric}')">
                     ${metric}
                 </button>
             `).join('')}
         </div>
 
-        <div id="kpi-forms-container"></div>
-        <div id="records-table-container" style="margin-top: 30px;">
-            <h3>Recent Records: <span id="table-metric-title">${STATE.currentMetric}</span></h3>
-            <table id="records-table" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white; border-radius: 8px; overflow: hidden; box-shadow: var(--card-shadow);">
-                <thead style="background: #f9fafb;">
-                    <tr>
-                        <th style="padding: 12px; text-align: left;">Date</th>
-                        <th style="padding: 12px; text-align: left;">Metric</th>
-                        <th style="padding: 12px; text-align: left;">Daily Actual</th>
-                        <th style="padding: 12px; text-align: left;">Daily Forecast</th>
-                        <th style="padding: 12px; text-align: left;">Var %</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+        <div id="kpi-forms-container" class="mb-4"></div>
+        <div id="records-table-container">
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Recent Records: <span id="table-metric-title" class="text-primary">${STATE.currentMetric}</span></h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table id="records-table" class="table table-striped table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Metric</th>
+                                    <th>Daily Actual</th>
+                                    <th>Daily Forecast</th>
+                                    <th>Var %</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 
@@ -490,15 +454,13 @@ window.loadDepartmentView = async function (dept) {
 window.loadMetricView = function (metric) {
     STATE.currentMetric = metric;
 
-    // Update active button state
-    const buttons = document.querySelectorAll('#submenu-nav button');
+    // Update active button state with Bootstrap-friendly approach
+    const buttons = document.querySelectorAll('#submenu-nav .metric-btn');
     buttons.forEach(btn => {
         if (btn.textContent.trim() === metric) {
-            btn.style.backgroundColor = 'var(--primary)';
-            btn.style.color = 'white';
+            btn.classList.add('active');
         } else {
-            btn.style.backgroundColor = 'white';
-            btn.style.color = 'var(--text-primary)';
+            btn.classList.remove('active');
         }
     });
 
