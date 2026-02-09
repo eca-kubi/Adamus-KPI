@@ -4,11 +4,11 @@
 // State
 const STATE = {
     currentUser: null,
-    currentDept: "Milling_CIL",
-    currentMetric: "Gold Contained"
+    currentDept: "OHS",
+    currentMetric: "Fixed Inputs"
 };
 
-const DEPARTMENTS = ["Geology", "Mining", "Crushing", "Milling_CIL", "OHS", "Engineering"];
+const DEPARTMENTS = ["OHS", "Geology", "Mining", "Crushing", "Milling_CIL", "Engineering"];
 
 const DEPT_METRICS = {
     "Milling_CIL": [
@@ -366,22 +366,11 @@ function renderSidebar() {
 
     nav.innerHTML = `
         <h2 class="d-flex align-items-center gap-2">
-            <i class="bi bi-bar-chart-fill"></i>
+            <img src="images/adamus_logo_transparent_white_text.png" alt="Adamus Logo" style="height: 40px;">
             Adamus KPI
         </h2>
-        <div class="user-info">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <i class="bi bi-person-circle" style="font-size: 1.5rem;"></i>
-                <div>
-                    <strong>${userDisplay}</strong>
-                    <small class="d-block text-muted">${userRole}</small>
-                </div>
-            </div>
-            <div class="text-end">
-                <a href="#" onclick="logout()" class="logout-link"><i class="bi bi-box-arrow-left me-1"></i>Logout</a>
-            </div>
-        </div>
-        <nav class="nav flex-column">
+        
+        <nav class="nav flex-column flex-grow-1">
             ${DEPARTMENTS.map(dept => `
                 <a href="#" onclick="loadDepartmentView('${dept}'); return false;" 
                    class="nav-link ${STATE.currentDept === dept ? 'active' : ''}">
@@ -390,6 +379,33 @@ function renderSidebar() {
                 </a>
             `).join('')}
         </nav>
+
+        <div class="user-info mt-auto">
+            <div class="d-flex align-items-center justify-content-between w-100">
+                <div class="d-flex align-items-center gap-3 overflow-hidden">
+                    <div class="avatar-circle">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <div class="user-details text-truncate">
+                        <div class="user-name text-truncate" title="${userDisplay}">${userDisplay}</div>
+                        <div class="user-role text-truncate">${userRole}</div>
+                    </div>
+                </div>
+                
+                <div class="dropdown dropup">
+                    <button class="btn btn-link text-white p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
+                        <li>
+                            <a class="dropdown-item text-danger d-flex align-items-center gap-2" href="#" onclick="logout(); return false;">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     `;
 }
 
@@ -424,7 +440,7 @@ window.loadDepartmentView = async function (dept) {
 
         <div id="kpi-forms-container" class="mb-4"></div>
         <div id="records-table-container">
-            <div class="card">
+            <div class="card p-4">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <h5 class="mb-0"><i class="bi bi-table me-2"></i>Recent Records: <span id="table-metric-title" class="text-primary">${STATE.currentMetric}</span></h5>
                 </div>
@@ -711,7 +727,7 @@ window.loadMetricView = function (metric) {
 function renderKPIForm(dept, metricName) {
     const container = document.getElementById('kpi-forms-container');
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card p-4';
 
     const title = document.createElement('h3');
     title.textContent = metricName;

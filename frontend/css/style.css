@@ -193,15 +193,69 @@ a:hover {
 }
 
 .sidebar .user-info {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-    backdrop-filter: blur(10px);
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.sidebar .user-info strong {
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    background-color: #6c757d;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.user-name {
     color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
+.user-role {
+    color: #adb5bd;
+    font-size: 0.8rem;
+    line-height: 1.2;
+}
+
+/* Custom Dropdown Styling for Sidebar */
+.sidebar .dropdown-menu-dark {
+    background-color: #2d3436;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar .dropdown-item {
+    color: #e8e8e8;
+}
+
+.sidebar .dropdown-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+/* Clean up button styles */
+.sidebar .btn-link {
+    text-decoration: none;
+    color: #adb5bd !important;
+    transition: color 0.2s;
+}
+
+.sidebar .btn-link:hover,
+.sidebar .btn-link[aria-expanded="true"] {
+    color: #fff !important;
 }
 
 .sidebar .nav-link {
