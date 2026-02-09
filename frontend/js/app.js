@@ -59,7 +59,19 @@ const DEPT_METRICS = {
     ]
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Check if first-time setup is required
+        const setupData = await checkSetupRequired();
+        if (setupData && setupData.setup_required) {
+            renderSetupScreen();
+            return;
+        }
+    } catch (e) {
+        console.error("Failed to check setup status", e);
+    }
+
     const storedUser = localStorage.getItem('kpi_current_user');
     if (storedUser) {
         try {
@@ -148,19 +160,7 @@ function renderLoginScreen() {
     forgotLink.style.cursor = 'pointer';
     forgotLink.style.fontSize = '13px';
     forgotLink.onclick = () => {
-        const u = username.input.value;
-        if (!u) {
-            alert('Please enter your username to reset password.');
-            return;
-        }
-        const users = JSON.parse(localStorage.getItem('kpi_users') || '[]');
-        const user = users.find(x => x.username === u);
-        if (user) {
-            // Mock reset
-            alert(`Password Reset: Your password is "${user.password}"`);
-        } else {
-            alert('User not found.');
-        }
+        alert('Please contact your administrator to reset password.');
     };
 
     const registerLink = document.createElement('div');
@@ -179,6 +179,74 @@ function renderLoginScreen() {
     content.appendChild(container);
 }
 
+function renderSetupScreen() {
+    const sidebar = document.getElementById('sidebar');
+    const content = document.getElementById('content');
+    if (sidebar) sidebar.style.display = 'none';
+
+    content.innerHTML = '';
+
+    const container = document.createElement('div');
+    container.style.maxWidth = '400px';
+    container.style.margin = '40px auto';
+    container.style.padding = '30px';
+    container.style.background = 'white';
+    container.style.borderRadius = '12px';
+    container.style.boxShadow = 'var(--shadow-lg)';
+    container.style.textAlign = 'center';
+    container.style.border = '2px solid var(--primary)'; // Highlight for setup
+
+    const title = document.createElement('h2');
+    title.textContent = 'Initial Admin Setup';
+    title.style.marginBottom = '20px';
+    title.style.color = 'var(--primary)';
+    container.appendChild(title);
+
+    const subtitle = document.createElement('p');
+    subtitle.textContent = 'Welcome! Please create the first Administrator account.';
+    subtitle.style.marginBottom = '20px';
+    subtitle.style.fontSize = '14px';
+    subtitle.style.color = '#6b7280';
+    container.appendChild(subtitle);
+
+    const username = DOM.createInputGroup('Username (Admin)', 'reg-username');
+    const password = DOM.createInputGroup('Password', 'reg-password', 'password');
+    const confirm = DOM.createInputGroup('Confirm Password', 'reg-confirm', 'password');
+
+    // Admin Dept/Role are hidden/fixed
+
+    container.appendChild(username.container);
+    container.appendChild(password.container);
+    container.appendChild(confirm.container);
+
+    const createBtn = DOM.createButton('Create Admin Account', async () => {
+        const u = username.input.value;
+        const p = password.input.value;
+        const c = confirm.input.value;
+
+        if (!u || !p) { DOM.showToast('Please fill all fields', 'error'); return; }
+        if (p !== c) { DOM.showToast('Passwords do not match', 'error'); return; }
+
+        try {
+            await registerUser({
+                username: u,
+                password: p,
+                department: 'Management', // Default for admin
+                role: 'Admin' // Backend will enforce this anyway for first user
+            });
+            DOM.showToast('Admin account created! Please login.');
+            renderLoginScreen();
+        } catch (e) {
+            DOM.showToast(e.message, 'error');
+        }
+    });
+    createBtn.style.width = '100%';
+    createBtn.style.marginTop = '20px';
+
+    container.appendChild(createBtn);
+    content.appendChild(container);
+}
+
 function renderRegisterScreen() {
     const sidebar = document.getElementById('sidebar');
     const content = document.getElementById('content');
@@ -188,7 +256,7 @@ function renderRegisterScreen() {
 
     const container = document.createElement('div');
     container.style.maxWidth = '400px';
-    container.style.margin = '40px auto'; // Reduced margin to fit more fields
+    container.style.margin = '40px auto';
     container.style.padding = '30px';
     container.style.background = 'white';
     container.style.borderRadius = '12px';
@@ -287,32 +355,28 @@ function renderRegisterScreen() {
     container.appendChild(deptDiv);
     container.appendChild(roleDiv);
 
-    const createBtn = DOM.createButton('Create User', () => {
+    const createBtn = DOM.createButton('Create User', async () => {
         const u = username.input.value;
         const p = password.input.value;
         const c = confirm.input.value;
         const d = deptSelect.value;
         const r = roleSelect.value;
 
-        if (!u || !p || !d || !r) { alert('Please fill all fields'); return; }
-        if (p !== c) { alert('Passwords do not match'); return; }
+        if (!u || !p || !d || !r) { DOM.showToast('Please fill all fields', 'error'); return; }
+        if (p !== c) { DOM.showToast('Passwords do not match', 'error'); return; }
 
-        const users = JSON.parse(localStorage.getItem('kpi_users') || '[]');
-        if (users.find(x => x.username === u)) {
-            alert('User already exists');
-            return;
+        try {
+            await registerUser({
+                username: u,
+                password: p,
+                department: d,
+                role: r
+            });
+            DOM.showToast('User created! Please login.');
+            renderLoginScreen();
+        } catch (e) {
+            DOM.showToast(e.message, 'error');
         }
-
-        users.push({
-            username: u,
-            password: p,
-            department: d,
-            role: r
-        });
-
-        localStorage.setItem('kpi_users', JSON.stringify(users));
-        alert('User created! Please login.');
-        renderLoginScreen();
     });
     createBtn.style.width = '100%';
     createBtn.style.marginTop = '20px';
@@ -328,23 +392,21 @@ function renderRegisterScreen() {
     content.appendChild(container);
 }
 
-function performLogin(u, p) {
-    const users = JSON.parse(localStorage.getItem('kpi_users') || '[]');
+async function performLogin(u, p) {
+    try {
+        const data = await login(u, p);
+        STATE.currentUser = data.user;
+        localStorage.setItem('kpi_current_user', JSON.stringify(data.user));
+        // Token handling should be improved in a real app (e.g. storage), but for now this matches existing flow
+        // Note: api.js handleResponse/fetch wrappers might need the token for authenticated requests later.
+        // The current api.js doesn't seem to attach tokens to requests yet. 
+        // We will assume the session/cookie or simple token auth is handled there or not yet implemented fully.
+        // looking at api.js, it doesn't attach headers.
+        // However, the requested task is about admin setup. I should fix the login at least.
 
-    // Auto-create admin if no users
-    if (users.length === 0 && u === 'admin' && p === 'admin') {
-        const admin = { username: 'admin', password: 'admin' };
-        users.push(admin);
-        localStorage.setItem('kpi_users', JSON.stringify(users));
-    }
-
-    const user = users.find(x => x.username === u && x.password === p);
-    if (user) {
-        STATE.currentUser = user;
-        localStorage.setItem('kpi_current_user', JSON.stringify(user));
         initApp();
-    } else {
-        alert('Invalid credentials');
+    } catch (e) {
+        DOM.showToast(e.message, 'error');
     }
 }
 

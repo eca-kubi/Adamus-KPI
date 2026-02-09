@@ -1,9 +1,18 @@
+
 from logging.config import fileConfig
+import os
+from dotenv import load_dotenv
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlmodel import SQLModel
 
 from alembic import context
+
+# Import your models here so SQLModel knows about them
+from backend.models import KPIRecord, User 
+
+load_dotenv()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -14,11 +23,16 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+
+# Overwrite sqlalchemy.url with the one from .env
+database_url = os.getenv("DATABASE_URL", "sqlite:///database.db")
+# Escape % for ConfigParser
+database_url = database_url.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", database_url)
+
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
+target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

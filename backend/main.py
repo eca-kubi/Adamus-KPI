@@ -62,13 +62,28 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 
 # API Endpoints
 
+
+@app.get("/api/setup-required")
+def check_setup_required(session: Session = Depends(get_session)):
+    user = session.exec(select(User)).first()
+    return {"setup_required": user is None}
+
 @app.post("/api/register", response_model=User)
 def register_user(user: UserCreate, session: Session = Depends(get_session)):
+    # Check if this is the first user
+    first_user = session.exec(select(User)).first()
+    is_first_user = first_user is None
+
     statement = select(User).where(User.username == user.username)
     existing_user = session.exec(statement).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     
+    # Force Admin role if first user
+    role = user.role
+    if is_first_user:
+        role = "Admin"
+
     hashed_password = security.get_password_hash(user.password)
     db_user = User(
         username=user.username,
@@ -76,7 +91,7 @@ def register_user(user: UserCreate, session: Session = Depends(get_session)):
         full_name=user.full_name,
         hashed_password=hashed_password,
         department=user.department,
-        role=user.role,
+        role=role,
         phone_number=user.phone_number
     )
     session.add(db_user)

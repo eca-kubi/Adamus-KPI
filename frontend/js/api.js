@@ -17,12 +17,13 @@ async function handleResponse(response) {
             try {
                 const text = await response.text();
                 if (text) errorMsg += ` - ${text.substring(0, 100)}`;
-            } catch (textErr) {}
+            } catch (textErr) { }
         }
         throw new Error(errorMsg);
     }
     return response.json();
 }
+
 
 async function login(username, password) {
     const response = await fetch(`${API_BASE_URL}/login`, {
@@ -33,14 +34,29 @@ async function login(username, password) {
     return handleResponse(response);
 }
 
+async function checkSetupRequired() {
+    const response = await fetch(`${API_BASE_URL}/setup-required`);
+    return handleResponse(response);
+}
+
+
+async function registerUser(user) {
+    const response = await fetch(`${API_BASE_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+    });
+    return handleResponse(response);
+}
+
 async function fetchKPIRecords(department, startDate, endDate) {
     let url = `${API_BASE_URL}/kpi/${department}`;
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
-    
+
     if (params.toString()) url += `?${params.toString()}`;
-    
+
     const response = await fetch(url);
     return handleResponse(response);
 }
@@ -65,7 +81,7 @@ async function deleteKPIRecord(recordId) {
 async function fetchPreviousMTD(department, metric, currentDate, subtype) {
     let url = `${API_BASE_URL}/kpi/${department}/previous-mtd?metric=${encodeURIComponent(metric)}&current_date=${currentDate}`;
     if (subtype) url += `&subtype=${encodeURIComponent(subtype)}`;
-    
+
     try {
         const response = await fetch(url);
         if (!response.ok) return 0; // Default to 0 if not found
