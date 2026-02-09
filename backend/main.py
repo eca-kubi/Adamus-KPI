@@ -7,7 +7,7 @@ import os
 
 # Relative imports from within the backend package
 from .database import create_db_and_tables, get_session
-from .models import Employee, LeaveRequest, KPIRecord
+from .models import KPIRecord
 
 app = FastAPI()
 
@@ -31,17 +31,7 @@ def login(data: Dict[str, Any]):
         }
     }
 
-@app.get("/api/employees", response_model=List[Employee])
-def get_employees(session: Session = Depends(get_session)):
-    employees = session.exec(select(Employee)).all()
-    return employees
 
-@app.post("/api/employees", response_model=Employee)
-def create_employee(employee: Employee, session: Session = Depends(get_session)):
-    session.add(employee)
-    session.commit()
-    session.refresh(employee)
-    return employee
 
 @app.get("/api/kpi/{department}", response_model=List[KPIRecord])
 def get_kpi_records(

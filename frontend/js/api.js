@@ -77,7 +77,4 @@ async function fetchPreviousMTD(department, metric, currentDate, subtype) {
     }
 }
 
-async function fetchEmployees() {
-    const response = await fetch(`${API_BASE_URL}/employees`);
-    return handleResponse(response);
-}
+
