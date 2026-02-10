@@ -467,6 +467,15 @@ window.loadDepartmentView = async function (dept) {
     loadMetricView(STATE.currentMetric);
 };
 
+// Helper to determine status emoji based on variance
+window.getStatusEmoji = function (varianceStr) {
+    if (!varianceStr || varianceStr === '-') return '';
+    const cleanStr = varianceStr.toString().replace(/[%,\s]/g, '');
+    const num = parseFloat(cleanStr);
+    if (isNaN(num)) return '';
+    return num >= 0 ? '🙂' : '😟';
+};
+
 window.loadMetricView = function (metric) {
     STATE.currentMetric = metric;
 
@@ -509,13 +518,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Number of Rigs</th>
             `;
         } else if (metric === "Toll") {
@@ -526,13 +538,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Grade</th>
                 <th style="padding: 12px; text-align: left;">Grade (Day - 7)</th>
             `;
@@ -543,13 +558,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if (metric === "Grade - Ore Mined") {
             tableHead.innerHTML = `
@@ -559,13 +577,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual(g/t)</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if (metric === "Total Material Moved") {
             tableHead.innerHTML = `
@@ -574,13 +595,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual(bcm)</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast(bcm)</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if (metric === "Blast Hole Drilling") {
             tableHead.innerHTML = `
@@ -589,13 +613,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if (metric === "Grade - Ore Crushed") {
             tableHead.innerHTML = `
@@ -605,13 +632,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if (metric === "Ore Crushed") {
             tableHead.innerHTML = `
@@ -620,13 +650,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if (metric === "Plant Feed Grade" && STATE.currentDept === "Milling_CIL") {
             tableHead.innerHTML = `
@@ -636,13 +669,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
             `;
         } else if ((metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Anx Excavators" || metric === "Dump Trucks" || metric === "ART Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
@@ -653,12 +689,15 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual(%)</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast(%)</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if ((metric === "Crusher" || metric === "Mill") && STATE.currentDept === "Engineering") {
             tableHead.innerHTML = `
@@ -667,12 +706,15 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual(%)</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast(%)</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if (metric === "Safety Incidents" || metric === "Environmental Incidents" || metric === "Property Damage") {
             tableHead.innerHTML = `
@@ -681,13 +723,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         } else if ((metric === "Gold Contained" || metric === "Gold Recovery" || metric === "Recovery" || metric === "Tonnes Treated") && STATE.currentDept === "Milling_CIL") {
             tableHead.innerHTML = `
@@ -696,13 +741,16 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
             `;
         } else {
@@ -712,6 +760,7 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
             `;
         }
     }
@@ -862,6 +911,18 @@ function renderFixedInputForm(dept, card) {
     const inputMonth = document.createElement('input');
     inputMonth.type = 'month';
     inputMonth.id = `input-${dept}-target-month`;
+
+    // Auto-fill Number of Days when Month is selected
+    inputMonth.addEventListener('change', () => {
+        const val = inputMonth.value;
+        if (val) {
+            const [year, month] = val.split('-').map(Number);
+            // new Date(year, month, 0) gives the last day of the month
+            const daysInMonth = new Date(year, month, 0).getDate();
+            inputDays.value = daysInMonth;
+        }
+    });
+
     tr.appendChild(createCell(inputMonth));
 
     // 3. Num Days
@@ -4210,14 +4271,19 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
 }
 
 function renderOHSSafetyIncidentsForm(dept, metricName, card) {
-    const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    const formContainer = document.createElement('div');
+    formContainer.className = 'mb-4';
 
-    // Helper to add to grid
-    const add = (group) => grid.appendChild(group.container);
+    const createRow = () => {
+        const row = document.createElement('div');
+        row.className = 'row gx-3';
+        return row;
+    };
+
+    const addToRow = (row, group, colClass = 'col-md-4') => {
+        group.container.classList.add(...colClass.split(' '));
+        row.appendChild(group.container);
+    };
 
     // Row 1
     const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
@@ -4227,6 +4293,27 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
     date.input.value = ''; // Ensure empty by default
 
+    // Custom Variance Logic: (Forecast - Actual) / Forecast for "Lower is Better"
+    const updateSafetyVariance = (actInput, fcstInput, varInput) => {
+        const act = parseFloat(actInput.value);
+        const fcst = parseFloat(fcstInput.value);
+
+        if (isNaN(act) || isNaN(fcst)) {
+            varInput.value = '';
+            return;
+        }
+
+        if (fcst === 0) {
+            if (act === 0) varInput.value = '0%';
+            else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
+            return;
+        }
+
+        // Favorable if Actual < Forecast
+        const variance = ((fcst - act) / fcst) * 100;
+        varInput.value = Math.round(variance) + '%';
+    };
+
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
@@ -4235,26 +4322,18 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
 
-    // Custom logic: If Actual > 0 -> -100%, if Actual == 0 -> 0%
-    const updateSafetyVariance = () => {
-        const val = parseFloat(dAct.input.value);
-        if (isNaN(val)) {
-            dVar.input.value = '';
-        } else if (val === 0) {
-            dVar.input.value = '0%';
-        } else if (val > 0) {
-            dVar.input.value = '-100%';
-        }
-    };
-    dAct.input.addEventListener('input', updateSafetyVariance);
-    // attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    dAct.input.addEventListener('input', () => updateSafetyVariance(dAct.input, dFcst.input, dVar.input));
+    dFcst.input.addEventListener('input', () => updateSafetyVariance(dAct.input, dFcst.input, dVar.input));
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
     const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
-    attachVarianceListener(mAct.input, mFcst.input, mVar.input);
+
+    // Use same logic for MTD
+    mAct.input.addEventListener('input', () => updateSafetyVariance(mAct.input, mFcst.input, mVar.input));
+    mFcst.input.addEventListener('input', () => updateSafetyVariance(mAct.input, mFcst.input, mVar.input));
 
     // Row 4
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
@@ -4268,29 +4347,42 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
 
     // Row 5
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
-    // User requested editable and specific logic: 0 -> 0%, >0 -> -100%
 
-    const updateSafetyOutlookVar = () => {
-        const val = parseFloat(outlook.input.value);
-        if (isNaN(val)) {
-            budgVar.input.value = '';
-        } else if (val === 0) {
-            budgVar.input.value = '0%';
-        } else if (val > 0) {
-            budgVar.input.value = '-100%';
-        }
-    };
-    outlook.input.addEventListener('input', updateSafetyOutlookVar);
-    // attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+    // Use same logic for Outlook vs Full Budget? Or Full Forecast?
+    // Usually Outlook vs Budget
+    outlook.input.addEventListener('input', () => updateSafetyVariance(outlook.input, fullBudg.input, budgVar.input));
+    fullBudg.input.addEventListener('input', () => updateSafetyVariance(outlook.input, fullBudg.input, budgVar.input));
 
-    // Add to Grid
-    add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
-    add(dAct); add(dFcst); add(dVar);
-    add(mAct); add(mFcst); add(mVar);
-    add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar);
+    // Add to Form Container
+    // Row 1: KPI (Hidden) + Date
+    const row1 = createRow();
+    addToRow(row1, kpi, 'd-none');
+    addToRow(row1, date, 'col-md-4');
+    formContainer.appendChild(row1);
 
-    card.appendChild(grid);
+    // Row 2: Daily
+    const row2 = createRow();
+    addToRow(row2, dAct, 'col-md-4');
+    addToRow(row2, dFcst, 'col-md-4');
+    addToRow(row2, dVar, 'col-md-4');
+    formContainer.appendChild(row2);
+
+    // Row 3: MTD
+    const row3 = createRow();
+    addToRow(row3, mAct, 'col-md-4');
+    addToRow(row3, mFcst, 'col-md-4');
+    addToRow(row3, mVar, 'col-md-4');
+    formContainer.appendChild(row3);
+
+    // Row 4: Outlook
+    const row4 = createRow();
+    addToRow(row4, outlook, 'col-md-3');
+    addToRow(row4, fullFcst, 'col-md-3');
+    addToRow(row4, fullBudg, 'col-md-3');
+    addToRow(row4, budgVar, 'col-md-3');
+    formContainer.appendChild(row4);
+
+    card.appendChild(formContainer);
 
     // ================== LOGIC INJECTION START ==================
     let priorMtdSum = 0;
@@ -4405,7 +4497,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
 
     // Also trigger MTD update when Daily Actual changes
     dAct.input.addEventListener('input', () => {
-        updateSafetyVariance(); // from previous step
+        // updateSafetyVariance() is already attached in the main section above
         calculateSafetyMTD();
     });
     // ================== LOGIC INJECTION END ==================
@@ -4468,14 +4560,19 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
 
 function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     console.log("Initializing Environmental Incidents Form (v2 - Fixed MTD Logic)");
-    const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    const formContainer = document.createElement('div');
+    formContainer.className = 'mb-4';
 
-    // Helper to add to grid
-    const add = (group) => grid.appendChild(group.container);
+    const createRow = () => {
+        const row = document.createElement('div');
+        row.className = 'row gx-3';
+        return row;
+    };
+
+    const addToRow = (row, group, colClass = 'col-md-4') => {
+        group.container.classList.add(...colClass.split(' '));
+        row.appendChild(group.container);
+    };
 
     // Row 1
     const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
@@ -4493,19 +4590,29 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
 
-    // Custom logic: If Actual > 0 -> -100%, if Actual == 0 -> 0%
-    const updateEnvVariance = (actInput, varInput) => {
-        const val = parseFloat(actInput.value);
-        if (isNaN(val)) {
+    // Custom Variance Logic: (Forecast - Actual) / Forecast for "Lower is Better"
+    const updateEnvVariance = (actInput, fcstInput, varInput) => {
+        const act = parseFloat(actInput.value);
+        const fcst = parseFloat(fcstInput.value);
+
+        if (isNaN(act) || isNaN(fcst)) {
             varInput.value = '';
-        } else if (val === 0) {
-            varInput.value = '0%';
-        } else if (val > 0) {
-            varInput.value = '-100%';
+            return;
         }
+
+        if (fcst === 0) {
+            if (act === 0) varInput.value = '0%';
+            else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
+            return;
+        }
+
+        // Favorable if Actual < Forecast
+        const variance = ((fcst - act) / fcst) * 100;
+        varInput.value = Math.round(variance) + '%';
     };
 
-    dAct.input.addEventListener('input', () => updateEnvVariance(dAct.input, dVar.input));
+    dAct.input.addEventListener('input', () => updateEnvVariance(dAct.input, dFcst.input, dVar.input));
+    dFcst.input.addEventListener('input', () => updateEnvVariance(dAct.input, dFcst.input, dVar.input));
     // attachVarianceListener(dAct.input, dFcst.input, dVar.input);
 
     // Row 3
@@ -4514,7 +4621,8 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
 
-    mAct.input.addEventListener('input', () => updateEnvVariance(mAct.input, mVar.input));
+    mAct.input.addEventListener('input', () => updateEnvVariance(mAct.input, mFcst.input, mVar.input));
+    mFcst.input.addEventListener('input', () => updateEnvVariance(mAct.input, mFcst.input, mVar.input));
     // attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
     // Row 4
@@ -4529,17 +4637,40 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
 
     // Custom logic for Outlook Variance (Env Incidents): 0 -> 0%, >0 -> -100%
-    outlook.input.addEventListener('input', () => updateEnvVariance(outlook.input, budgVar.input));
+    outlook.input.addEventListener('input', () => updateEnvVariance(outlook.input, fullBudg.input, budgVar.input));
+    fullBudg.input.addEventListener('input', () => updateEnvVariance(outlook.input, fullBudg.input, budgVar.input));
     // attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
-    // Add to Grid
-    add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
-    add(dAct); add(dFcst); add(dVar);
-    add(mAct); add(mFcst); add(mVar);
-    add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar);
+    // Add to Form Container
+    // Row 1: KPI (Hidden) + Date
+    const row1 = createRow();
+    addToRow(row1, kpi, 'd-none');
+    addToRow(row1, date, 'col-md-4');
+    formContainer.appendChild(row1);
 
-    card.appendChild(grid);
+    // Row 2: Daily
+    const row2 = createRow();
+    addToRow(row2, dAct, 'col-md-4');
+    addToRow(row2, dFcst, 'col-md-4');
+    addToRow(row2, dVar, 'col-md-4');
+    formContainer.appendChild(row2);
+
+    // Row 3: MTD
+    const row3 = createRow();
+    addToRow(row3, mAct, 'col-md-4');
+    addToRow(row3, mFcst, 'col-md-4');
+    addToRow(row3, mVar, 'col-md-4');
+    formContainer.appendChild(row3);
+
+    // Row 4: Outlook
+    const row4 = createRow();
+    addToRow(row4, outlook, 'col-md-3');
+    addToRow(row4, fullFcst, 'col-md-3');
+    addToRow(row4, fullBudg, 'col-md-3');
+    addToRow(row4, budgVar, 'col-md-3');
+    formContainer.appendChild(row4);
+
+    card.appendChild(formContainer);
 
     // MTD Calculation Logic
     const calculateEnvMTD = async () => {
@@ -4699,14 +4830,19 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
 }
 
 function renderOHSPropertyDamageForm(dept, metricName, card) {
-    const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    const formContainer = document.createElement('div');
+    formContainer.className = 'mb-4';
 
-    // Helper to add to grid
-    const add = (group) => grid.appendChild(group.container);
+    const createRow = () => {
+        const row = document.createElement('div');
+        row.className = 'row gx-3';
+        return row;
+    };
+
+    const addToRow = (row, group, colClass = 'col-md-4') => {
+        group.container.classList.add(...colClass.split(' '));
+        row.appendChild(group.container);
+    };
 
     // Row 1
     const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
@@ -4723,19 +4859,29 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
 
-    // Custom logic: If Actual > 0 -> -100%, if Actual == 0 -> 0%
-    const updatePropDamVariance = (actInput, varInput) => {
-        const val = parseFloat(actInput.value);
-        if (isNaN(val)) {
+    // Custom Variance Logic: (Forecast - Actual) / Forecast for "Lower is Better"
+    const updatePropDamVariance = (actInput, fcstInput, varInput) => {
+        const act = parseFloat(actInput.value);
+        const fcst = parseFloat(fcstInput.value);
+
+        if (isNaN(act) || isNaN(fcst)) {
             varInput.value = '';
-        } else if (val === 0) {
-            varInput.value = '0%';
-        } else if (val > 0) {
-            varInput.value = '-100%';
+            return;
         }
+
+        if (fcst === 0) {
+            if (act === 0) varInput.value = '0%';
+            else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
+            return;
+        }
+
+        // Favorable if Actual < Forecast
+        const variance = ((fcst - act) / fcst) * 100;
+        varInput.value = Math.round(variance) + '%';
     };
 
-    dAct.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dVar.input));
+    dAct.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dFcst.input, dVar.input));
+    dFcst.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dFcst.input, dVar.input));
     // attachVarianceListener(dAct.input, dFcst.input, dVar.input);
 
     // Row 3
@@ -4744,22 +4890,8 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
 
-    // Logic: ((MTD Forecast - MTD Actual) / MTD Actual) * 100
-    const updatePropDamMTDVariance = () => {
-        const actual = parseFloat(mAct.input.value);
-        const forecast = parseFloat(mFcst.input.value);
-
-        if (isNaN(actual) || isNaN(forecast) || actual === 0) {
-            mVar.input.value = ''; // Avoid div by zero or empty
-            return;
-        }
-
-        const variance = ((forecast - actual) / actual) * 100;
-        mVar.input.value = Math.round(variance) + '%';
-    };
-
-    mAct.input.addEventListener('input', updatePropDamMTDVariance);
-    mFcst.input.addEventListener('input', updatePropDamMTDVariance);
+    mAct.input.addEventListener('input', () => updatePropDamVariance(mAct.input, mFcst.input, mVar.input));
+    mFcst.input.addEventListener('input', () => updatePropDamVariance(mAct.input, mFcst.input, mVar.input));
     // attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
     // Row 4
@@ -4773,32 +4905,43 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
 
-    // Custom Logic: ((Full Forecast (b) - Outlook (a)) / Outlook (a)) * 100
-    const updatePropDamOutlookVariance = () => {
-        const out = parseFloat(outlook.input.value);
-        const fcst = parseFloat(fullFcst.input.value);
+    // Use Full Budget for variance target
+    outlook.input.addEventListener('input', () => updatePropDamVariance(outlook.input, fullBudg.input, budgVar.input));
+    fullBudg.input.addEventListener('input', () => updatePropDamVariance(outlook.input, fullBudg.input, budgVar.input));
 
-        if (isNaN(out) || isNaN(fcst) || out === 0) {
-            budgVar.input.value = '';
-            return;
-        }
 
-        const variance = ((fcst - out) / out) * 100;
-        budgVar.input.value = Math.round(variance) + '%';
-    };
-
-    outlook.input.addEventListener('input', updatePropDamOutlookVariance);
-    fullFcst.input.addEventListener('input', updatePropDamOutlookVariance);
     // attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
-    // Add to Grid
-    add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
-    add(dAct); add(dFcst); add(dVar);
-    add(mAct); add(mFcst); add(mVar);
-    add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar);
+    // Add to Form Container
+    // Row 1: KPI (Hidden) + Date
+    const row1 = createRow();
+    addToRow(row1, kpi, 'd-none');
+    addToRow(row1, date, 'col-md-4');
+    formContainer.appendChild(row1);
 
-    card.appendChild(grid);
+    // Row 2: Daily
+    const row2 = createRow();
+    addToRow(row2, dAct, 'col-md-4');
+    addToRow(row2, dFcst, 'col-md-4');
+    addToRow(row2, dVar, 'col-md-4');
+    formContainer.appendChild(row2);
+
+    // Row 3: MTD
+    const row3 = createRow();
+    addToRow(row3, mAct, 'col-md-4');
+    addToRow(row3, mFcst, 'col-md-4');
+    addToRow(row3, mVar, 'col-md-4');
+    formContainer.appendChild(row3);
+
+    // Row 4: Outlook
+    const row4 = createRow();
+    addToRow(row4, outlook, 'col-md-3');
+    addToRow(row4, fullFcst, 'col-md-3');
+    addToRow(row4, fullBudg, 'col-md-3');
+    addToRow(row4, budgVar, 'col-md-3');
+    formContainer.appendChild(row4);
+
+    card.appendChild(formContainer);
 
     // MTD Calculation Logic for Property Damage
     const calculatePropDamMTD = async () => {
@@ -7250,7 +7393,7 @@ window.editRecord = (id) => {
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    if (STATE.currentMetric === 'Fixed Inputs') {
+    if (record.subtype === 'fixed_input') {
         const isGeology = dept === 'Geology';
 
         // 1. KPI
@@ -7284,47 +7427,46 @@ window.editRecord = (id) => {
         // Standard Record Edit
         // Set metric
         STATE.currentMetric = record.metric_name;
-        // Re-render main area to ensure correct form is showing? 
-        // Actually rendering happens on click of sidebar. 
-        // We might need to simulate sidebar click or just find inputs if they exist.
-        // For now, assuming user is on the correct metric page if they see the record.
-        // Wait, "Recent Records" shows records for CURRENT metric only (filtered).
-        // So the correct form SHOULD be present.
 
+        // Populate inputs
         const dateInput = document.getElementById(`input-${dept}-date`);
         if (dateInput) dateInput.value = record.date;
 
-        const actualInput = document.getElementById(`input-${dept}-daily-act-pct`) || document.getElementById(`input-${dept}-daily-act`) || document.getElementById(`input-${dept}-actual`);
-        if (actualInput && record.data) {
-            actualInput.value = record.data.daily_actual || record.data.daily_act_pct || '';
-            // If it's the exploration drilling form, we update other fields too
-            if (metricName === 'Exploration Drilling' || metricName === 'Grade Control Drilling' || metricName === 'Blast Hole Drilling' || metricName === 'Total Material Moved') {
-                const rigsInput = document.getElementById(`input-${dept}-rigs`);
-                if (rigsInput) rigsInput.value = record.data.num_rigs || '';
+        // Data Mapping: Key -> Possible IDs
+        const mappings = {
+            daily_actual: [`input-${dept}-daily-act`, `input-${dept}-daily-act-pct`, `input-${dept}-actual`],
+            daily_act_tonnes: [`input-${dept}-daily-act-tonnes`, `input-${dept}-daily-act-t`],
+            daily_act_grade: [`input-${dept}-daily-act-gt`],
+            daily_forecast: [`input-${dept}-daily-fcst`, `input-${dept}-daily-fcst-pct`, `input-${dept}-forecast`],
+            var1: [`input-${dept}-daily-var`, `input-${dept}-var`],
+            mtd_actual: [`input-${dept}-mtd-act`],
+            mtd_forecast: [`input-${dept}-mtd-fcst`],
+            var2: [`input-${dept}-mtd-var`],
+            outlook: [`input-${dept}-outlook`],
+            full_forecast: [`input-${dept}-full-fcst`, `input-${dept}-full-forecast`],
+            full_budget: [`input-${dept}-full-budg`, `input-${dept}-full-budget`],
+            var3: [`input-${dept}-budg-var`, `input-${dept}-full-var`],
+            day2: [`input-${dept}-day2`],
+            qty_available: [`input-${dept}-qty-avail`],
+            num_rigs: [`input-${dept}-rigs`]
+        };
 
-                const mActInput = document.getElementById(`input-${dept}-mtd-act`);
-                if (mActInput) mActInput.value = record.data.mtd_actual || '';
-
-                const mFcstInput = document.getElementById(`input-${dept}-mtd-fcst`);
-                if (mFcstInput) mFcstInput.value = record.data.mtd_forecast || '';
-
-                const outlookInput = document.getElementById(`input-${dept}-outlook`);
-                if (outlookInput) outlookInput.value = record.data.outlook || '';
-
-                // Full Forecast/Budget might be auto-fetched, but we should set what was saved
-                const fullFcstInput = document.getElementById(`input-${dept}-full-fcst`);
-                if (fullFcstInput) fullFcstInput.value = record.data.full_forecast || '';
-
-                const fullBudgInput = document.getElementById(`input-${dept}-full-budg`);
-                if (fullBudgInput) fullBudgInput.value = record.data.full_budget || '';
+        if (record.data) {
+            for (const [key, possibleIds] of Object.entries(mappings)) {
+                let val = record.data[key];
+                if (val !== undefined && val !== null) {
+                    for (const id of possibleIds) {
+                        const input = document.getElementById(id);
+                        if (input) {
+                            input.value = val;
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                            // Break after finding one match, assuming only one exists per key
+                            break;
+                        }
+                    }
+                }
             }
         }
-
-        const fcstInput = document.getElementById(`input-${dept}-daily-fcst-pct`) || document.getElementById(`input-${dept}-daily-fcst`) || document.getElementById(`input-${dept}-forecast`);
-        if (fcstInput && record.data) fcstInput.value = record.data.daily_forecast || record.data.daily_fcst_pct || '';
-
-        // Trigger calculations if possible
-        if (actualInput) actualInput.dispatchEvent(new Event('input'));
 
         DOM.showToast("Record loaded for editing");
     }
@@ -7413,18 +7555,21 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -7445,13 +7590,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.data.daily_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var1 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${r.data.mtd_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var2 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${r.data.outlook || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_budget || '-'}</td>
                     <td style="padding: 12px;">${r.data.var3 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -7473,20 +7621,23 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Grade</th>
                 <th style="padding: 12px; text-align: left;">G(D-7)</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="18" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -7506,13 +7657,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.data.daily_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var1 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${r.data.mtd_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var2 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${r.data.outlook || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_budget || '-'}</td>
                     <td style="padding: 12px;">${r.data.var3 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${r.data.grade || '-'}</td>
                     <td style="padding: 12px;">${r.data.grade_7 || '-'}</td>
                     <td style="padding: 12px;">
@@ -7650,18 +7804,21 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act(g/t)</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -7681,13 +7838,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.data.daily_act_grade || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var1 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${r.data.mtd_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var2 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${r.data.outlook || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_budget || '-'}</td>
                     <td style="padding: 12px;">${r.data.var3 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -7709,18 +7869,21 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -7741,13 +7904,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.data.daily_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var1 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${r.data.mtd_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var2 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${r.data.outlook || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_budget || '-'}</td>
                     <td style="padding: 12px;">${r.data.var3 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -7767,18 +7933,21 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Daily Actual(bcm)</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast(bcm)</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook (a)</th>
                 <th style="padding: 12px; text-align: left;">Full Forecast (b)</th>
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -7798,13 +7967,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.data.daily_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_var || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.daily_var)}</td>
                     <td style="padding: 12px;">${r.data.mtd_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_var || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.mtd_var)}</td>
                     <td style="padding: 12px;">${r.data.outlook || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_budget || '-'}</td>
                     <td style="padding: 12px;">${r.data.budget_var || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.budget_var)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -7824,18 +7996,21 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -7854,13 +8029,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.data.daily_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var1 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${r.data.mtd_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var2 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${r.data.outlook || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_budget || '-'}</td>
                     <td style="padding: 12px;">${r.data.var3 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -7881,19 +8059,22 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -7915,13 +8096,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${val(r.data.outlook)}%</td>
                     <td style="padding: 12px;">${val(r.data.full_forecast)}%</td>
                     <td style="padding: 12px;">${val(r.data.full_budget)}%</td>
                     <td style="padding: 12px;">${val(r.data.var3)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${val(r.data.day2)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -7944,19 +8128,22 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="14" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -7979,13 +8166,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${val(r.data.outlook)}</td>
                     <td style="padding: 12px;">${val(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${val(r.data.var3)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${val(r.data.day2)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -8007,19 +8197,22 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8041,13 +8234,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatNum(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.outlook)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${val(r.data.var3)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.day2)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -8069,19 +8265,22 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8100,13 +8299,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.data.daily_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var1 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${r.data.mtd_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var2 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${r.data.outlook || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_budget || '-'}</td>
                     <td style="padding: 12px;">${r.data.var3 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${r.data.day2 || '-'}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -8128,19 +8330,22 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8159,13 +8364,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.data.daily_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var1 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${r.data.mtd_actual || '-'}</td>
                     <td style="padding: 12px;">${r.data.mtd_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.var2 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${r.data.outlook || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_forecast || '-'}</td>
                     <td style="padding: 12px;">${r.data.full_budget || '-'}</td>
                     <td style="padding: 12px;">${r.data.var3 || '-'}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${r.data.day2 || '-'}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -8188,16 +8396,18 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act(%)</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst(%)</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8219,9 +8429,11 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${val(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.full_budget)}</td>
                     <td style="padding: 12px;">
@@ -8244,18 +8456,21 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8276,13 +8491,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${val(r.data.outlook)}</td>
                     <td style="padding: 12px;">${val(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${val(r.data.var3)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -8303,18 +8521,21 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8335,13 +8556,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${val(r.data.outlook)}</td>
                     <td style="padding: 12px;">${val(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${val(r.data.var3)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -8352,62 +8576,7 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Anx Excavators (Identical columns to Prime for now)
-        if (STATE.currentMetric === 'Anx Excavators') {
-            filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | Qty Avail | D.Act(%) | D.Fcst(%) | Var% | MTD.Act | MTD.Fcst | Var% | F.Fcst | F.Budg | Action
-            thead.innerHTML = `
-                <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
-                <th style="padding: 12px; text-align: left;">Qty Avail</th>
-                <th style="padding: 12px; text-align: left;">D.Act(%)</th>
-                <th style="padding: 12px; text-align: left;">D.Fcst(%)</th>
-                <th style="padding: 12px; text-align: left;">Var%</th>
-                <th style="padding: 12px; text-align: left;">MTD.Act</th>
-                <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
-                <th style="padding: 12px; text-align: left;">Var%</th>
-                <th style="padding: 12px; text-align: left;">F.Fcst</th>
-                <th style="padding: 12px; text-align: left;">F.Budg</th>
-                <th style="padding: 12px; text-align: left;">Action</th>
-            `;
-
-            if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
-                return;
-            }
-
-            filteredRecords.forEach(r => {
-                const tr = document.createElement('tr');
-                tr.style.borderTop = '1px solid #e5e7eb';
-
-                let dateDisplay = r.date;
-                if (r.date && r.date.includes('-')) {
-                    const [y, m, d] = r.date.split('-');
-                    dateDisplay = `${d}-${m}-${y}`;
-                }
-
-                const val = (v) => (v !== undefined && v !== null && v !== '') ? v : '-';
-
-                tr.innerHTML = `
-                    <td style="padding: 12px;">${dateDisplay}</td>
-                    <td style="padding: 12px;">${val(r.data.qty_available)}</td>
-                    <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
-                    <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
-                    <td style="padding: 12px;">${val(r.data.var1)}</td>
-                    <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
-                    <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
-                    <td style="padding: 12px;">${val(r.data.var2)}</td>
-                    <td style="padding: 12px;">${val(r.data.full_forecast)}</td>
-                    <td style="padding: 12px;">${val(r.data.full_budget)}</td>
-                    <td style="padding: 12px;">
-                        <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
-                        <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-            return;
-        }
 
         // Handling for Property Damage
         if (STATE.currentMetric === 'Property Damage') {
@@ -8419,18 +8588,21 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Outlook</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8451,13 +8623,16 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${val(r.data.outlook)}</td>
                     <td style="padding: 12px;">${val(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${val(r.data.var3)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -8479,16 +8654,18 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act(%)</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst(%)</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8510,9 +8687,11 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${val(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.full_budget)}</td>
                     <td style="padding: 12px;">
@@ -8536,16 +8715,18 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Act(%)</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst(%)</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -8567,9 +8748,11 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${val(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${val(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${val(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${val(r.data.full_budget)}</td>
                     <td style="padding: 12px;">
@@ -8591,6 +8774,7 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
         }
@@ -8599,7 +8783,7 @@ async function loadRecentRecords(dept) {
         filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
         if (filteredRecords.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="padding: 12px; text-align: center;">No records found for ' + STATE.currentMetric + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="padding: 12px; text-align: center;">No records found for ' + STATE.currentMetric + '</td></tr>';
             return;
         }
 
@@ -8612,6 +8796,7 @@ async function loadRecentRecords(dept) {
                 <td style="padding: 12px;">${r.data.daily_actual || '-'}</td>
                 <td style="padding: 12px;">${r.data.daily_forecast || '-'}</td>
                 <td style="padding: 12px;">${r.data.var1 || '-'}</td>
+                <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                 <td style="padding: 12px;">
                     <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                     <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>

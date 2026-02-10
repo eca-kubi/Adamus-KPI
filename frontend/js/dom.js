@@ -9,6 +9,10 @@ const DOM = {
         const div = document.createElement('div');
         div.className = 'mb-3 text-start';
 
+        if (labelText === 'KPI') {
+            div.style.display = 'none';
+        }
+
         const label = document.createElement('label');
         label.className = 'form-label fw-medium';
         label.setAttribute('for', id);
