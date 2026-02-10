@@ -159,7 +159,7 @@ a:hover {
     align-items: center;
     min-height: 100vh;
     padding: 2rem;
-    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ed 100%);
+    background: linear-gradient(135deg, #d2ab67 0%, #b8944d 100%);
 }
 
 /* -------------------------
@@ -414,7 +414,7 @@ a:hover {
    9. Login/Auth Screens
    ------------------------- */
 .auth-container {
-    max-width: 420px;
+    max-width: 500px;
     margin: 80px auto;
     padding: 2rem;
     background: #fff;

@@ -124,7 +124,7 @@ function renderLoginScreen() {
     content.innerHTML = '';
 
     const container = document.createElement('div');
-    container.className = 'auth-container text-center fade-in';
+    container.className = 'auth-container text-center fade-in w-100';
 
     // Logo
     const iconWrapper = document.createElement('div');
@@ -170,20 +170,20 @@ function renderLoginScreen() {
         alert('Please contact your administrator to reset password.');
     };
 
-    const registerLink = document.createElement('div');
-    registerLink.className = 'mt-4 text-muted';
-    registerLink.innerHTML = `New user? <a href="#" class="text-primary fw-semibold">Create Account</a>`;
-    registerLink.querySelector('a').onclick = (e) => {
-        e.preventDefault();
-        renderRegisterScreen();
-    };
+    /*     const registerLink = document.createElement('div');
+        registerLink.className = 'mt-4 text-muted';
+        registerLink.innerHTML = `New user? <a href="#" class="text-primary fw-semibold">Create Account</a>`;
+        registerLink.querySelector('a').onclick = (e) => {
+            e.preventDefault();
+            renderRegisterScreen();
+        }; */
 
     // Append all
     btnContainer.appendChild(loginBtn);
     btnContainer.appendChild(cancelBtn);
     container.appendChild(btnContainer);
     container.appendChild(forgotLink);
-    container.appendChild(registerLink);
+    /* container.appendChild(registerLink); */
 
     content.appendChild(container);
 }
@@ -200,7 +200,7 @@ function renderSetupScreen() {
     content.innerHTML = '';
 
     const container = document.createElement('div');
-    container.className = 'auth-container text-center fade-in border border-2 border-primary';
+    container.className = 'auth-container text-center fade-in border border-2 border-primary w-100';
 
     // Logo
     const iconWrapper = document.createElement('div');
@@ -265,7 +265,7 @@ function renderRegisterScreen() {
     content.innerHTML = '';
 
     const container = document.createElement('div');
-    container.className = 'auth-container text-center fade-in';
+    container.className = 'auth-container text-center fade-in w-100';
 
     // Logo
     const iconWrapper = document.createElement('div');
