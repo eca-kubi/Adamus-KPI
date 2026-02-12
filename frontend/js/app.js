@@ -856,6 +856,9 @@ function renderFixedInputForm(dept, card) {
     const isGeology = dept === 'Geology';
     const colWidth = isGeology ? '16.66%' : '20%';
 
+    // Helper to retrieve current options list (for saving)
+    let getCurrentRigOptions = () => null;
+
     const thead = document.createElement('thead');
     let headerHTML = `
         <tr style="background-color: #f9fafb;">
@@ -948,9 +951,104 @@ function renderFixedInputForm(dept, card) {
 
     // 6. Forecast Per Rig (Geology Only)
     if (isGeology) {
-        const inputFcstRig = document.createElement('input');
-        inputFcstRig.type = 'text';
+        const inputFcstRig = document.createElement('select');
         inputFcstRig.id = `input-${dept}-fcst-per-rig`;
+
+        // Predefined options
+        let currentOptions = [80, 150, 230, 300];
+
+        const renderOptions = (selectedValue = null) => {
+            inputFcstRig.innerHTML = '';
+
+            // Sort
+            const sorted = [...new Set(currentOptions)].sort((a, b) => a - b);
+
+            sorted.forEach(val => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = val;
+                if (parseFloat(val) === parseFloat(selectedValue)) {
+                    opt.selected = true;
+                }
+                inputFcstRig.appendChild(opt);
+            });
+
+            // Add "Add New" option
+            const addOpt = document.createElement('option');
+            addOpt.value = '__ADD_NEW__';
+            addOpt.textContent = '➕ Add new value...';
+            addOpt.style.fontWeight = 'bold';
+            addOpt.style.color = '#007bff';
+            inputFcstRig.appendChild(addOpt);
+
+            // If nothing selected and options exist, ensure one is selected visually
+            if (!selectedValue && sorted.length > 0 && !inputFcstRig.value) {
+                inputFcstRig.value = sorted[0];
+            }
+        };
+
+        // Load options from DB
+        const loadOptionsFromDB = async () => {
+            try {
+                // Fetch all records, then filter for fixed_inputs with available_rig_options
+                const records = await fetchKPIRecords(dept);
+
+                const withOptions = records.filter(r =>
+                    r.subtype === 'fixed_input' &&
+                    r.data &&
+                    Array.isArray(r.data.available_rig_options) &&
+                    r.data.available_rig_options.length > 0
+                );
+
+                if (withOptions.length > 0) {
+                    // Sort by date DESC to get most recent
+                    withOptions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    const latest = withOptions[0];
+                    currentOptions = latest.data.available_rig_options.map(Number);
+                }
+
+                renderOptions();
+            } catch (e) {
+                console.error("Failed to load rig options", e);
+                // Fallback to defaults (already set)
+                renderOptions();
+            }
+        };
+
+        // Initial Load
+        renderOptions();
+        loadOptionsFromDB();
+
+        // Change Event Listener for "Add New"
+        inputFcstRig.addEventListener('change', () => {
+            if (inputFcstRig.value === '__ADD_NEW__') {
+                // Use a timeout to allow the option to render as selected briefly
+                setTimeout(() => {
+                    const newValStr = prompt("Enter new Forecast Per Rig value:");
+                    if (newValStr) {
+                        const newVal = parseFloat(newValStr);
+                        if (!isNaN(newVal)) {
+                            // Update current options
+                            if (!currentOptions.includes(newVal)) {
+                                currentOptions.push(newVal);
+                            }
+                            renderOptions(newVal);
+                            DOM.showToast(`Added value: ${newVal}`, 'success');
+                        } else {
+                            DOM.showToast("Invalid number entered", "warning");
+                            renderOptions(); // Reset
+                        }
+                    } else {
+                        // Cancelled
+                        renderOptions(); // Reset
+                    }
+                }, 10);
+            }
+        });
+
+        // Update getter
+        getCurrentRigOptions = () => currentOptions;
+
         tr.appendChild(createCell(inputFcstRig));
     }
 
@@ -984,10 +1082,15 @@ function renderFixedInputForm(dept, card) {
         };
 
         if (isGeology) {
-            // Access dynamically since variable might be out of scope if block-scoped
             const rigElem = document.getElementById(`input-${dept}-fcst-per-rig`);
             if (rigElem) {
                 dataPayload.forecast_per_rig = parseFloat(rigElem.value.replace(/,/g, '')) || 0;
+            }
+
+            // Save the list of options to persist them for next time
+            const opts = getCurrentRigOptions();
+            if (opts && Array.isArray(opts)) {
+                dataPayload.available_rig_options = opts;
             }
         }
 
@@ -1035,7 +1138,17 @@ function renderFixedInputForm(dept, card) {
             inputBudget.value = '';
             if (isGeology) {
                 const rigElem = document.getElementById(`input-${dept}-fcst-per-rig`);
-                if (rigElem) rigElem.value = '';
+                if (rigElem) {
+                    // Do not clear the list, but maybe reset selection
+                    // But typically users might want to add another with same rig value?
+                    // Let's just leave it or reset to first?
+                    // resetting to blank or first is fine.
+                    // Actually, if we clear it, 'value' becomes empty string.
+                    // But it's a select.
+                    // Let's just leave it or set to default (min value).
+                    const opts = getCurrentRigOptions();
+                    if (opts && opts.length) rigElem.value = Math.min(...opts);
+                }
             }
         } catch (e) {
             console.error(e);
@@ -1049,7 +1162,7 @@ function renderFixedInputForm(dept, card) {
 function renderGeologyDrillingForm(dept, metricName, card) {
     const grid = document.createElement('div');
     grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
     grid.style.gap = '15px';
     grid.style.marginBottom = '20px';
 
@@ -1059,17 +1172,14 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     let currentForecastPerRig = 0; // Store retrieved Fixed Input value
 
     // Row 1
-    const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
-    kpi.input.value = metricName;
-    kpi.input.readOnly = true;
-
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
     // date.input.valueAsDate = new Date(); // Keep empty by default
 
     const rigs = DOM.createInputGroup("Number of Rigs", `input-${dept}-rigs`, "number");
 
-    // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+
+    // Row 2
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
 
     // Custom Datalist for Exploration Drilling
@@ -1090,12 +1200,23 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
 
-    // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
+
+    // Row 3
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
+
     const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
+
+    const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
+
+    // Row 4
+    const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
+    const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
+    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
+    budgVar.input.readOnly = true;
+    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
     // Auto-calculate MTD Actual and MTD Forecast for Exploration Drilling and Grade Control Drilling
     if (metricName === "Exploration Drilling" || metricName === "Grade Control Drilling") {
@@ -1157,14 +1278,6 @@ function renderGeologyDrillingForm(dept, metricName, card) {
         dFcst.input.addEventListener('input', calculateMTD); // Listen to Forecast input
         date.input.addEventListener('change', calculateMTD);
     }
-
-    // Row 4
-    const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
-    const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
-    const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
-    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
-    budgVar.input.readOnly = true;
-    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
     // Auto-fetch Fixed Inputs (Full Forecast/Budget)
     const fetchFixedInputs = async () => {
@@ -1282,10 +1395,10 @@ function renderGeologyDrillingForm(dept, metricName, card) {
 
 
     // Add to Grid (order matters)
-    add(kpi); add(date); add(rigs); grid.appendChild(document.createElement('div')); // Spacer
-    add(dAct); add(dFcst); add(dVar); grid.appendChild(document.createElement('div')); // Spacer
-    add(mAct); add(mFcst); add(mVar); grid.appendChild(document.createElement('div')); // Spacer
-    add(outlook); add(fullFcst); add(fullBudg); add(budgVar);
+    add(date); add(rigs); add(dAct);
+    add(dFcst); add(dVar); add(mAct);
+    add(mFcst); add(mVar); add(outlook);
+    add(fullFcst); add(fullBudg); add(budgVar);
 
     card.appendChild(grid);
 
@@ -1346,7 +1459,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
 function renderGeologyTollForm(dept, metricName, card) {
     const grid = document.createElement('div');
     grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
     grid.style.gap = '15px';
     grid.style.marginBottom = '20px';
 
@@ -1354,16 +1467,11 @@ function renderGeologyTollForm(dept, metricName, card) {
     const add = (group) => grid.appendChild(group.container);
 
     // Row 1
-    const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
-    kpi.input.value = metricName;
-    kpi.input.readOnly = true;
-
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
     // date.input.valueAsDate = new Date();
 
     const wetTonnes = DOM.createInputGroup("Wet Tonnes", `input-${dept}-wet-tonnes`, "number");
 
-    // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
 
     // Auto-calculate Daily Actual from Wet Tonnes (Daily Actual = Wet Tonnes * 0.85)
@@ -1373,7 +1481,30 @@ function renderGeologyTollForm(dept, metricName, card) {
         dAct.input.dispatchEvent(new Event('input'));
     });
 
+    // Row 2
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+
+    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+
+    const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
+
+    // Row 3
+    const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
+
+    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    mVar.input.readOnly = true;
+    attachVarianceListener(mAct.input, mFcst.input, mVar.input);
+
+    const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
+
+    // Row 4
+    const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
+    const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
+    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
+    budgVar.input.readOnly = true;
+    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
     // Auto-fetch Fixed Inputs and Calculate Daily Forecast
     const fetchAndCalculateForecast = async () => {
@@ -1426,17 +1557,6 @@ function renderGeologyTollForm(dept, metricName, card) {
         }
     };
     date.input.addEventListener('change', fetchAndCalculateForecast);
-
-    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
-    dVar.input.readOnly = true;
-    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
-
-    // Row 3
-    const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
-    const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
-    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
-    mVar.input.readOnly = true;
-    attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
     // Auto-calculate MTD Actual and MTD Forecast
     const calculateMTD = async () => {
@@ -1493,12 +1613,8 @@ function renderGeologyTollForm(dept, metricName, card) {
     date.input.addEventListener('change', calculateMTD);
 
     // Row 4
-    const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
-    const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
-    const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
-    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
-    budgVar.input.readOnly = true;
-    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+    const grade = DOM.createInputGroup("Grade", `input-${dept}-grade`, "number");
+    const grade7 = DOM.createInputGroup("Grade (Day - 7)", `input-${dept}-grade-7`, "number");
 
     // Auto-calculate Outlook (a) for Toll
     const calculateOutlook = async () => {
@@ -1534,7 +1650,7 @@ function renderGeologyTollForm(dept, metricName, card) {
                     r.subtype !== 'fixed_input'
                 );
 
-                // Check if it's the same month to ensure continuity (though date calc handles it, ensure logic doesn't grab prev month end if that's not desired. 
+                // Check if it's the same month to ensure continuity (though date calc handles it, ensure logic doesn't grab prev month end if that's not desired.
                 // However, "Subsequent days" usually implies within the same month for reporting periods, but visually it usually just looks back 1 day.
                 // Given the prompt "check if the... month in the date placeholder matches", we should ensure strictly same month logic or just trust previous date.
                 // "matches existing records... " - if day 2, we look for day 1.
@@ -1554,10 +1670,6 @@ function renderGeologyTollForm(dept, metricName, card) {
     dFcst.input.addEventListener('input', calculateOutlook);
     fullFcst.input.addEventListener('input', calculateOutlook); // Triggered by fixed inputs
     date.input.addEventListener('change', calculateOutlook);
-
-    // Row 5
-    const grade = DOM.createInputGroup("Grade", `input-${dept}-grade`, "number");
-    const grade7 = DOM.createInputGroup("Grade (Day - 7)", `input-${dept}-grade-7`, "number");
 
     // Auto-calculate Grade (Day - 7)
     const calculateGrade7 = async () => {
@@ -1583,10 +1695,10 @@ function renderGeologyTollForm(dept, metricName, card) {
             const targetDateStr = `${y}-${m}-${da}`;
 
             try {
-                // We're looking for a specific single record. 
+                // We're looking for a specific single record.
                 // Optimization: fetchKPIRecords(dept) might be cached or we can fetch specifics.
-                // Assuming fetchKPIRecords fetches for dept. 
-                // We might want to pass start/end date for optimization if the list is huge, 
+                // Assuming fetchKPIRecords fetches for dept.
+                // We might want to pass start/end date for optimization if the list is huge,
                 // but usually fine for monthly data.
                 const records = await fetchKPIRecords(dept);
 
@@ -1611,10 +1723,10 @@ function renderGeologyTollForm(dept, metricName, card) {
     date.input.addEventListener('change', calculateGrade7);
 
     // Add to Grid
-    add(kpi); add(date); add(wetTonnes); grid.appendChild(document.createElement('div')); // Spacer
-    add(dAct); add(dFcst); add(dVar); grid.appendChild(document.createElement('div')); // Spacer
-    add(mAct); add(mFcst); add(mVar); grid.appendChild(document.createElement('div')); // Spacer
-    add(outlook); add(fullFcst); add(fullBudg); add(budgVar);
+    add(date); add(wetTonnes); add(dAct);
+    add(dFcst); add(dVar); add(mAct);
+    add(mFcst); add(mVar); add(outlook);
+    add(fullFcst); add(fullBudg); add(budgVar);
     add(grade); add(grade7);
 
     card.appendChild(grid);

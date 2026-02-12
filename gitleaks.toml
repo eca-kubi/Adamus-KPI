@@ -1,0 +1,53 @@
+# Gitleaks configuration file
+# See https://github.com/gitleaks/gitleaks for more information
+
+title = "Gitleaks Configuration"
+
+# Extend the base (built-in) config. An extension is a path to a configuration file.
+# If you want to use the default gitleaks config, you can omit this line.
+# [extend]
+# path = "/path/to/base/config.toml"
+
+# Global allowlist
+[allowlist]
+description = "Global allowlist"
+# Regex patterns to exclude from scanning
+regexes = [
+    # Example: Ignore test files with dummy secrets
+    # '''dummy[_-]?secret''',
+]
+
+# Paths to exclude from scanning
+paths = [
+    # Exclude common directories that might have false positives
+    '''^\.git/''',
+    '''^\.venv/''',
+    '''^node_modules/''',
+    '''^\.pre-commit-config\.yaml$''',
+    # Add more paths as needed
+]
+
+# Stopwords are used to prevent false positives
+# These are common words that might trigger rules but are not secrets
+stopwords = [
+    # Add common false positives here
+    # "example",
+    # "test",
+]
+
+# You can define custom rules here
+# [[rules]]
+# id = "custom-rule-1"
+# description = "Custom API Key Pattern"
+# regex = '''(?i)custom[_-]?api[_-]?key[:\s=]+['\"]?([a-z0-9]{32})['\"]?'''
+# tags = ["api", "custom"]
+
+# Example: Allowlist for specific commits (useful for legacy secrets)
+# [[allowlist.commits]]
+# description = "Known legacy secret in initial commit"
+# commit = "abc123def456"
+
+# Example: Allowlist for specific files
+# [[allowlist.paths]]
+# description = "Ignore example configuration file"
+# regex = '''example\.config\.js'''
