@@ -112,17 +112,29 @@ const DOM = {
 
         const toastContainer = document.getElementById('toast-container') || document.body;
 
+        // Map type to icon
+        const icons = {
+            success: 'bi-check-circle-fill',
+            error: 'bi-exclamation-circle-fill',
+            warning: 'bi-exclamation-triangle-fill',
+            info: 'bi-info-circle-fill'
+        };
+        const iconClass = icons[type] || icons.info;
+
+        // Ensure type is valid class suffix, default to info if unknown
+        const toastClass = `toast-${['success', 'error', 'warning', 'info'].includes(type) ? type : 'info'}`;
+
         // Create toast element
         const toast = document.createElement('div');
         toast.id = 'toast-msg';
-        toast.className = `toast show align-items-center border-0 ${type === 'success' ? 'toast-success' : 'toast-error'}`;
+        toast.className = `toast show align-items-center border-0 ${toastClass}`;
         toast.setAttribute('role', 'alert');
         toast.style.minWidth = '280px';
 
         toast.innerHTML = `
             <div class="d-flex">
                 <div class="toast-body d-flex align-items-center gap-2">
-                    <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill'}"></i>
+                    <i class="bi ${iconClass}"></i>
                     ${message}
                 </div>
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>

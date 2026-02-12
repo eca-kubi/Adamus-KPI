@@ -15,6 +15,13 @@ from . import security
 
 app = FastAPI()
 
+class CascadeFixedRequest(BaseModel):
+    metric_name: str
+    target_month: str # YYYY-MM
+    full_forecast: float
+    full_budget: float
+    forecast_per_rig: Optional[float] = None
+
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
@@ -229,6 +236,127 @@ def delete_kpi_record(record_id: int, session: Session = Depends(get_session)):
     session.delete(record)
     session.commit()
     return {"ok": True}
+
+@app.post("/api/kpi/{department}/cascade-fixed")
+def cascade_fixed_input(
+    department: str, 
+    payload: CascadeFixedRequest, 
+    session: Session = Depends(get_session)
+):
+    try:
+        # Parse Month
+        year, month = map(int, payload.target_month.split('-'))
+        start_date = date(year, month, 1)
+        # End date is start of next month
+        if month == 12:
+            next_month = date(year + 1, 1, 1)
+        else:
+            next_month = date(year, month + 1, 1)
+
+        # Query all records for this metric in this month, EXCLUDING fixed_input
+        # We need to fetch records and iterate to update specific fields in the JSON
+        query = select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.metric_name == payload.metric_name,
+            KPIRecord.date >= start_date,
+            KPIRecord.date < next_month,
+            KPIRecord.subtype != 'fixed_input'
+        )
+        records = session.exec(query).all()
+        
+        count = 0
+        for record in records:
+            # Need to create a new dict to ensure SQLAlchemy detects change in JSON
+            new_data = dict(record.data)
+            new_data['full_forecast'] = payload.full_forecast
+            new_data['full_budget'] = payload.full_budget
+            
+            # Helper for variance
+            def calc_var(act_val, fcst_val, is_ohs=False):
+                try:
+                    act = float(act_val)
+                    fcst = float(fcst_val)
+                    
+                    if is_ohs:
+                        # OHS Logic (Lower is Better)
+                        # If Forecast is 0:
+                        # - Actual 0 -> 0% (Green/Good)
+                        # - Actual > 0 -> -100% (Red/Bad)
+                        if fcst == 0:
+                            if act == 0:
+                                return "0%"
+                            else:
+                                return "-100%"
+                        
+                        # Normal OHS Logic: ((Forecast - Actual) / Forecast) * 100
+                        # Example: Fcst 10, Act 5. (5/10)*100 = 50% (Good)
+                        # Example: Fcst 10, Act 15. (-5/10)*100 = -50% (Bad)
+                        var = ((fcst - act) / fcst) * 100
+                        return f"{round(var)}%"
+                    
+                    else:
+                        # Standard Logic (Higher is Better/Production)
+                        # If Forecast is 0, we can't calculate variance. Return "-" or maybe "0%"?
+                        # Standard practice in this app seems to be "-" if invalid.
+                        # However, user complained about "-". 
+                        # If Forecast is 0 and Actual is > 0, technically it's infinite variance.
+                        if fcst == 0:
+                            if act == 0:
+                                return "0%"
+                            return "-" # Keep as - for non-OHS if forecast is 0, unless user specifies otherwise for all.
+
+                        var = ((act - fcst) / fcst) * 100
+                        return f"{round(var)}%"
+                except (ValueError, TypeError):
+                    return ""
+
+            is_ohs_dept = department == "OHS"
+
+            # Special case for Geology Grade Control: forecast_per_rig changes daily_forecast
+            if payload.forecast_per_rig is not None:
+                new_data['forecast_per_rig'] = payload.forecast_per_rig
+                # Update daily forecast based on qty_available (rigs) * forecast_per_rig
+                if 'qty_available' in new_data:
+                    try:
+                        rigs = float(new_data['qty_available'])
+                        new_daily_fcst = rigs * float(payload.forecast_per_rig)
+                        new_data['daily_forecast'] = round(new_daily_fcst, 2)
+                    except (ValueError, TypeError):
+                         pass
+
+            # Recalculate Daily Variance (var1)
+            # Logic: ((Actual - Forecast) / Forecast) * 100
+            if 'daily_actual' in new_data and 'daily_forecast' in new_data:
+                 new_data['var1'] = calc_var(new_data['daily_actual'], new_data['daily_forecast'], is_ohs_dept)
+
+            # Recalculate MTD Variance (var2)
+            # Logic: ((MTD Actual - MTD Forecast) / MTD Forecast) * 100
+            if 'mtd_actual' in new_data and 'mtd_forecast' in new_data:
+                 new_data['var2'] = calc_var(new_data['mtd_actual'], new_data['mtd_forecast'], is_ohs_dept)
+
+            # Recalculate Budget Variance (var3)
+            # Logic: ((Full Forecast - Full Budget) / Full Budget) * 100
+            # Note: The logic in JS is Budget Variance = (Full Forecast - Full Budget) / Full Budget
+            # But wait, looking at app.js line 1408: attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+            # It uses the SAME logic: (Actual - Forecast) / Forecast.
+            # Where 'Actual' is dependent on the context.
+            # For Fixed Input context: 'Outlook' vs 'Full Forecast'? No.
+            # Let's stick to (Full Forecast - Full Budget) / Full Budget as standard Budget Variance.
+            # Actually, let's use the helper: Act=Full Forecast, Fcst=Full Budget
+            new_data['var3'] = calc_var(payload.full_forecast, payload.full_budget, is_ohs_dept)
+
+            record.data = new_data
+            session.add(record)
+            count += 1
+            
+        session.commit()
+        return {"updated_count": count}
+
+    except Exception as e:
+        print(f"ERROR cascading fixed input: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Serve Frontend Static Files
 # We assume the backend is run from the project root (e.g. uvicorn backend.main:app)

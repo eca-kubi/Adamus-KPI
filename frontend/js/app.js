@@ -167,7 +167,7 @@ function renderLoginScreen() {
     forgotLink.textContent = 'Forgot Password?';
     forgotLink.onclick = (e) => {
         e.preventDefault();
-        alert('Please contact your administrator to reset password.');
+        DOM.showToast('Please contact your administrator to reset password.', 'info');
     };
 
     /*     const registerLink = document.createElement('div');
@@ -912,8 +912,8 @@ function renderFixedInputForm(dept, card) {
     inputMonth.type = 'month';
     inputMonth.id = `input-${dept}-target-month`;
 
-    // Auto-fill Number of Days when Month is selected
-    inputMonth.addEventListener('change', () => {
+    // Auto-fill Number of Days when Month is selected or KPI is changed
+    const updateDays = () => {
         const val = inputMonth.value;
         if (val) {
             const [year, month] = val.split('-').map(Number);
@@ -921,7 +921,10 @@ function renderFixedInputForm(dept, card) {
             const daysInMonth = new Date(year, month, 0).getDate();
             inputDays.value = daysInMonth;
         }
-    });
+    };
+
+    inputMonth.addEventListener('change', updateDays);
+    selectKPI.addEventListener('change', updateDays);
 
     tr.appendChild(createCell(inputMonth));
 
@@ -933,13 +936,13 @@ function renderFixedInputForm(dept, card) {
 
     // 4. Forecast
     const inputForecast = document.createElement('input');
-    inputForecast.type = 'text';
+    inputForecast.type = 'number';
     inputForecast.id = `input-${dept}-full-forecast`;
     tr.appendChild(createCell(inputForecast));
 
     // 5. Budget
     const inputBudget = document.createElement('input');
-    inputBudget.type = 'text';
+    inputBudget.type = 'number';
     inputBudget.id = `input-${dept}-full-budget`;
     tr.appendChild(createCell(inputBudget));
 
@@ -965,7 +968,12 @@ function renderFixedInputForm(dept, card) {
         const budgVal = inputBudget.value;
 
         if (!kpiVal || !monthVal) {
-            alert("Please select KPI and Target Month");
+            DOM.showToast("Please select KPI and Target Month", "error");
+            return;
+        }
+
+        if (!daysVal || !fcstVal || !budgVal) {
+            DOM.showToast("Please fill in all fields (Number of Days, Full Forecast, Full Budget) before saving.", "error");
             return;
         }
 
@@ -993,7 +1001,32 @@ function renderFixedInputForm(dept, card) {
 
         try {
             await saveKPIRecord(dept, record);
-            DOM.showToast("Fixed Inputs saved successfully!");
+
+            // Cascade update to daily records
+            // Transform date YYYY-MM-DD -> YYYY-MM
+            const cascadePayload = {
+                metric_name: kpiVal,
+                target_month: monthVal,
+                full_forecast: dataPayload.full_forecast,
+                full_budget: dataPayload.full_budget
+            };
+
+            if (isGeology && dataPayload.forecast_per_rig !== undefined) {
+                cascadePayload.forecast_per_rig = dataPayload.forecast_per_rig;
+            }
+
+            try {
+                const cascadeResult = await cascadeFixedInputUpdate(dept, cascadePayload);
+                if (cascadeResult && cascadeResult.updated_count > 0) {
+                    DOM.showToast(`Fixed Inputs saved. Updated ${cascadeResult.updated_count} daily records.`);
+                } else {
+                    DOM.showToast("Fixed Inputs saved successfully!");
+                }
+            } catch (cascadeErr) {
+                console.error("Cascade update failed", cascadeErr);
+                DOM.showToast("Fixed Inputs saved, but failed to update daily records.", "warning");
+            }
+
             loadRecentRecords(dept);
 
             // Clear inputs
@@ -1260,9 +1293,10 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
-        if (!dateVal) { alert("Please select a date"); return; }
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -1589,9 +1623,10 @@ function renderGeologyTollForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
-        if (!dateVal) { alert("Please select a date"); return; }
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -1836,9 +1871,10 @@ function renderMiningOreForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
-        if (!dateVal) { alert("Please select a date"); return; }
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -2042,9 +2078,10 @@ function renderMiningGradeForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
-        if (!dateVal) { alert("Please select a date"); return; }
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -2085,7 +2122,7 @@ function renderMiningGradeForm(dept, metricName, card) {
             date.input.value = '';
         } catch (e) {
             console.error("Save failed", e);
-            alert("Failed to save record");
+            DOM.showToast("Failed to save record", "error");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -2282,7 +2319,7 @@ function renderMiningMaterialForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date");
+            DOM.showToast("Please select a date", "error");
             return;
         }
 
@@ -2291,6 +2328,7 @@ function renderMiningMaterialForm(dept, metricName, card) {
         const str = (input) => val(input);
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -2527,11 +2565,12 @@ function renderMiningBlastHoleForm(dept, metricName, card) {
         const dailyFcstVal = parseFloat(dFcst.input.value);
 
         if (!dateVal) {
-            alert("Please select a date");
+            DOM.showToast("Please select a date", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -2753,11 +2792,12 @@ function renderCrushingGradeForm(dept, metricName, card) {
         const dailyFcstVal = parseFloat(dFcst.input.value);
 
         if (!dateVal) {
-            alert("Please select a date");
+            DOM.showToast("Please select a date", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -2959,6 +2999,7 @@ function renderCrushingOreForm(dept, metricName, card) {
             if (!date.input.value) throw new Error("Please select a date");
 
             const record = {
+                subtype: 'daily_input',
                 department: dept,
                 metric_name: metricName,
                 date: date.input.value,
@@ -3175,11 +3216,12 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date");
+            DOM.showToast("Please select a date", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -3412,11 +3454,12 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date");
+            DOM.showToast("Please select a date", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -3647,7 +3690,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
-        if (!dateVal) { alert("Please select a date"); return; }
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
         const record = {
             date: dateVal,
@@ -3919,9 +3962,10 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
-        if (!dateVal) { alert("Please select a date"); return; }
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -4222,9 +4266,10 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
-        if (!dateVal) { alert("Please select a date"); return; }
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -4506,7 +4551,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
-        if (!dateVal) { alert("Please select a date"); return; }
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
         const payload = {
             daily_actual: parseFloat(dAct.input.value) || 0,
@@ -4522,6 +4567,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
         };
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -4551,7 +4597,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            alert("Error saving: " + e.message);
+            DOM.showToast("Error saving: " + e.message, "error");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -4784,7 +4830,7 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         if (!date.input.value) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
@@ -4802,6 +4848,7 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
         };
 
         const record = {
+            subtype: 'daily_input',
             date: date.input.value,
             department: dept,
             metric_name: kpi.input.value,
@@ -4809,7 +4856,7 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
         };
 
         await saveKPIRecord(dept, record);
-        alert("Environmental Incident Saved!");
+        DOM.showToast("Environmental Incident Saved!", "success");
         loadRecentRecords(dept);
 
         // Clear Inputs
@@ -5046,7 +5093,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     const btnContainer = document.createElement('div');
     const saveBtn = DOM.createButton("Save Record", async () => {
         if (!date.input.value) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
@@ -5064,6 +5111,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
         };
 
         const record = {
+            subtype: 'daily_input',
             date: date.input.value,
             department: dept,
             metric_name: kpi.input.value,
@@ -5072,7 +5120,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
 
         try {
             await saveKPIRecord(dept, record);
-            alert("Property Damage Record Saved!");
+            DOM.showToast("Property Damage Record Saved!", "success");
             loadRecentRecords(dept);
 
             // Clear / Reset Inputs
@@ -5089,7 +5137,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
             budgVar.input.value = '';
         } catch (error) {
             console.error(error);
-            alert("Failed to save record.");
+            DOM.showToast("Failed to save record.", "error");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -5282,11 +5330,12 @@ function renderEngineeringLightVehiclesForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date");
+            DOM.showToast("Please select a date", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -5519,11 +5568,12 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             metric_name: metricName,
             date: dateVal,
             data: {
@@ -5542,7 +5592,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
 
         try {
             await saveKPIRecord(dept, record);
-            alert("Record saved successfully!");
+            DOM.showToast("Record saved successfully!", "success");
             loadRecentRecords(dept);
 
             // Clear inputs
@@ -5559,7 +5609,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
 
         } catch (error) {
             console.error(error);
-            alert("Failed to save record.");
+            DOM.showToast("Failed to save record.", "error");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -5642,7 +5692,7 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
 
             if (target) {
                 console.log("DEBUG: Match Found!", target);
-                alert(`Match Found for ${metricName}! ID: ${target.id}`); // Uncomment for distinct visual confirmation
+                DOM.showToast(`Match Found for ${metricName}! ID: ${target.id}`, 'success'); // Uncomment for distinct visual confirmation
 
                 if (target.data) {
                     // Populate Full Forecast (b)
@@ -5679,12 +5729,12 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
                 }
             } else {
                 console.warn(`DEBUG: No Fixed Input found for ${metricName} in ${searchMonth}`);
-                alert(`Debug: No Fixed Input found for ${metricName} in ${searchMonth}. Checked ${fixedInputs.length} fixed input records.`);
+                DOM.showToast(`Debug: No Fixed Input found for ${metricName} in ${searchMonth}. Checked ${fixedInputs.length} fixed input records.`, 'error');
             }
 
         } catch (e) {
             console.error("Error fetching fixed inputs for auto-forecast", e);
-            alert("Error fetching data: " + e.message);
+            DOM.showToast("Error fetching data: " + e.message, "error");
         }
     });
 
@@ -5783,11 +5833,12 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             metric_name: metricName,
             date: dateVal,
             department: dept,
@@ -6043,11 +6094,12 @@ function renderEngineeringAnxExcavatorsForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             metric_name: metricName,
             date: dateVal,
             department: dept,
@@ -6294,11 +6346,12 @@ function renderEngineeringDumpTrucksForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             metric_name: metricName,
             date: dateVal,
             department: dept,
@@ -6538,11 +6591,12 @@ function renderEngineeringArtDumpTrucksForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             metric_name: metricName,
             date: dateVal,
             department: dept,
@@ -6782,11 +6836,12 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             metric_name: metricName,
             date: dateVal,
             department: dept,
@@ -7026,11 +7081,12 @@ function renderEngineeringGradersForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) {
-            alert("Please select a date.");
+            DOM.showToast("Please select a date.", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             metric_name: metricName,
             date: dateVal,
             department: dept,
@@ -7181,8 +7237,52 @@ function renderEngineeringDozersForm(dept, metricName, card) {
 
     // Save Button
     const btnContainer = document.createElement('div');
-    const saveBtn = DOM.createButton("Save Record", () => {
-        alert("Saving functionality for Dozers form to be implemented.");
+    const saveBtn = DOM.createButton("Save Record", async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) {
+            DOM.showToast("Please select a date.", "error");
+            return;
+        }
+
+        const record = {
+            subtype: 'daily_input',
+            metric_name: metricName,
+            date: dateVal,
+            department: dept,
+            data: {
+                qty_available: dQty.input.value,
+                daily_actual: dAct.input.value,
+                daily_forecast: dFcst.input.value,
+                var1: dVar.input.value,
+                mtd_actual: mAct.input.value,
+                mtd_forecast: mFcst.input.value,
+                var2: mVar.input.value,
+                full_forecast: fullFcst.input.value,
+                full_budget: fullBudg.input.value,
+                var3: budgVar.input.value
+            }
+        };
+
+        try {
+            await saveKPIRecord(dept, record);
+            DOM.showToast("Record saved successfully!");
+            loadRecentRecords(dept);
+
+            // Clear inputs
+            dQty.input.value = '';
+            dAct.input.value = '';
+            dFcst.input.value = '';
+            dVar.input.value = '';
+            mAct.input.value = '';
+            mFcst.input.value = '';
+            mVar.input.value = '';
+            fullFcst.input.value = '';
+            fullBudg.input.value = '';
+            budgVar.input.value = '';
+        } catch (error) {
+            console.error(error);
+            DOM.showToast("Failed to save record.", "error");
+        }
     });
     btnContainer.appendChild(saveBtn);
     card.appendChild(btnContainer);
@@ -7239,8 +7339,57 @@ function renderEngineeringCrusherForm(dept, metricName, card) {
 
     // Save Button
     const btnContainer = document.createElement('div');
-    const saveBtn = DOM.createButton("Save Record", () => {
-        alert("Saving functionality for Crusher form to be implemented.");
+    const saveBtn = DOM.createButton("Save Record", async () => {
+        const dateVal = date.input.value;
+        const dActVal = dAct.input.value;
+        const dFcstVal = dFcst.input.value;
+        const mActVal = mAct.input.value;
+        const mFcstVal = mFcst.input.value;
+        const fullFcstVal = fullFcst.input.value;
+        const fullBudgVal = fullBudg.input.value;
+
+        if (!dateVal || !dActVal || !dFcstVal || !mActVal || !mFcstVal || !fullFcstVal || !fullBudgVal) {
+            DOM.showToast("Please fill in all fields (Date, Daily Actual, Daily Forecast, MTD Actual, MTD Forecast, Full Forecast, Full Budget) before saving.", "error");
+            return;
+        }
+
+        const record = {
+            subtype: 'daily_input',
+            metric_name: metricName,
+            date: dateVal,
+            department: dept,
+            data: {
+                daily_actual: dActVal,
+                daily_forecast: dFcstVal,
+                var1: dVar.input.value,
+                mtd_actual: mActVal,
+                mtd_forecast: mFcstVal,
+                var2: mVar.input.value,
+                full_forecast: fullFcstVal,
+                full_budget: fullBudgVal,
+                var3: budgVar.input.value
+            }
+        };
+
+        try {
+            await saveKPIRecord(dept, record);
+            DOM.showToast("Record saved successfully!");
+            loadRecentRecords(dept);
+
+            // Clear inputs
+            dAct.input.value = '';
+            dFcst.input.value = '';
+            dVar.input.value = '';
+            mAct.input.value = '';
+            mFcst.input.value = '';
+            mVar.input.value = '';
+            fullFcst.input.value = '';
+            fullBudg.input.value = '';
+            budgVar.input.value = '';
+        } catch (error) {
+            console.error(error);
+            DOM.showToast("Failed to save record.", "error");
+        }
     });
     btnContainer.appendChild(saveBtn);
     card.appendChild(btnContainer);
@@ -7297,8 +7446,57 @@ function renderEngineeringMillForm(dept, metricName, card) {
 
     // Save Button
     const btnContainer = document.createElement('div');
-    const saveBtn = DOM.createButton("Save Record", () => {
-        alert("Saving functionality for Mill form to be implemented.");
+    const saveBtn = DOM.createButton("Save Record", async () => {
+        const dateVal = date.input.value;
+        const dActVal = dAct.input.value;
+        const dFcstVal = dFcst.input.value;
+        const mActVal = mAct.input.value;
+        const mFcstVal = mFcst.input.value;
+        const fullFcstVal = fullFcst.input.value;
+        const fullBudgVal = fullBudg.input.value;
+
+        if (!dateVal || !dActVal || !dFcstVal || !mActVal || !mFcstVal || !fullFcstVal || !fullBudgVal) {
+            DOM.showToast("Please fill in all fields (Date, Daily Actual, Daily Forecast, MTD Actual, MTD Forecast, Full Forecast, Full Budget) before saving.", "error");
+            return;
+        }
+
+        const record = {
+            subtype: 'daily_input',
+            metric_name: metricName,
+            date: dateVal,
+            department: dept,
+            data: {
+                daily_actual: dActVal,
+                daily_forecast: dFcstVal,
+                var1: dVar.input.value,
+                mtd_actual: mActVal,
+                mtd_forecast: mFcstVal,
+                var2: mVar.input.value,
+                full_forecast: fullFcstVal,
+                full_budget: fullBudgVal,
+                var3: budgVar.input.value
+            }
+        };
+
+        try {
+            await saveKPIRecord(dept, record);
+            DOM.showToast("Record saved successfully!");
+            loadRecentRecords(dept);
+
+            // Clear inputs
+            dAct.input.value = '';
+            dFcst.input.value = '';
+            dVar.input.value = '';
+            mAct.input.value = '';
+            mFcst.input.value = '';
+            mVar.input.value = '';
+            fullFcst.input.value = '';
+            fullBudg.input.value = '';
+            budgVar.input.value = '';
+        } catch (error) {
+            console.error(error);
+            DOM.showToast("Failed to save record.", "error");
+        }
     });
     btnContainer.appendChild(saveBtn);
     card.appendChild(btnContainer);
@@ -7327,11 +7525,12 @@ function renderStandardKPIForm(dept, metricName, card) {
         const forecastVal = parseFloat(dailyForecast.input.value);
 
         if (!dateVal) {
-            alert("Please select a date");
+            DOM.showToast("Please select a date", "error");
             return;
         }
 
         const record = {
+            subtype: 'daily_input',
             date: dateVal,
             department: dept,
             metric_name: metricName,
@@ -7398,28 +7597,36 @@ window.editRecord = (id) => {
 
         // 1. KPI
         const kpiSelect = document.getElementById(`input-${dept}-fixed-kpi`);
-        if (kpiSelect) kpiSelect.value = record.metric_name;
+        if (kpiSelect) {
+            kpiSelect.value = record.metric_name;
+            kpiSelect.dispatchEvent(new Event('change', { bubbles: true })); // Trigger updateDays
+        }
 
         // 2. Month (Convert YYYY-MM-DD to YYYY-MM)
         const monthInput = document.getElementById(`input-${dept}-target-month`);
-        if (monthInput && record.date) monthInput.value = record.date.substring(0, 7);
+        if (monthInput) {
+            monthInput.value = record?.date?.substring(0, 7);
+            monthInput.dispatchEvent(new Event('change', { bubbles: true })); // Trigger updateDays
+        }
 
-        // 3. Days
+        // 3. Days (Only override if value exists, otherwise let updateDays handle it)
         const daysInput = document.getElementById(`input-${dept}-num-days`);
-        if (daysInput && record.data) daysInput.value = record.data.num_days || '';
+        if (daysInput) {
+            daysInput.value = record?.data?.num_days;
+        }
 
         // 4. Forecast
         const fcstInput = document.getElementById(`input-${dept}-full-forecast`);
-        if (fcstInput && record.data) fcstInput.value = record.data.full_forecast || '';
+        if (fcstInput) fcstInput.value = record?.data?.full_forecast;
 
         // 5. Budget
         const budgInput = document.getElementById(`input-${dept}-full-budget`);
-        if (budgInput && record.data) budgInput.value = record.data.full_budget || '';
+        if (budgInput) budgInput.value = record?.data?.full_budget;
 
         // 6. Per Rig (Geology)
         if (isGeology) {
             const rigInput = document.getElementById(`input-${dept}-fcst-per-rig`);
-            if (rigInput && record.data) rigInput.value = record.data.forecast_per_rig || '';
+            if (rigInput) rigInput.value = record?.data?.forecast_per_rig;
         }
 
         DOM.showToast("Record loaded for editing");
