@@ -859,6 +859,14 @@ function renderFixedInputForm(dept, card) {
     // Helper to retrieve current options list (for saving)
     let getCurrentRigOptions = () => null;
 
+    // Track whether to show Forecast Per Rig based on selected KPI
+    let shouldShowForecastPerRig = () => {
+        if (!isGeology) return false;
+        const selectedKPI = selectKPI.value;
+        // Hide for Exploration Drilling and Toll
+        return selectedKPI !== 'Exploration Drilling' && selectedKPI !== 'Toll';
+    };
+
     const thead = document.createElement('thead');
     let headerHTML = `
         <tr style="background-color: #f9fafb;">
@@ -870,7 +878,7 @@ function renderFixedInputForm(dept, card) {
     `;
 
     if (isGeology) {
-        headerHTML += `<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb; width: ${colWidth};">Forecast Per Rig</th>`;
+        headerHTML += `<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb; width: ${colWidth};" id="forecast-per-rig-header">Forecast Per Rig</th>`;
     }
 
     headerHTML += `</tr>`;
@@ -926,8 +934,27 @@ function renderFixedInputForm(dept, card) {
         }
     };
 
+    // Function to update Forecast Per Rig visibility
+    const updateForecastPerRigVisibility = () => {
+        if (!isGeology) return;
+
+        const forecastPerRigCell = document.getElementById('forecast-per-rig-cell');
+        const forecastPerRigHeader = document.getElementById('forecast-per-rig-header');
+        const show = shouldShowForecastPerRig();
+
+        if (forecastPerRigCell) {
+            forecastPerRigCell.style.display = show ? '' : 'none';
+        }
+        if (forecastPerRigHeader) {
+            forecastPerRigHeader.style.display = show ? '' : 'none';
+        }
+    };
+
     inputMonth.addEventListener('change', updateDays);
-    selectKPI.addEventListener('change', updateDays);
+    selectKPI.addEventListener('change', () => {
+        updateDays();
+        updateForecastPerRigVisibility();
+    });
 
     tr.appendChild(createCell(inputMonth));
 
@@ -1049,7 +1076,12 @@ function renderFixedInputForm(dept, card) {
         // Update getter
         getCurrentRigOptions = () => currentOptions;
 
-        tr.appendChild(createCell(inputFcstRig));
+        const forecastPerRigCell = createCell(inputFcstRig);
+        forecastPerRigCell.id = 'forecast-per-rig-cell';
+        tr.appendChild(forecastPerRigCell);
+
+        // Set initial visibility
+        setTimeout(() => updateForecastPerRigVisibility(), 0);
     }
 
     tbody.appendChild(tr);
@@ -1082,15 +1114,18 @@ function renderFixedInputForm(dept, card) {
         };
 
         if (isGeology) {
-            const rigElem = document.getElementById(`input-${dept}-fcst-per-rig`);
-            if (rigElem) {
-                dataPayload.forecast_per_rig = parseFloat(rigElem.value.replace(/,/g, '')) || 0;
-            }
+            // Only save forecast_per_rig if it should be shown for this KPI
+            if (shouldShowForecastPerRig()) {
+                const rigElem = document.getElementById(`input-${dept}-fcst-per-rig`);
+                if (rigElem) {
+                    dataPayload.forecast_per_rig = parseFloat(rigElem.value.replace(/,/g, '')) || 0;
+                }
 
-            // Save the list of options to persist them for next time
-            const opts = getCurrentRigOptions();
-            if (opts && Array.isArray(opts)) {
-                dataPayload.available_rig_options = opts;
+                // Save the list of options to persist them for next time
+                const opts = getCurrentRigOptions();
+                if (opts && Array.isArray(opts)) {
+                    dataPayload.available_rig_options = opts;
+                }
             }
         }
 
@@ -7846,13 +7881,17 @@ async function loadRecentRecords(dept) {
                 // Format Numbers with Commas
                 const formatNum = (v) => (v !== undefined && v !== null && v !== '') ? Number(v).toLocaleString() : '-';
 
+                // Show "-" for Forecast Per Rig for Exploration Drilling and Toll
+                const shouldShowForecastPerRig = r.metric_name !== 'Exploration Drilling' && r.metric_name !== 'Toll';
+                const forecastPerRigValue = shouldShowForecastPerRig ? formatNum(r.data.forecast_per_rig) : '-';
+
                 tr.innerHTML = `
                     <td style="padding: 12px;">${r.metric_name}</td>
                     <td style="padding: 12px;">${dateDisplay}</td>
                     <td style="padding: 12px;">${r.data.num_days || '-'}</td>
                     <td style="padding: 12px;">${formatNum(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.full_budget)}</td>
-                    ${!hideRigColumn ? `<td style="padding: 12px;">${formatNum(r.data.forecast_per_rig)}</td>` : ''}
+                    ${!hideRigColumn ? `<td style="padding: 12px;">${forecastPerRigValue}</td>` : ''}
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
