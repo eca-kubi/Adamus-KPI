@@ -1016,7 +1016,7 @@ window.loadDepartmentView = async function (dept) {
 
         <div id="kpi-forms-container"></div>
         <div id="records-table-container" style="margin-top: 30px;">
-            <h3>Recent Records: <span id="table-metric-title">${STATE.currentMetric}</span></h3>
+            <h3><span id="table-metric-title">${STATE.currentMetric}</span></h3>
             <table id="records-table" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white; border-radius: 8px; overflow: hidden; box-shadow: var(--card-shadow);">
                 <thead style="background: #f9fafb;">
                     <tr>
@@ -8371,49 +8371,51 @@ window.editRecord = (id) => {
         DOM.showToast("Record loaded for editing");
     } else {
         // Standard Record Edit
-        // Set metric
-        STATE.currentMetric = record.metric_name;
-        // Re-render main area to ensure correct form is showing? 
-        // Actually rendering happens on click of sidebar. 
-        // We might need to simulate sidebar click or just find inputs if they exist.
-        // For now, assuming user is on the correct metric page if they see the record.
-        // Wait, "Recent Records" shows records for CURRENT metric only (filtered).
-        // So the correct form SHOULD be present.
+        // Ensure we capture the metric name from the record
+        const metricName = record.metric_name;
+        STATE.currentMetric = metricName;
 
-        const dateInput = document.getElementById(`input-${dept}-date`);
-        if (dateInput) dateInput.value = record.date;
+        // Helper to safe-set value by ID and trigger input event
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) {
+                // Handle 0 explicitly if needed, but 'val' handles mixed types
+                el.value = (val !== undefined && val !== null) ? val : '';
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
 
-        const actualInput = document.getElementById(`input-${dept}-daily-act-pct`) || document.getElementById(`input-${dept}-daily-act`) || document.getElementById(`input-${dept}-actual`);
-        if (actualInput && record.data) {
-            actualInput.value = record.data.daily_actual || record.data.daily_act_pct || '';
-            // If it's the exploration drilling form, we update other fields too
-            if (metricName === 'Exploration Drilling' || metricName === 'Grade Control Drilling' || metricName === 'Blast Hole Drilling' || metricName === 'Total Material Moved') {
-                const rigsInput = document.getElementById(`input-${dept}-rigs`);
-                if (rigsInput) rigsInput.value = record.data.num_rigs || '';
+        // Populate Date
+        setVal(`input-${dept}-date`, record.date);
 
-                const mActInput = document.getElementById(`input-${dept}-mtd-act`);
-                if (mActInput) mActInput.value = record.data.mtd_actual || '';
+        // Map data keys to potential DOM ID suffixes
+        // This mapping covers standard and department-specific fields
+        const mapping = {
+            'daily_actual': ['daily-act-pct', 'daily-act', 'actual', 'daily-act-tonnes'],
+            'daily_act_grade': ['daily-act-gt'],
+            'daily_forecast': ['daily-fcst-pct', 'daily-fcst', 'forecast'],
+            'mtd_actual': ['mtd-act'],
+            'mtd_forecast': ['mtd-fcst'],
+            'outlook': ['outlook'],
+            'full_forecast': ['full-fcst', 'full-forecast'],
+            'full_budget': ['full-budg', 'full-budget'],
+            'qty_available': ['qty-avail'],
+            'num_rigs': ['rigs'],
+            'wet_tonnes': ['wet-tonnes'],
+            'grade': ['grade'],
+            'grade_7': ['grade-7', 'grade-day-7']
+        };
 
-                const mFcstInput = document.getElementById(`input-${dept}-mtd-fcst`);
-                if (mFcstInput) mFcstInput.value = record.data.mtd_forecast || '';
-
-                const outlookInput = document.getElementById(`input-${dept}-outlook`);
-                if (outlookInput) outlookInput.value = record.data.outlook || '';
-
-                // Full Forecast/Budget might be auto-fetched, but we should set what was saved
-                const fullFcstInput = document.getElementById(`input-${dept}-full-fcst`);
-                if (fullFcstInput) fullFcstInput.value = record.data.full_forecast || '';
-
-                const fullBudgInput = document.getElementById(`input-${dept}-full-budg`);
-                if (fullBudgInput) fullBudgInput.value = record.data.full_budget || '';
+        // Iterate through valid data keys and populate fields
+        if (record.data) {
+            for (const [key, suffixes] of Object.entries(mapping)) {
+                if (record.data[key] !== undefined) {
+                    suffixes.forEach(suffix => {
+                        setVal(`input-${dept}-${suffix}`, record.data[key]);
+                    });
+                }
             }
         }
-
-        const fcstInput = document.getElementById(`input-${dept}-daily-fcst-pct`) || document.getElementById(`input-${dept}-daily-fcst`) || document.getElementById(`input-${dept}-forecast`);
-        if (fcstInput && record.data) fcstInput.value = record.data.daily_forecast || record.data.daily_fcst_pct || '';
-
-        // Trigger calculations if possible
-        if (actualInput) actualInput.dispatchEvent(new Event('input'));
 
         DOM.showToast("Record loaded for editing");
     }
