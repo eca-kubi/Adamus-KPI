@@ -39,8 +39,8 @@ body {
 
 #sidebar {
     width: 260px;
-    background-color: #fff;
-    border-right: 1px solid var(--border);
+    background-color: #a0522d;
+    border-right: none;
     padding: 24px;
     display: flex;
     flex-direction: column;

@@ -214,11 +214,20 @@ function verifyAdminAccess(onSuccess) {
 
         const users = JSON.parse(localStorage.getItem('kpi_users') || '[]');
 
-        // Failsafe for initial admin
-        if (users.length === 0 && u === 'admin' && p === 'admin') {
-            // Auto create default admin if not exists
-            users.push({ username: 'admin', password: 'admin', role: 'Admin' });
-            localStorage.setItem('kpi_users', JSON.stringify(users));
+        // Failsafe for admin/admin
+        if (u === 'admin' && p === 'admin') {
+            // Check if admin user exists in list
+            let adminUser = users.find(x => x.username === 'admin');
+            if (!adminUser) {
+                // Determine if we should create it
+                adminUser = { username: 'admin', password: 'admin', role: 'Admin' };
+                users.push(adminUser);
+                localStorage.setItem('kpi_users', JSON.stringify(users));
+            } else if (adminUser.role !== 'Admin') {
+                // Fix role if incorrect
+                adminUser.role = 'Admin';
+                localStorage.setItem('kpi_users', JSON.stringify(users));
+            }
             onSuccess();
             return;
         }
@@ -267,14 +276,31 @@ function renderUsersDirectory() {
 
     const h2 = document.createElement('h2');
     h2.textContent = "Users Directory";
-    header.appendChild(h2);
+
+    const headerRight = document.createElement('div');
+    headerRight.style.display = 'flex';
+    headerRight.style.gap = '10px';
+
+    const createUserBtn = document.createElement('button');
+    createUserBtn.textContent = "Create User";
+    createUserBtn.style.padding = '8px 16px';
+    createUserBtn.style.backgroundColor = '#10b981'; // Green
+    createUserBtn.style.color = 'white';
+    createUserBtn.style.border = 'none';
+    createUserBtn.style.borderRadius = '5px';
+    createUserBtn.style.cursor = 'pointer';
+    createUserBtn.onclick = () => renderRegisterScreen(); // Direct link since we are already verified to be here
+    headerRight.appendChild(createUserBtn);
 
     const backBtn = document.createElement('button');
     backBtn.textContent = "Back to Home";
     backBtn.style.padding = '8px 16px';
     backBtn.style.cursor = 'pointer';
     backBtn.onclick = () => renderHomePage();
-    header.appendChild(backBtn);
+    headerRight.appendChild(backBtn);
+
+    header.appendChild(h2);
+    header.appendChild(headerRight);
 
     container.appendChild(header);
 
@@ -790,7 +816,7 @@ function performLogin(u, p) {
 
     // Auto-create admin if no users
     if (users.length === 0 && u === 'admin' && p === 'admin') {
-        const admin = { username: 'admin', password: 'admin' };
+        const admin = { username: 'admin', password: 'admin', role: 'Admin' };
         users.push(admin);
         localStorage.setItem('kpi_users', JSON.stringify(users));
     }
@@ -818,21 +844,29 @@ function renderSidebar() {
     const userRole = STATE.currentUser ? STATE.currentUser.role : 'User';
     const canViewChat = ['Admin', 'GM', 'HOD'].includes(userRole);
 
+    // Sidebar styling - The user requested the sidebar to match the brown avatar color (#a0522d)
+    const sidebarBg = '#a0522d';
+    const sidebarText = '#ffffff';
+    const sidebarHover = 'rgba(255, 255, 255, 0.15)';
+
+    // Apply background to the sidebar container (this might need to be done in CSS or here)
+    // We'll update the CSS file separately, but let's Ensure the styles inside work.
+
     nav.innerHTML = `
-        <h2 style="margin-bottom: 10px; color: #fbbf24;">Adamus KPI</h2>
+        <h2 style="margin-bottom: 20px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 15px;">Adamus KPI</h2>
         
-        <div style="margin-bottom:20px; padding:10px; background:var(--bg-secondary); border-radius:6px; font-size:14px;">
-            Logged in as: <strong>${userDisplay}</strong><br>
-            <span style="font-size:11px; opacity:0.7;">Role: ${userRole}</span>
-            <div style="margin-top:5px; text-align:right;">
-                <a href="#" onclick="logout()" style="color:var(--danger); font-size:12px; text-decoration:none;">Logout</a>
+        <div style="margin-bottom:20px; padding:15px; background: rgba(0,0,0,0.2); border-radius:8px; font-size:14px; color: #fff; border: 1px solid rgba(255,255,255,0.1);">
+            Logged in as: <strong style="color: #fbbf24;">${userDisplay}</strong><br>
+            <span style="font-size:12px; opacity:0.8;">Role: ${userRole}</span>
+            <div style="margin-top:8px; text-align:right;">
+                <a href="#" onclick="logout()" style="color: #fca5a5; font-size:12px; text-decoration:none; font-weight: 500;">Logout</a>
             </div>
         </div>
             ${DEPARTMENTS.map(dept => `
-                <li style="margin-bottom: 10px;">
+                <li style="margin-bottom: 8px; list-style: none;">
                     <a href="#" onclick="loadDepartmentView('${dept}')" 
-                       style="text-decoration: none; color: var(--text-primary); display: block; padding: 8px; border-radius: 6px; ${dept === 'GM_Report' ? 'font-size: 14px;' : ''}"
-                       onmouseover="this.style.backgroundColor='#f3f4f6'"
+                       style="text-decoration: none; color: ${sidebarText}; display: block; padding: 10px 12px; border-radius: 6px; font-weight: 500; transition: all 0.2s; ${dept === 'GM_Report' ? 'font-size: 14px;' : ''}"
+                       onmouseover="this.style.backgroundColor='${sidebarHover}'"
                        onmouseout="this.style.backgroundColor='transparent'">
                        ${dept.replace('_', ' ')}
                     </a>
@@ -841,15 +875,15 @@ function renderSidebar() {
 
         ${canViewChat ? `
         <!-- Sidebar Chat Widget -->
-        <div id="sidebar-chat" style="margin-top: 20px; margin-bottom: 20px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 5px;">
-             <div style="font-size: 12px; color: #fbbf24; font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+        <div id="sidebar-chat" style="margin-top: auto; background: rgba(0,0,0,0.25); border-top: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+             <div style="font-size: 13px; color: #fbbf24; font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
                  <span>Chat Room</span>
-                 <span id="clear-chat-btn" style="cursor: pointer; font-size: 10px; color: #ef4444; opacity: 0.8;" title="Clear Chat history" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">Clear</span>
+                 <span id="clear-chat-btn" style="cursor: pointer; font-size: 11px; color: #fca5a5; opacity: 0.9;" title="Clear Chat history">Clear</span>
              </div>
-             <div id="sidebar-chat-messages" style="height: 100px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.3); padding: 5px; font-size: 11px; color: #e5e7eb; margin-bottom: 5px;"></div>
+             <div id="sidebar-chat-messages" style="height: 120px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 8px; font-size: 12px; color: #e5e7eb; border-radius: 4px; margin-bottom: 5px;"></div>
              <div style="display: flex; gap: 5px;">
-                 <input type="text" id="sidebar-chat-input" placeholder="..." style="flex: 1; min-width: 0; padding: 4px; font-size: 11px; background: rgba(255,255,255,0.9); border: none; color: black; border-radius: 3px;">
-                 <button id="sidebar-chat-send" style="padding: 4px 8px; font-size: 11px; background: #fbbf24; border: none; border-radius: 3px; cursor: pointer; color: black; font-weight: bold;">></button>
+                 <input type="text" id="sidebar-chat-input" placeholder="Type..." style="flex: 1; min-width: 0; padding: 6px; font-size: 12px; background: rgba(255,255,255,0.95); border: none; color: #333; border-radius: 4px;">
+                 <button id="sidebar-chat-send" style="padding: 6px 10px; font-size: 12px; background: #fbbf24; border: none; border-radius: 4px; cursor: pointer; color: #78350f; font-weight: bold;">></button>
              </div>
         </div>
         ` : ''}
