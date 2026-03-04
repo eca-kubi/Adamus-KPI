@@ -82,5 +82,101 @@ const DOM = {
         const num = parseFloat(val);
         if (isNaN(num)) return val;
         return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    },
+
+    showConfirmModal: (title, message, onConfirm) => {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        overlay.style.backdropFilter = 'blur(4px)';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '9999';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.2s ease';
+
+        const modal = document.createElement('div');
+        modal.style.backgroundColor = '#fff';
+        modal.style.borderRadius = '16px';
+        modal.style.padding = '32px';
+        modal.style.width = '90%';
+        modal.style.maxWidth = '400px';
+        modal.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
+        modal.style.transform = 'scale(0.95)';
+        modal.style.transition = 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        modal.style.textAlign = 'center';
+
+        const iconContainer = document.createElement('div');
+        iconContainer.style.width = '64px';
+        iconContainer.style.height = '64px';
+        iconContainer.style.backgroundColor = '#fee2e2';
+        iconContainer.style.borderRadius = '50%';
+        iconContainer.style.display = 'flex';
+        iconContainer.style.alignItems = 'center';
+        iconContainer.style.justifyContent = 'center';
+        iconContainer.style.margin = '0 auto 20px auto';
+        iconContainer.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="font-size: 28px; color: #dc2626;"></i>';
+        modal.appendChild(iconContainer);
+
+        const titleEl = document.createElement('h3');
+        titleEl.textContent = title;
+        titleEl.style.margin = '0 0 12px 0';
+        titleEl.style.color = '#111827';
+        titleEl.style.fontSize = '22px';
+        titleEl.style.fontWeight = '700';
+        modal.appendChild(titleEl);
+
+        const messageEl = document.createElement('p');
+        messageEl.textContent = message;
+        messageEl.style.margin = '0 0 30px 0';
+        messageEl.style.color = '#6b7280';
+        messageEl.style.fontSize = '15px';
+        messageEl.style.lineHeight = '1.6';
+        modal.appendChild(messageEl);
+
+        const btnContainer = document.createElement('div');
+        btnContainer.style.display = 'flex';
+        btnContainer.style.gap = '12px';
+        btnContainer.style.justifyContent = 'center';
+
+        const cancelBtn = DOM.createButton('Cancel', () => closeModal(), 'ghost');
+        cancelBtn.style.flex = '1';
+        cancelBtn.style.fontWeight = '600';
+        cancelBtn.style.padding = '10px 0';
+
+        const confirmBtn = DOM.createButton('Proceed', () => {
+            closeModal();
+            onConfirm();
+        });
+        confirmBtn.style.flex = '1';
+        confirmBtn.style.backgroundColor = '#dc2626';
+        confirmBtn.style.color = 'white';
+        confirmBtn.style.border = 'none';
+        confirmBtn.style.fontWeight = '600';
+        confirmBtn.style.padding = '10px 0';
+
+        btnContainer.appendChild(cancelBtn);
+        btnContainer.appendChild(confirmBtn);
+        modal.appendChild(btnContainer);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        requestAnimationFrame(() => {
+            overlay.style.opacity = '1';
+            modal.style.transform = 'scale(1)';
+        });
+
+        const closeModal = () => {
+            overlay.style.opacity = '0';
+            modal.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                if (overlay.parentNode) document.body.removeChild(overlay);
+            }, 200);
+        };
     }
 };

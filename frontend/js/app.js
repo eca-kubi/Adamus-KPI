@@ -367,11 +367,11 @@ function renderUsersDirectory() {
             delBtn.style.cursor = 'pointer';
             delBtn.style.fontSize = '18px';
             delBtn.onclick = () => {
-                if (confirm(`Are you sure you want to remove user '${user.username}'?`)) {
+                DOM.showConfirmModal('Delete User', `Are you sure you want to remove user '${user.username}'?`, () => {
                     users.splice(index, 1);
                     localStorage.setItem('kpi_users', JSON.stringify(users));
                     renderUsersDirectory(); // Refresh
-                }
+                });
             };
             actionsTd.appendChild(delBtn);
 
@@ -844,34 +844,68 @@ function renderSidebar() {
     const userRole = STATE.currentUser ? STATE.currentUser.role : 'User';
     const canViewChat = ['Admin', 'GM', 'HOD'].includes(userRole);
 
-    // Sidebar styling - The user requested the sidebar to match the brown avatar color (#a0522d)
-    const sidebarBg = '#a0522d';
+    // Sidebar styling - The user requested the sidebar to change to a sleek black (#111827)
+    const sidebarBg = '#111827';
     const sidebarText = '#ffffff';
-    const sidebarHover = 'rgba(255, 255, 255, 0.15)';
+    const sidebarHover = 'rgba(255, 255, 255, 0.1)';
 
     // Apply background to the sidebar container (this might need to be done in CSS or here)
     // We'll update the CSS file separately, but let's Ensure the styles inside work.
 
     nav.innerHTML = `
-        <h2 style="margin-bottom: 20px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 15px;">Adamus KPI</h2>
+        <h2 style="margin-bottom: 20px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 15px;"><i class="fa-solid fa-chart-line" style="margin-right: 8px; color: #fbbf24;"></i>Adamus KPI</h2>
         
         <div style="margin-bottom:20px; padding:15px; background: rgba(0,0,0,0.2); border-radius:8px; font-size:14px; color: #fff; border: 1px solid rgba(255,255,255,0.1);">
             Logged in as: <strong style="color: #fbbf24;">${userDisplay}</strong><br>
             <span style="font-size:12px; opacity:0.8;">Role: ${userRole}</span>
             <div style="margin-top:8px; text-align:right;">
-                <a href="#" onclick="logout()" style="color: #fca5a5; font-size:12px; text-decoration:none; font-weight: 500;">Logout</a>
+                <a href="#" onclick="renderHomePage()" style="color: #60a5fa; font-size:12px; text-decoration:none; font-weight: 500; margin-right: 12px;"><i class="fa-solid fa-home"></i> Home</a>
+                <a href="#" onclick="logout()" style="color: #fca5a5; font-size:12px; text-decoration:none; font-weight: 500;"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
             </div>
         </div>
-            ${DEPARTMENTS.map(dept => `
-                <li style="margin-bottom: 8px; list-style: none;">
+
+        <div style="font-size: 11px; color: #fbbf24; opacity: 0.8; letter-spacing: 1px; font-weight: bold; margin-bottom: 8px; margin-top: 10px;">DEPARTMENTS</div>
+        <ul style="padding: 0; margin: 0; margin-bottom: 20px;">
+            ${DEPARTMENTS.map(dept => {
+        let iconClass = 'fa-solid fa-circle';
+        switch (dept) {
+            case 'Geology': iconClass = 'fa-solid fa-mountain'; break;
+            case 'Mining': iconClass = 'fa-solid fa-person-digging'; break;
+            case 'Crushing': iconClass = 'fa-solid fa-hammer'; break;
+            case 'Milling_CIL': iconClass = 'fa-solid fa-industry'; break;
+            case 'OHS': iconClass = 'fa-solid fa-truck-medical'; break;
+            case 'Engineering': iconClass = 'fa-solid fa-wrench'; break;
+            case 'GM_Report': iconClass = 'fa-solid fa-file-invoice'; break;
+        }
+        return `
+                <li style="margin-bottom: 4px; list-style: none;">
                     <a href="#" onclick="loadDepartmentView('${dept}')" 
-                       style="text-decoration: none; color: ${sidebarText}; display: block; padding: 10px 12px; border-radius: 6px; font-weight: 500; transition: all 0.2s; ${dept === 'GM_Report' ? 'font-size: 14px;' : ''}"
+                       style="text-decoration: none; color: ${sidebarText}; display: flex; align-items: center; padding: 10px 12px; border-radius: 6px; font-weight: 500; transition: all 0.2s; ${dept === 'GM_Report' ? 'font-size: 14px;' : ''}"
                        onmouseover="this.style.backgroundColor='${sidebarHover}'"
                        onmouseout="this.style.backgroundColor='transparent'">
+                       <i class="${iconClass}" style="width: 20px; text-align: center; margin-right: 12px; font-size: 15px; opacity: 0.9;"></i>
                        ${dept.replace('_', ' ')}
                     </a>
                 </li>
-            `).join('')}
+                `;
+    }).join('')}
+        </ul>
+
+        ${userRole === 'Admin' ? `
+        <div style="font-size: 11px; color: #fbbf24; opacity: 0.8; letter-spacing: 1px; font-weight: bold; margin-bottom: 8px;">ADMINISTRATION</div>
+        <ul style="padding: 0; margin: 0;">
+            <li style="margin-bottom: 4px; list-style: none;">
+                <a href="#" onclick="renderUsersDirectory()" 
+                   style="text-decoration: none; color: ${sidebarText}; display: flex; align-items: center; padding: 10px 12px; border-radius: 6px; font-weight: 500; transition: all 0.2s;"
+                   onmouseover="this.style.backgroundColor='${sidebarHover}'"
+                   onmouseout="this.style.backgroundColor='transparent'">
+                   <i class="fa-solid fa-users" style="width: 20px; text-align: center; margin-right: 12px; font-size: 15px; opacity: 0.9;"></i>
+                   Users
+                </a>
+            </li>
+        </ul>
+        <div style="margin-bottom: 20px;"></div>
+        ` : ''}
 
         ${canViewChat ? `
         <!-- Sidebar Chat Widget -->
@@ -934,16 +968,17 @@ function renderSidebar() {
         };
 
         // Clear Chat Logic
-        clearBtn.onclick = async () => {
-            if (!confirm("Are you sure you want to clear the chat history?")) return;
-            try {
-                const res = await fetch(`${API_BASE_URL}/chat`, { method: 'DELETE' });
-                if (res.ok) {
-                    loadSidebarChat();
-                } else {
-                    alert("Failed to clear chat");
-                }
-            } catch (e) { console.error(e); }
+        clearBtn.onclick = () => {
+            DOM.showConfirmModal("Clear Chat", "Are you sure you want to clear the chat history?", async () => {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/chat`, { method: 'DELETE' });
+                    if (res.ok) {
+                        loadSidebarChat();
+                    } else {
+                        alert("Failed to clear chat");
+                    }
+                } catch (e) { console.error(e); }
+            });
         };
 
 
@@ -995,14 +1030,16 @@ window.loadDepartmentView = async function (dept) {
     const userInitials = getInitials(userDisplay);
 
     content.innerHTML = `
-        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 15px;">
-            <span style="font-size: 14px; font-weight: 600; color: #374151; margin-right: 10px;">${userDisplay}</span>
-            <div style="width: 36px; height: 36px; background-color: #a0522d; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">
-                ${userInitials}
+        <div style="position: relative; background: white; border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; display: flex; justify-content: flex-end; align-items: center;">
+            <h2 style="margin: 0; color: #111827; position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none;">${dept.replace('_', ' ')} Dashboard</h2>
+            
+            <div style="display: flex; align-items: center;">
+                <span style="font-size: 14px; font-weight: 600; color: #374151; margin-right: 10px;">${userDisplay}</span>
+                <div style="width: 36px; height: 36px; background-color: #111827; color: #fbbf24; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;">
+                    ${userInitials}
+                </div>
             </div>
         </div>
-        
-        <h2 style="margin-bottom: 20px;">${dept.replace('_', ' ')} Dashboard</h2>
         
         <!-- Submenu Navigation -->
         <div id="submenu-nav" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
@@ -8316,18 +8353,19 @@ function renderStandardKPIForm(dept, metricName, card) {
 
 // --- Global Helpers for Edit/Delete ---
 
-window.deleteRecord = async (id) => {
-    if (!confirm("Are you sure you want to delete this record?")) return;
-    try {
-        await deleteKPIRecord(id);
-        DOM.showToast("Record deleted successfully");
-        // Reload table
-        const dept = STATE.currentDept;
-        if (dept) loadRecentRecords(dept);
-    } catch (e) {
-        console.error(e);
-        DOM.showToast("Failed to delete record: " + e.message, "error");
-    }
+window.deleteRecord = (id) => {
+    DOM.showConfirmModal("Delete Record", "Are you sure you want to delete this record?", async () => {
+        try {
+            await deleteKPIRecord(id);
+            DOM.showToast("Record deleted successfully");
+            // Reload table
+            const dept = STATE.currentDept;
+            if (dept) loadRecentRecords(dept);
+        } catch (e) {
+            console.error(e);
+            DOM.showToast("Failed to delete record: " + e.message, "error");
+        }
+    });
 };
 
 window.editRecord = (id) => {
