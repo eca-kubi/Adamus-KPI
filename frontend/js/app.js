@@ -89,84 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function renderHomePage() {
-    const sidebar = document.getElementById('sidebar');
-    const content = document.getElementById('content');
-    if (sidebar) sidebar.style.display = 'none';
-
-    content.innerHTML = '';
-
-    const container = document.createElement('div');
-    container.style.maxWidth = '600px';
-    container.style.margin = '80px auto';
-    container.style.padding = '40px';
-    container.style.textAlign = 'center';
-    container.style.fontFamily = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-
-    // Title
-    const title = document.createElement('h1');
-    title.textContent = "Key Performance Indicators(KPI)";
-    title.style.color = '#000';
-    title.style.fontSize = '32px';
-    title.style.fontWeight = 'bold';
-    title.style.marginBottom = '10px';
-    container.appendChild(title);
-
-    // Subtitle
-    const subtitle = document.createElement('p');
-    subtitle.textContent = "Adamus Resources Limited (KPI-2026).";
-    subtitle.style.color = '#666';
-    subtitle.style.fontSize = '18px';
-    subtitle.style.marginBottom = '50px';
-    container.appendChild(subtitle);
-
-    // Buttons Container
-    const btnContainer = document.createElement('div');
-    btnContainer.style.display = 'flex';
-    btnContainer.style.flexDirection = 'column';
-    btnContainer.style.gap = '20px';
-    btnContainer.style.alignItems = 'center';
-
-    // Login Button
-    const loginBtn = document.createElement('button');
-    loginBtn.textContent = "Login";
-    loginBtn.style.padding = '12px 40px';
-    loginBtn.style.fontSize = '16px';
-    loginBtn.style.backgroundColor = '#fbbf24'; // Gold
-    loginBtn.style.border = 'none';
-    loginBtn.style.borderRadius = '5px';
-    loginBtn.style.cursor = 'pointer';
-    loginBtn.style.fontWeight = 'bold';
-    loginBtn.style.color = '#000';
-    loginBtn.style.width = '250px';
-    loginBtn.onclick = () => renderLoginScreen();
-    btnContainer.appendChild(loginBtn);
-
-    // Create Account Link
-    const createLink = document.createElement('a');
-    createLink.textContent = "New User? Create Account";
-    createLink.style.color = '#2563eb';
-    createLink.style.textDecoration = 'none';
-    createLink.style.fontSize = '16px';
-    createLink.style.cursor = 'pointer';
-    createLink.onclick = function () {
-        verifyAdminAccess(() => renderRegisterScreen());
-    };
-    btnContainer.appendChild(createLink);
-
-    // Users Directory Link
-    const dirLink = document.createElement('a');
-    dirLink.textContent = "Users Directory";
-    dirLink.style.color = '#2563eb';
-    dirLink.style.textDecoration = 'none';
-    dirLink.style.fontSize = '16px';
-    dirLink.style.cursor = 'pointer';
-    dirLink.onclick = function () {
-        verifyAdminAccess(() => renderUsersDirectory());
-    };
-    btnContainer.appendChild(dirLink);
-
-    container.appendChild(btnContainer);
-    content.appendChild(container);
+    renderLoginScreen();
 }
 
 function verifyAdminAccess(onSuccess) {
@@ -646,18 +569,37 @@ function renderLoginScreen() {
         });
     };
 
-    const backLink = document.createElement('div');
-    backLink.innerHTML = "<span style='color:#2563eb; cursor:pointer; font-weight:600;'>&larr; Back to Home</span>";
-    backLink.style.marginTop = '20px';
-    backLink.style.fontSize = '14px';
-    backLink.onclick = () => renderHomePage();
+    const createLink = document.createElement('a');
+    createLink.textContent = "New User? Create Account";
+    createLink.style.display = 'block';
+    createLink.style.marginTop = '15px';
+    createLink.style.color = '#2563eb';
+    createLink.style.textDecoration = 'none';
+    createLink.style.fontSize = '13px';
+    createLink.style.cursor = 'pointer';
+    createLink.onclick = function () {
+        verifyAdminAccess(() => renderRegisterScreen());
+    };
+
+    const dirLink = document.createElement('a');
+    dirLink.textContent = "Users Directory";
+    dirLink.style.display = 'block';
+    dirLink.style.marginTop = '15px';
+    dirLink.style.color = '#2563eb';
+    dirLink.style.textDecoration = 'none';
+    dirLink.style.fontSize = '13px';
+    dirLink.style.cursor = 'pointer';
+    dirLink.onclick = function () {
+        verifyAdminAccess(() => renderUsersDirectory());
+    };
 
     // Append all
     btnContainer.appendChild(loginBtn);
     btnContainer.appendChild(cancelBtn);
     container.appendChild(btnContainer);
     container.appendChild(forgotLink);
-    container.appendChild(backLink);
+    container.appendChild(createLink);
+    container.appendChild(dirLink);
 
     content.appendChild(container);
 }
@@ -1477,6 +1419,7 @@ function renderFixedInputForm(dept, card) {
     // 3. Num Days
     const inputDays = document.createElement('input');
     inputDays.type = 'number';
+    inputDays.step = 'any';
     inputDays.id = `input-${dept}-num-days`;
     tr.appendChild(createCell(inputDays));
 
@@ -1519,7 +1462,7 @@ function renderFixedInputForm(dept, card) {
         }
 
         const dataPayload = {
-            num_days: parseInt(daysVal) || 0,
+            num_days: parseFloat(daysVal) || 0,
             full_forecast: parseFloat(fcstVal.replace(/,/g, '')) || 0,
             full_budget: parseFloat(budgVal.replace(/,/g, '')) || 0
         };
@@ -1680,7 +1623,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
-    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+    attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
 
     // Auto-fetch Fixed Inputs (Full Forecast/Budget)
     const fetchFixedInputs = async () => {
@@ -2013,7 +1956,7 @@ function renderGeologyTollForm(dept, metricName, card) {
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
-    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+    attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
 
     // Auto-calculate Outlook (a) for Toll
     const calculateOutlook = async () => {
@@ -2370,7 +2313,7 @@ function renderMiningOreForm(dept, metricName, card) {
     // Row 5
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
-    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+    attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
 
     // Add to Grid (3 cols)
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
@@ -2470,7 +2413,7 @@ function renderMiningGradeForm(dept, metricName, card) {
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
-    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+    attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
 
     // Auto-fetch Fixed Inputs
     const fetchFixedInputs = async () => {
@@ -2536,23 +2479,24 @@ function renderMiningGradeForm(dept, metricName, card) {
                 r.subtype !== 'fixed_input'
             );
 
-            // Numerator: SumProduct = Σ (DailyActualGrade * DailyForecast)
+            // Numerator: SumProduct = Σ (DailyActualGrade * DailyActual)
             let sumProduct = relevantRecords.reduce((sum, r) => {
                 const rGrade = parseFloat(r.data.daily_act_grade) || 0; // Using daily_act_grade for Grade (g/t)
-                const rFcst = parseFloat(r.data.daily_forecast) || 0; // Using daily_forecast
-                return sum + (rGrade * rFcst);
+                const rAct = parseFloat(r.data.daily_actual) || 0; // Using daily_actual for weight
+                return sum + (rGrade * rAct);
             }, 0);
 
             // Add Current Day Product
-            sumProduct += (currentDailyActGrade * currentDailyForecast);
+            const currentDailyAct = parseFloat(dAct.input.value) || 0;
+            sumProduct += (currentDailyActGrade * currentDailyAct);
 
-            // Denominator: Sum = Σ (DailyForecast)
+            // Denominator: Sum = Σ (DailyActual)
             let sumWeights = relevantRecords.reduce((sum, r) => {
-                return sum + (parseFloat(r.data.daily_forecast) || 0);
+                return sum + (parseFloat(r.data.daily_actual) || 0);
             }, 0);
 
             // Add Current Day Weight
-            sumWeights += currentDailyForecast;
+            sumWeights += currentDailyAct;
 
             // Result
             if (sumWeights !== 0) {
@@ -2569,7 +2513,7 @@ function renderMiningGradeForm(dept, metricName, card) {
     };
 
     dActGrade.input.addEventListener('input', calculateMTD);
-    dFcst.input.addEventListener('input', calculateMTD);
+    dAct.input.addEventListener('input', calculateMTD);
     date.input.addEventListener('change', calculateMTD);
 
     // Auto-Calculate Outlook (Mirror MTD Actual)
@@ -3232,33 +3176,34 @@ function renderCrushingGradeForm(dept, metricName, card) {
                 r.date >= startDate && r.date <= endDate
             );
 
-            // MTD Actual Calculation (Weighted Average: SumProduct(DailyAct * DailyFcst) / Sum(DailyFcst))
-            // Only using Daily Forecast as weight based on user request "add all the values in Daily Forecast column to the value in Daily Forecast placeholder... let called is sum"
+            // MTD Actual Calculation (Weighted Average: SumProduct(DailyAct * DailyActT) / Sum(DailyActT))
+            // Only using Daily Actual (t) [Tonnage] as weight for Grade 
+            const currentDailyActT = parseFloat(dActT.input.value) || 0;
 
             let numerator = 0;
             let denominator = 0;
 
             relevantRecords.forEach(r => {
                 const rAct = parseFloat(r.data.daily_actual) || 0;
-                const rFcst = parseFloat(r.data.daily_forecast) || 0;
-                numerator += (rAct * rFcst);
-                denominator += rFcst;
+                const rActT = parseFloat(r.data.daily_act_tonnes) || 0;
+                numerator += (rAct * rActT);
+                denominator += rActT;
             });
 
             // Add current inputs
-            numerator += (currentDailyAct * currentDailyFcst);
-            denominator += currentDailyFcst;
+            numerator += (currentDailyAct * currentDailyActT);
+            denominator += currentDailyActT;
 
             const totalMTDAct = (denominator !== 0) ? (numerator / denominator) : 0;
 
             mAct.input.value = totalMTDAct.toFixed(2);
             mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
 
-            // MTD Forecast Calculation - MANUAL now
-            // const prevFcstSum = relevantRecords.reduce((sum, r) => sum + (parseFloat(r.data.daily_forecast) || 0), 0);
-            // const totalMTDFcst = prevFcstSum + currentDailyFcst;
-            // mFcst.input.value = totalMTDFcst.toFixed(2);
-            // mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            // MTD Forecast Calculation - Re-enabled
+            const prevFcstSum = relevantRecords.reduce((sum, r) => sum + (parseFloat(r.data.daily_forecast) || 0), 0);
+            const totalMTDFcst = prevFcstSum + currentDailyFcst;
+            mFcst.input.value = totalMTDFcst.toFixed(2);
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         } catch (e) {
             console.warn("Auto-calc MTD failed", e);
@@ -3269,12 +3214,13 @@ function renderCrushingGradeForm(dept, metricName, card) {
 
             mAct.input.value = res.toFixed(2);
             mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
-            // mFcst.input.value = currentDailyFcst;
-            // mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            mFcst.input.value = currentDailyFcst;
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
         }
     };
 
     dAct.input.addEventListener('input', calculateMTD);
+    dActT.input.addEventListener('input', calculateMTD);
     dFcst.input.addEventListener('input', calculateMTD);
     date.input.addEventListener('change', calculateMTD);
 
@@ -3393,7 +3339,7 @@ function renderCrushingOreForm(dept, metricName, card) {
     // Row 5
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
-    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+    attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
 
     // Auto-fetch Fixed Inputs and Calculate Daily Forecast
     let priorMtdSum = 0;
@@ -3454,9 +3400,15 @@ function renderCrushingOreForm(dept, metricName, card) {
                 // "get it corresponding value on Full Forecast column and divide it by the number of days in month in date placeholder"
                 const fullForecastVal = parseFloat(fixedRecord.data.full_forecast) || 0;
 
+                // Allow overriding days in month with fixed input num_days if available
+                let divisorDays = daysInMonth;
+                if (fixedRecord.data.num_days) {
+                    divisorDays = parseFloat(fixedRecord.data.num_days);
+                }
+
                 // "and divide it by the number of days in month in date placeholder"
-                if (daysInMonth > 0) {
-                    const calculatedDailyFcst = fullForecastVal / daysInMonth;
+                if (divisorDays > 0) {
+                    const calculatedDailyFcst = fullForecastVal / divisorDays;
                     dFcst.input.value = calculatedDailyFcst.toFixed(0);
                     dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
                 }
@@ -4846,17 +4798,17 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     dVar.input.readOnly = true;
 
     const updateSafetyVariance = () => {
-        dVar.input.value = calculateVariance(dAct.input.value, dFcst.input.value);
+        dVar.input.value = calculateVariance(dAct.input.value, dFcst.input.value, true);
     };
     dAct.input.addEventListener('input', updateSafetyVariance);
-    // attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    dFcst.input.addEventListener('input', updateSafetyVariance);
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
     const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
-    attachVarianceListener(mAct.input, mFcst.input, mVar.input);
+    attachVarianceListener(mAct.input, mFcst.input, mVar.input, true);
 
     // Row 4
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
@@ -5095,11 +5047,11 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     const updateEnvVariance = (actInput, fcstInput, varInput) => {
-        varInput.value = calculateVariance(actInput.value, fcstInput.value);
+        varInput.value = calculateVariance(actInput.value, fcstInput.value, true);
     };
 
     dAct.input.addEventListener('input', () => updateEnvVariance(dAct.input, dFcst.input, dVar.input));
-    // attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    dFcst.input.addEventListener('input', () => updateEnvVariance(dAct.input, dFcst.input, dVar.input));
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
@@ -5108,7 +5060,7 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     mVar.input.readOnly = true;
 
     mAct.input.addEventListener('input', () => updateEnvVariance(mAct.input, mFcst.input, mVar.input));
-    // attachVarianceListener(mAct.input, mFcst.input, mVar.input);
+    mFcst.input.addEventListener('input', () => updateEnvVariance(mAct.input, mFcst.input, mVar.input));
 
     // Row 4
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
@@ -5316,11 +5268,11 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     dVar.input.readOnly = true;
 
     const updatePropDamVariance = (actInput, fcstInput, varInput) => {
-        varInput.value = calculateVariance(actInput.value, fcstInput.value);
+        varInput.value = calculateVariance(actInput.value, fcstInput.value, true);
     };
 
     dAct.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dFcst.input, dVar.input));
-    // attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    dFcst.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dFcst.input, dVar.input));
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
@@ -5330,7 +5282,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
 
     // Logic: ((MTD Forecast - MTD Actual) / MTD Actual) * 100
     const updatePropDamMTDVariance = () => {
-        mVar.input.value = calculateVariance(mAct.input.value, mFcst.input.value);
+        mVar.input.value = calculateVariance(mAct.input.value, mFcst.input.value, true);
     };
 
     mAct.input.addEventListener('input', updatePropDamMTDVariance);
@@ -5349,7 +5301,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
 
     const updatePropDamOutlookVariance = () => {
-        budgVar.input.value = calculateVariance(outlook.input.value, fullBudg.input.value);
+        budgVar.input.value = calculateVariance(outlook.input.value, fullBudg.input.value, true);
     };
 
     outlook.input.addEventListener('input', updatePropDamOutlookVariance);
@@ -10100,15 +10052,7 @@ function renderGMSection(table, areaLabel, deptKey, records, dateStr) {
             const f = parseFloat(String(fcst).replace(/,/g, ''));
             if (isNaN(a) || isNaN(f)) return null;
 
-            let v = 0;
-            if (f === 0) {
-                if (a === 0) v = 0;
-                else v = -100;
-            } else {
-                v = ((f - a) / f) * 100;
-            }
-            if (v < -100) v = -100;
-            return v.toFixed(0) + '%';
+            return calculateVariance(a, f, deptKey === 'OHS');
         };
 
         // Ensure variances exist
