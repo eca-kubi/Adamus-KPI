@@ -73,6 +73,63 @@ const DOM = {
     },
 
     /**
+     * Create a Bootstrap-styled group of checkboxes for multi-selection
+     */
+    createCheckboxGroup: (labelText, id, options = []) => {
+        const div = document.createElement('div');
+        div.className = 'mb-3 text-start';
+
+        const label = document.createElement('label');
+        label.className = 'form-label fw-bold d-block mb-2 text-dark';
+        label.textContent = labelText;
+        div.appendChild(label);
+
+        const groupContainer = document.createElement('div');
+        groupContainer.className = 'd-flex flex-wrap gap-3 p-3 bg-light rounded border';
+        groupContainer.id = id;
+
+        const checkboxes = [];
+
+        options.forEach(opt => {
+            const val = typeof opt === 'object' ? opt.value : opt;
+            const lab = typeof opt === 'object' ? opt.label : opt.replace(/_/g, ' ');
+
+            const checkWrapper = document.createElement('div');
+            checkWrapper.className = 'form-check';
+
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'form-check-input';
+            input.id = `${id}-${val}`;
+            input.value = val;
+
+            const checkLabel = document.createElement('label');
+            checkLabel.className = 'form-check-label';
+            checkLabel.setAttribute('for', `${id}-${val}`);
+            checkLabel.textContent = lab;
+
+            checkWrapper.appendChild(input);
+            checkWrapper.appendChild(checkLabel);
+            groupContainer.appendChild(checkWrapper);
+            checkboxes.push(input);
+        });
+
+        div.appendChild(groupContainer);
+
+        // Helper to get selected values
+        const getValues = () => checkboxes.filter(c => c.checked).map(c => c.value);
+        // Helper to set selected values
+        const setValues = (vals) => {
+            if (!Array.isArray(vals)) vals = [vals];
+            checkboxes.forEach(c => {
+                c.checked = vals.includes(c.value);
+            });
+        };
+
+        return { container: div, checkboxes, getValues, setValues };
+    },
+
+    /**
      * Create a Bootstrap-styled button
      * @param {string} text - Button text
      * @param {function} onClick - Click handler

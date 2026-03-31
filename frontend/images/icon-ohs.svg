@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 100 100">
+  <defs>
+    <mask id="ohs-cutout">
+      <rect width="100" height="100" fill="white"/>
+      <!-- Inner lens transparent cutouts -->
+      <rect x="23" y="66" width="22" height="14" rx="5" fill="black"/>
+      <rect x="55" y="66" width="22" height="14" rx="5" fill="black"/>
+      
+      <!-- Central ridge detail on helmet (adds structure realism) -->
+      <rect x="46" y="8" width="8" height="34" rx="2" fill="black"/>
+      <rect x="34" y="16" width="6" height="26" rx="2" fill="black"/>
+      <rect x="60" y="16" width="6" height="26" rx="2" fill="black"/>
+      
+      <!-- Separation gap between brim and goggles -->
+      <path d="M 14 53 Q 50 58 86 53" fill="none" stroke="black" stroke-width="5" stroke-linecap="round"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#ohs-cutout)" fill="currentColor">
+    <!-- Helmet Dome -->
+    <path d="M 18 45 C 18 0, 82 0, 82 45 Z" />
+    
+    <!-- Helmet Brim -->
+    <path d="M 10 45 C 10 37, 90 37, 90 45 C 96 55, 4 55, 10 45 Z" />
+    
+    <!-- Goggles Frame (wraparound style) -->
+    <rect x="16" y="60" width="68" height="26" rx="10" />
+    
+    <!-- Goggles Strap (wrapping around to the back of the hat) -->
+    <path d="M 8 70 L 16 70" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+    <path d="M 84 70 L 92 70" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>

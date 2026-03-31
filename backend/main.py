@@ -99,8 +99,9 @@ class UserCreate(BaseModel):
     email: Optional[str] = None
     phone_number: Optional[str] = None
     full_name: Optional[str] = None
-    department: Optional[str] = None
-    role: Optional[str] = "user"
+    departments: Optional[List[str]] = []
+    role: Optional[str] = "Staff"
+    allowed_metrics: Optional[List[str]] = []
 
 class UserResponse(BaseModel):
     id: int
@@ -108,9 +109,10 @@ class UserResponse(BaseModel):
     email: Optional[str] = None
     full_name: Optional[str] = None
     disabled: Optional[bool] = False
-    department: Optional[str] = None
+    departments: Optional[List[str]] = []
     role: Optional[str] = None
     phone_number: Optional[str] = None
+    allowed_metrics: Optional[List[str]] = []
 
     class Config:
         from_attributes = True
@@ -118,10 +120,11 @@ class UserResponse(BaseModel):
 class UserUpdate(BaseModel):
     email: Optional[str] = None
     full_name: Optional[str] = None
-    department: Optional[str] = None
+    departments: Optional[List[str]] = None
     role: Optional[str] = None
     phone_number: Optional[str] = None
     disabled: Optional[bool] = None
+    allowed_metrics: Optional[List[str]] = None
 
 class PasswordReset(BaseModel):
     new_password: str
@@ -129,6 +132,38 @@ class PasswordReset(BaseModel):
 class ChangePassword(BaseModel):
     current_password: str
     new_password: str
+
+# ---------------------------------------------------------------------------
+# Metric Mapping Constants
+# ---------------------------------------------------------------------------
+
+DEPARTMENT_METRICS = {
+    "Milling_CIL": ["Fixed Inputs", "Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"],
+    "Geology": ["Fixed Inputs", "Exploration Drilling", "Grade Control Drilling", "Toll"],
+    "Mining": ["Fixed Inputs", "Ore Mined", "Grade - Ore Mined", "Total Material Moved", "Blast Hole Drilling"],
+    "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
+    "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage"],
+    "Engineering": ["Fixed Inputs", "Light Vehicles", "Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Pumps", "Drill Rigs"]
+}
+
+def get_allowed_metrics_for_departments(departments: List[str]) -> List[str]:
+    """Calculate the allowed metrics based on the list of selected departments."""
+    if not departments:
+        return []
+    
+    # If "All" is selected, return all metrics from all departments
+    if "All" in departments:
+        all_metrics = set()
+        for metrics in DEPARTMENT_METRICS.values():
+            all_metrics.update(metrics)
+        return list(all_metrics)
+    
+    # Otherwise, collect metrics for each selected department
+    allowed = set()
+    for dept in departments:
+        if dept in DEPARTMENT_METRICS:
+            allowed.update(DEPARTMENT_METRICS[dept])
+    return list(allowed)
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)):
@@ -190,14 +225,18 @@ def register_user(user: UserCreate, session: Session = Depends(get_session)):
         role = "Admin"
 
     hashed_password = security.get_password_hash(user.password)
+    # Automatic metric mapping for the first admin or any registered user
+    allowed_metrics = get_allowed_metrics_for_departments(user.departments or [])
+    
     db_user = User(
         username=user.username,
         email=user.email,
         full_name=user.full_name,
         hashed_password=hashed_password,
-        department=user.department,
+        departments=user.departments or [],
         role=role,
-        phone_number=user.phone_number
+        phone_number=user.phone_number,
+        allowed_metrics=allowed_metrics
     )
     session.add(db_user)
     session.commit()
@@ -249,7 +288,8 @@ def login(data: Dict[str, Any], session: Session = Depends(get_session)):
                 "name": user.full_name or user.username,
                 "username": user.username,
                 "role": user.role,
-                "department": user.department
+                "departments": user.departments or [],
+                "allowed_metrics": user.allowed_metrics or []
             }
         }
 
@@ -314,14 +354,18 @@ def admin_create_user(
     existing = session.exec(select(User).where(User.username == user.username)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already taken")
+    # Calculate metrics
+    allowed_metrics = get_allowed_metrics_for_departments(user.departments or [])
+
     db_user = User(
         username=user.username,
         email=user.email,
         full_name=user.full_name,
         hashed_password=security.get_password_hash(user.password),
-        department=user.department,
-        role=user.role or "user",
+        departments=user.departments or [],
+        role=user.role or "Staff",
         phone_number=user.phone_number,
+        allowed_metrics=allowed_metrics,
     )
     session.add(db_user)
     session.commit()
@@ -340,6 +384,11 @@ def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     update_data = payload.model_dump(exclude_unset=True)
+    
+    # If departments are updated, automatically recalculate allowed_metrics
+    if "departments" in update_data:
+        update_data["allowed_metrics"] = get_allowed_metrics_for_departments(update_data["departments"])
+
     for field, value in update_data.items():
         setattr(user, field, value)
     session.add(user)
@@ -462,6 +511,10 @@ def get_kpi_records(
 
 @app.post("/api/kpi/{department}", response_model=KPIRecord)
 def create_kpi_record(department: str, record: KPIRecord, session: Session = Depends(get_session), _user: User = Depends(get_current_active_user)):
+    if (_user.role or "").lower() != "admin":
+        if record.metric_name != "Fixed Inputs" and record.metric_name not in (_user.allowed_metrics or []):
+            raise HTTPException(status_code=403, detail="Not authorized to modify this metric")
+
     try:
         # 1. Force date conversion if it's a string (fixes SQLite error)
         if isinstance(record.date, str):
@@ -537,6 +590,10 @@ def cascade_fixed_input(
     session: Session = Depends(get_session),
     _user: User = Depends(get_current_active_user),
 ):
+    if (_user.role or "").lower() != "admin":
+        if payload.metric_name not in (_user.allowed_metrics or []):
+            raise HTTPException(status_code=403, detail="Not authorized to modify this metric")
+
     try:
         # Parse Month
         year, month = map(int, payload.target_month.split('-'))

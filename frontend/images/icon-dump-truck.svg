@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="2 8 96 70">
+  <defs>
+    <mask id="cutout">
+      <!-- White everywhere means opaque -->
+      <rect x="-20" y="-30" width="150" height="150" fill="white"/>
+      
+      <!-- Windshield -->
+      <polygon points="69,27 80,27 84,39 69,39" fill="black"/>
+      
+      <!-- Slanted line separating cab and bed -->
+      <polygon points="63,26 57,48 60,48 66,26" fill="black"/>
+      
+      <!-- Bed top horizontal gap -->
+      <line x1="6" y1="25" x2="59" y2="28" stroke="black" stroke-width="1.5"/>
+      
+      <!-- Bed slanted stripes -->
+      <line x1="16" y1="26" x2="11" y2="46" stroke="black" stroke-width="3"/>
+      <line x1="28" y1="27" x2="23" y2="49" stroke="black" stroke-width="3"/>
+      <line x1="39" y1="28" x2="35" y2="52" stroke="black" stroke-width="3"/>
+      <line x1="50" y1="28" x2="47" y2="52" stroke="black" stroke-width="3"/>
+
+      <!-- Fender cutout outline -->
+      <polyline points="57,63 68,50 85,50 94,62" fill="none" stroke="black" stroke-width="2.5" stroke-linejoin="round"/>
+
+      <!-- Back Wheel cutouts -->
+      <circle cx="22" cy="65" r="8" fill="black"/>
+      <circle cx="22" cy="65" r="4" fill="white"/>
+      <circle cx="22" cy="65" r="1.5" fill="black"/>
+      <!-- Back Wheel bolts -->
+      <circle cx="22" cy="59" r="1" fill="black"/>
+      <circle cx="22" cy="71" r="1" fill="black"/>
+      <circle cx="16" cy="65" r="1" fill="black"/>
+      <circle cx="28" cy="65" r="1" fill="black"/>
+
+      <!-- Front Wheel cutouts -->
+      <circle cx="76" cy="65" r="8" fill="black"/>
+      <circle cx="76" cy="65" r="4" fill="white"/>
+      <circle cx="76" cy="65" r="1.5" fill="black"/>
+      <!-- Front Wheel bolts -->
+      <circle cx="76" cy="59" r="1" fill="black"/>
+      <circle cx="76" cy="71" r="1" fill="black"/>
+      <circle cx="70" cy="65" r="1" fill="black"/>
+      <circle cx="82" cy="65" r="1" fill="black"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#cutout)">
+    <!-- Cargo mound -->
+    <polygon points="11,23 38,8 60,28" fill="currentColor"/>
+    
+    <!-- Dump bed base -->
+    <polygon points="5,24 2,36 12,42 12,55 58,55 61,29" fill="currentColor"/>
+    
+    <!-- Cab roof -->
+    <polygon points="60,20 91,20 91,24 66,24" fill="currentColor"/>
+    
+    <!-- Cab body -->
+    <polygon points="66,24 82,24 87,42 91,42 91,49 98,53 95,60 98,70 94,72 88,60 85,55 68,55 63,60 58,68 54,68 59,57 58,55 58,29 65,29" fill="currentColor"/>
+
+    <!-- Left Wheel outer -->
+    <circle cx="22" cy="65" r="13" fill="currentColor"/>
+    <!-- Right Wheel outer -->
+    <circle cx="76" cy="65" r="13" fill="currentColor"/>
+  </g>
+</svg>

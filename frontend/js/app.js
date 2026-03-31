@@ -10,6 +10,16 @@ const STATE = {
 };
 
 const DEPARTMENTS = ["OHS", "Geology", "Mining", "Crushing", "Milling_CIL", "Engineering"];
+const METRIC_ACCESS_OPTIONS = ["All", ...DEPARTMENTS];
+
+const DEPT_ICONS = {
+    "OHS": "bi-ohs",
+    "Geology": "bi-gem",
+    "Mining": "bi-dump-truck",
+    "Crushing": "bi-crusher",
+    "Milling_CIL": "bi-milling",
+    "Engineering": "bi-tools"
+};
 
 const DEPT_METRICS = {
     "Milling_CIL": [
@@ -115,7 +125,7 @@ function initApp() {
     document.getElementById('sidebar-toggle').style.display = 'block';
 
     renderSidebar();
-    loadDepartmentView(STATE.currentDept);
+    renderSummaryDashboardPage();
 }
 
 function renderLoginScreen() {
@@ -153,6 +163,10 @@ function renderLoginScreen() {
 
     container.appendChild(username.container);
     container.appendChild(password.container);
+
+    const handleEnter = (e) => { if (e.key === 'Enter') loginBtn.click(); };
+    username.input.onkeypress = handleEnter;
+    password.input.onkeypress = handleEnter;
 
     const btnContainer = document.createElement('div');
     btnContainer.className = 'd-grid gap-2 mt-4';
@@ -240,6 +254,9 @@ function renderSetupScreen() {
     container.appendChild(password.container);
     container.appendChild(confirm.container);
 
+    const handleEnter = (e) => { if (e.key === 'Enter') createBtn.click(); };
+    [username, email, password, confirm].forEach(g => { if (g.input) g.input.onkeypress = handleEnter; });
+
     const createBtn = DOM.createButton('Create Admin Account', async () => {
         const u = username.input.value.trim();
         const e = email.input.value.trim();
@@ -254,7 +271,7 @@ function renderSetupScreen() {
                 username: u,
                 email: e || null,
                 password: p,
-                department: 'Management',
+                departments: ['All'],
                 role: 'Admin'
             });
             DOM.showToast('Admin account created! Please login.');
@@ -303,11 +320,11 @@ function renderRegisterScreen() {
     const password = DOM.createInputGroup('Password', 'reg-password', 'password');
     const confirm = DOM.createInputGroup('Confirm Password', 'reg-confirm', 'password');
 
-    // Department Select using DOM helper
-    const deptGroup = DOM.createSelect('Department', 'reg-dept', DEPARTMENTS, 'Select Department');
+    // Access Select (renamed from Department) - will be changed to checkboxes in User Management
+    const deptGroup = DOM.createSelect('Metric Access', 'reg-dept', METRIC_ACCESS_OPTIONS, 'Select Access');
 
     // Role Select
-    const ROLES = ['GM', 'HOD', 'Admin', 'Staff'];
+    const ROLES = ['Admin', 'GM', 'HOD', 'Staff'];
     const roleGroup = DOM.createSelect('Role', 'reg-role', ROLES, 'Select Role');
 
     container.appendChild(username.container);
@@ -315,6 +332,9 @@ function renderRegisterScreen() {
     container.appendChild(confirm.container);
     container.appendChild(deptGroup.container);
     container.appendChild(roleGroup.container);
+
+    const handleEnter = (e) => { if (e.key === 'Enter') createBtn.click(); };
+    [username, password, confirm].forEach(g => { if (g.input) g.input.onkeypress = handleEnter; });
 
     const createBtn = DOM.createButton('Create Account', async () => {
         const u = username.input.value;
@@ -330,7 +350,7 @@ function renderRegisterScreen() {
             await registerUser({
                 username: u,
                 password: p,
-                department: d,
+                departments: [d],
                 role: r
             });
             DOM.showToast('User created! Please login.');
@@ -370,6 +390,15 @@ function logout() {
     renderLoginScreen();
 }
 
+function sidebarNavigate(callback) {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar.classList.contains('collapsed')) {
+        sidebar.classList.remove('collapsed');
+        return; // Don't navigate, just expand
+    }
+    if (callback) callback();
+}
+
 function renderSidebar() {
     const nav = document.getElementById('sidebar');
     const userDisplay = STATE.currentUser ? STATE.currentUser.username : 'User';
@@ -378,46 +407,51 @@ function renderSidebar() {
 
     nav.innerHTML = `
         <div class="d-flex align-items-center justify-content-between mb-4 w-100">
-            <h2 class="d-flex align-items-center gap-2 mb-0">
-                <img src="images/adamus_logo_transparent_white_text.png" alt="Adamus Logo" style="height: 32px;">
+            <h2 class="d-flex align-items-center gap-2 mb-0 overflow-hidden">
+                <img src="images/adamus_logo_transparent_white_text.png" alt="Adamus Logo" style="height: 32px; flex-shrink:0;">
                 <span class="fs-5">Adamus KPI</span>
             </h2>
-            <button class="btn btn-link text-white p-0 hover-lift" onclick="document.getElementById('sidebar').classList.add('collapsed')" title="Collapse Sidebar">
-                <i class="bi bi-chevron-left fs-5"></i>
+            <button class="btn btn-link text-white p-0 hover-lift sidebar-toggle-btn" 
+                onclick="document.getElementById('sidebar').classList.toggle('collapsed')" title="Toggle Sidebar">
+                <i class="bi bi-list fs-5"></i>
             </button>
         </div>
         
         <nav class="nav flex-column flex-grow-1" style="margin-top: -1rem;">
-            <a href="#" onclick="renderSummaryDashboardPage(); return false;"
-               class="nav-link ${STATE.currentView === 'summary' ? 'active' : ''}">
+            <a href="#" onclick="sidebarNavigate(renderSummaryDashboardPage); return false;"
+               class="nav-link ${STATE.currentView === 'summary' ? 'active' : ''}"
+               data-tooltip="Summary Dashboard">
                <i class="bi bi-grid-1x2-fill"></i>
-               Summary Dashboard
+               <span>Summary Dashboard</span>
             </a>
 
             <hr style="border-color: rgba(255,255,255,0.1); margin: 0.5rem 0;">
 
             ${DEPARTMENTS.map(dept => `
-                <a href="#" onclick="loadDepartmentView('${dept}'); return false;" 
-                   class="nav-link ${STATE.currentView === 'dept' && STATE.currentDept === dept ? 'active' : ''}">
-                   <i class="bi bi-folder2"></i>
-                   ${dept.replace('_', ' ')}
+                <a href="#" onclick="sidebarNavigate(() => loadDepartmentView('${dept}')); return false;" 
+                   class="nav-link ${STATE.currentView === 'dept' && STATE.currentDept === dept ? 'active' : ''}"
+                   data-tooltip="${dept.replace('_', ' ')}">
+                   <i class="bi ${DEPT_ICONS[dept] || 'bi-folder2'}"></i>
+                   <span>${dept.replace('_', ' ')}</span>
                 </a>
             `).join('')}
 
             <hr style="border-color: rgba(255,255,255,0.1); margin: 0.75rem 0;">
 
             ${isAdmin ? `
-            <a href="#" onclick="renderUserManagementPage(); return false;"
-               class="nav-link ${STATE.currentView === 'users' ? 'active' : ''}">
+            <a href="#" onclick="sidebarNavigate(renderUserManagementPage); return false;"
+               class="nav-link ${STATE.currentView === 'users' ? 'active' : ''}"
+               data-tooltip="User Management">
                <i class="bi bi-people-fill"></i>
-               User Management
+               <span>User Management</span>
             </a>
             ` : ''}
 
-            <a href="#" onclick="renderMyProfilePage(); return false;"
-               class="nav-link ${STATE.currentView === 'profile' ? 'active' : ''}">
+            <a href="#" onclick="sidebarNavigate(renderMyProfilePage); return false;"
+               class="nav-link ${STATE.currentView === 'profile' ? 'active' : ''}"
+               data-tooltip="My Profile">
                <i class="bi bi-person-circle"></i>
-               My Profile
+               <span>My Profile</span>
             </a>
         </nav>
 
@@ -479,7 +513,7 @@ window.loadDepartmentView = async function (dept) {
     content.className = 'main-content fade-in';
     content.innerHTML = `
         <div class="d-flex align-items-center justify-content-between mb-4">
-            <h2 class="mb-0"><i class="bi bi-speedometer2 me-2 text-primary"></i>${dept.replace('_', ' ')} Dashboard</h2>
+            <h2 class="mb-0"><i class="bi ${DEPT_ICONS[dept] || 'bi-speedometer2'} me-2 text-primary"></i>${dept.replace('_', ' ')} Dashboard</h2>
         </div>
         
         <!-- Submenu Navigation -->
@@ -9231,15 +9265,14 @@ window.renderUserManagementPage = async function () {
         <div class="user-search-bar mb-4">
             <i class="bi bi-search text-muted"></i>
             <input type="text" id="user-search-input" class="user-search-input" placeholder="Search by name, username, email, department…" oninput="filterUserTable()">
-            <select id="user-role-filter" class="form-select form-select-sm" style="width:auto;" onchange="filterUserTable()">
+            <select id="user-role-filter" class="form-select form-select-sm px-5" style="width:auto;" onchange="filterUserTable()">
                 <option value="">All Roles</option>
                 <option value="Admin">Admin</option>
                 <option value="GM">GM</option>
                 <option value="HOD">HOD</option>
                 <option value="Staff">Staff</option>
-                <option value="user">User</option>
             </select>
-            <select id="user-status-filter" class="form-select form-select-sm" style="width:auto;" onchange="filterUserTable()">
+            <select id="user-status-filter" class="form-select form-select-sm px-5" style="width:auto;" onchange="filterUserTable()">
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="disabled">Disabled</option>
@@ -9256,7 +9289,7 @@ window.renderUserManagementPage = async function () {
                                 <th style="width:40px;"></th>
                                 <th>Name / Username</th>
                                 <th>Email</th>
-                                <th>Department</th>
+                                <th>Metric Access</th>
                                 <th>Role</th>
                                 <th>Status</th>
                                 <th class="text-end">Actions</th>
@@ -9321,7 +9354,7 @@ function renderUserRows(users) {
                     <div class="text-muted small">@${user.username}${isSelf ? ' <span class="badge bg-secondary">You</span>' : ''}</div>
                 </td>
                 <td class="text-muted small">${user.email || '—'}</td>
-                <td class="text-muted small">${user.department || '—'}</td>
+                <td class="text-muted small">${(user.departments || []).join(', ') || '—'}</td>
                 <td><span class="role-badge ${roleBadge}">${user.role || 'user'}</span></td>
                 <td>
                     <span class="status-badge ${isDisabled ? 'status-badge-disabled' : 'status-badge-active'}">
@@ -9357,11 +9390,10 @@ window.filterUserTable = function () {
     const statusFilter = (document.getElementById('user-status-filter')?.value || '').toLowerCase();
 
     const filtered = (window.ALL_USERS_DATA || []).filter(u => {
-        const matchSearch = !search ||
             (u.username || '').toLowerCase().includes(search) ||
             (u.full_name || '').toLowerCase().includes(search) ||
             (u.email || '').toLowerCase().includes(search) ||
-            (u.department || '').toLowerCase().includes(search);
+            (u.departments || []).some(d => d.toLowerCase().includes(search));
 
         const matchRole = !roleFilter || (u.role || '').toLowerCase() === roleFilter;
         const matchStatus = !statusFilter ||
@@ -9383,7 +9415,7 @@ function injectUserModals() {
         if (old) old.remove();
     });
 
-    const ROLES = ['Admin', 'GM', 'HOD', 'Staff', 'user'];
+    const ROLES = ['Admin', 'GM', 'HOD', 'Staff'];
     const deptOptions = ['Management', ...DEPARTMENTS].map(d => `<option value="${d}">${d.replace('_', ' ')}</option>`).join('');
     const roleOptions = ROLES.map(r => `<option value="${r}">${r}</option>`).join('');
 
@@ -9414,9 +9446,8 @@ function injectUserModals() {
                 <label class="form-label fw-semibold small">Phone</label>
                 <input type="text" class="form-control" id="add-phone" placeholder="+233 …">
               </div>
-              <div class="col-md-6">
-                <label class="form-label fw-semibold small">Department</label>
-                <select class="form-select" id="add-dept"><option value="">— Select —</option>${deptOptions}</select>
+              <div class="col-12" id="add-dept-container">
+                <!-- Checkboxes will be injected here -->
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold small">Role</label>
@@ -9465,9 +9496,8 @@ function injectUserModals() {
                 <label class="form-label fw-semibold small">Phone</label>
                 <input type="text" class="form-control" id="edit-phone">
               </div>
-              <div class="col-md-6">
-                <label class="form-label fw-semibold small">Department</label>
-                <select class="form-select" id="edit-dept"><option value="">— Select —</option>${deptOptions}</select>
+              <div class="col-12" id="edit-dept-container">
+                <!-- Checkboxes will be injected here -->
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold small">Role</label>
@@ -9537,11 +9567,27 @@ function injectUserModals() {
     `);
 }
 
+window.ADD_DEPT_CHECKS = null;
+window.EDIT_DEPT_CHECKS = null;
+
 window.showAddUserModal = function () {
     ['add-username', 'add-fullname', 'add-email', 'add-phone', 'add-password', 'add-confirm'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
+    
+    // Set default role to Staff
+    const roleEl = document.getElementById('add-role');
+    if (roleEl) roleEl.value = 'Staff';
+    
+    // Inject Checkboxes
+    const container = document.getElementById('add-dept-container');
+    if (container) {
+        container.innerHTML = '';
+        window.ADD_DEPT_CHECKS = DOM.createCheckboxGroup('Metric Access', 'add-access-checks', METRIC_ACCESS_OPTIONS);
+        container.appendChild(window.ADD_DEPT_CHECKS.container);
+    }
+
     const modal = new bootstrap.Modal(document.getElementById('modal-add-user'));
     modal.show();
 };
@@ -9551,7 +9597,7 @@ window.submitAddUser = async function () {
     const fullName = document.getElementById('add-fullname')?.value.trim();
     const email = document.getElementById('add-email')?.value.trim();
     const phone = document.getElementById('add-phone')?.value.trim();
-    const dept = document.getElementById('add-dept')?.value;
+    const depts = window.ADD_DEPT_CHECKS ? window.ADD_DEPT_CHECKS.getValues() : [];
     const role = document.getElementById('add-role')?.value;
     const password = document.getElementById('add-password')?.value;
     const confirm = document.getElementById('add-confirm')?.value;
@@ -9561,7 +9607,7 @@ window.submitAddUser = async function () {
     if (password.length < 6) { DOM.showToast('Password must be at least 6 characters', 'error'); return; }
 
     try {
-        await createUser({ username, full_name: fullName || null, email: email || null, phone_number: phone || null, department: dept || null, role, password });
+        await createUser({ username, full_name: fullName || null, email: email || null, phone_number: phone || null, departments: depts, role, password });
         bootstrap.Modal.getInstance(document.getElementById('modal-add-user'))?.hide();
         DOM.showToast('User created successfully!', 'success');
         await loadUsersTable();
@@ -9578,8 +9624,16 @@ window.showEditUserModal = function (userId) {
     document.getElementById('edit-fullname').value = user.full_name || '';
     document.getElementById('edit-email').value = user.email || '';
     document.getElementById('edit-phone').value = user.phone_number || '';
-    document.getElementById('edit-dept').value = user.department || '';
     document.getElementById('edit-role').value = user.role || 'user';
+
+    // Inject Checkboxes
+    const container = document.getElementById('edit-dept-container');
+    if (container) {
+        container.innerHTML = '';
+        window.EDIT_DEPT_CHECKS = DOM.createCheckboxGroup('Metric Access', 'edit-access-checks', METRIC_ACCESS_OPTIONS);
+        container.appendChild(window.EDIT_DEPT_CHECKS.container);
+        window.EDIT_DEPT_CHECKS.setValues(user.departments || []);
+    }
 
     document.getElementById('modal-edit-user-label').innerHTML = `<i class="bi bi-pencil-square me-2"></i>Edit — @${user.username}`;
 
@@ -9592,7 +9646,7 @@ window.submitEditUser = async function () {
     const fullName = document.getElementById('edit-fullname')?.value.trim();
     const email = document.getElementById('edit-email')?.value.trim();
     const phone = document.getElementById('edit-phone')?.value.trim();
-    const dept = document.getElementById('edit-dept')?.value;
+    const depts = window.EDIT_DEPT_CHECKS ? window.EDIT_DEPT_CHECKS.getValues() : [];
     const role = document.getElementById('edit-role')?.value;
 
     if (!userId) return;
@@ -9602,7 +9656,7 @@ window.submitEditUser = async function () {
             full_name: fullName || null,
             email: email || null,
             phone_number: phone || null,
-            department: dept || null,
+            departments: depts,
             role: role
         });
         bootstrap.Modal.getInstance(document.getElementById('modal-edit-user'))?.hide();
@@ -9730,8 +9784,8 @@ function renderProfileContent(user) {
                     ${user.phone_number ? `<div class="d-flex align-items-center gap-2 mb-2" style="color:#adb5bd;">
                         <i class="bi bi-telephone-fill"></i><span class="small">${user.phone_number}</span>
                     </div>` : ''}
-                    ${user.department ? `<div class="d-flex align-items-center gap-2 mb-2" style="color:#adb5bd;">
-                        <i class="bi bi-building"></i><span class="small">${user.department}</span>
+                    ${user.departments && user.departments.length > 0 ? `<div class="d-flex align-items-center gap-2 mb-2" style="color:#adb5bd;">
+                        <i class="bi bi-building"></i><span class="small">${user.departments.join(', ')}</span>
                     </div>` : ''}
                     <div class="d-flex align-items-center gap-2" style="color:#adb5bd;">
                         <i class="bi bi-shield-check-fill"></i>
@@ -9938,15 +9992,25 @@ window.renderSummaryDashboardPage = async function () {
     const today = new Date().toISOString().slice(0, 10);
     const content = document.getElementById('content');
     content.innerHTML = `
-        <div class="summary-header">
-            <div class="summary-date-box">
+        <div class="summary-header" id="summary-export-header">
+            <div class="summary-date-box" data-html2canvas-ignore>
                 <label>Selected Date:</label>
                 <input type="date" id="summary-date-input" value="${today}">
             </div>
-            <div class="summary-header-title">Adamus Resources Limited KPI – ${new Date().getFullYear()}</div>
-            <div></div>
+            <div class="summary-header-title">Adamus Resources Limited KPI – <span id="summary-header-year">${today.substring(0, 4)}</span></div>
+            <div class="d-flex justify-content-end align-items-center" data-html2canvas-ignore>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="dropdownExportButton" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download me-1"></i> Export As...
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="dropdownExportButton">
+                        <li><a class="dropdown-item" href="#" id="btn-export-pdf"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF Document</a></li>
+                        <li><a class="dropdown-item" href="#" id="btn-export-png"><i class="bi bi-image me-2 text-primary"></i>PNG Image</a></li>
+                    </ul>
+                </div>
+            </div>
         </div>
-        <div class="summary-table-wrap">
+        <div class="summary-table-wrap" id="summary-export-content">
             <div id="summary-table-container" class="text-center py-4">
                 <div class="spinner-border text-primary" role="status"></div>
                 <span class="ms-2 text-muted">Loading summary…</span>
@@ -9955,8 +10019,172 @@ window.renderSummaryDashboardPage = async function () {
     `;
 
     document.getElementById('summary-date-input').addEventListener('change', function () {
+        document.getElementById('summary-header-year').textContent = this.value.substring(0, 4);
         loadSummaryData(this.value);
     });
+
+    const handleExport = function(format) {
+        return function(e) {
+            e.preventDefault();
+            if (typeof html2pdf === 'undefined') {
+                DOM.showToast("Export library is still loading. Please try again.", "warning");
+                return;
+            }
+
+            const activeDate = document.getElementById('summary-date-input').value;
+            const toggleBtn = document.getElementById('dropdownExportButton');
+            const originalHtml = toggleBtn.innerHTML;
+            toggleBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Exporting...';
+            toggleBtn.disabled = true;
+
+            // Create a temporary container for capturing
+            const container = document.createElement('div');
+            container.className = 'export-temp-container';
+            container.style.padding = '40px';
+            container.style.backgroundColor = '#ffffff';
+            container.style.color = '#000000';
+            container.style.width = 'max-content'; // Dynamic width to fit full table
+            container.style.display = 'inline-block'; // Allow expansion beyond viewport
+
+            // Clone header and content
+            const headerHtml = document.getElementById('summary-export-header').cloneNode(true);
+            const contentHtml = document.getElementById('summary-export-content').cloneNode(true);
+
+            // Clean up IDs in the clones to avoid DOM conflicts
+            [headerHtml, contentHtml].forEach(root => {
+                root.removeAttribute('id');
+                root.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+            });
+
+            // Remove ignored elements from the clone
+            headerHtml.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+            contentHtml.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+
+            // Adjust the header style for the export (remove dark background)
+            headerHtml.style.background = 'none';
+            headerHtml.style.backgroundColor = 'transparent';
+            headerHtml.style.boxShadow = 'none';
+            headerHtml.style.paddingTop = '10px';
+            headerHtml.style.paddingBottom = '30px';
+
+            // Center the title in the snapshot and include full date
+            const titleEl = headerHtml.querySelector('.summary-header-title');
+            if (titleEl) {
+                // Formatting activeDate (YYYY-MM-DD) into a more readable format for the document title
+                const d = new Date(activeDate);
+                const options = { day: 'numeric', month: 'short', year: 'numeric' };
+                const formattedDate = d.toLocaleDateString(undefined, options);
+                
+                titleEl.textContent = `Adamus Resources Limited KPI – ${formattedDate}`;
+                titleEl.style.textAlign = 'center';
+                titleEl.style.width = '100%';
+                titleEl.style.fontSize = '28px';
+                titleEl.style.fontWeight = 'bold';
+                titleEl.style.color = '#1a1a2e'; // Use a dark color for better contrast on white background
+            }
+
+            // Create and position the Adamus Logo at the top left of the header
+            const logoImg = document.createElement('img');
+            logoImg.src = 'images/adamus_logo.png';
+            Object.assign(logoImg.style, {
+                position: 'absolute',
+                left: '20px',
+                top: '0',
+                height: '65px',
+                width: 'auto'
+            });
+            headerHtml.style.position = 'relative'; // Anchor for the logo absolute positioning
+            headerHtml.prepend(logoImg);
+
+            container.appendChild(headerHtml);
+            container.appendChild(contentHtml);
+
+            // Hide the container from user view
+            Object.assign(container.style, {
+                position: 'absolute',
+                top: '0',
+                left: '0',
+                zIndex: '-1000',
+                pointerEvents: 'none'
+            });
+            document.body.appendChild(container);
+
+            // Logic to perform export (wrapped to wait for images)
+            const performExport = () => {
+                const pxWidth = container.scrollWidth;
+                const pxHeight = container.scrollHeight;
+
+                const opt = {
+                    margin:       0,
+                    filename:     `Adamus_KPI_Summary_${activeDate}.${format}`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  {
+                        scale: 2,
+                        useCORS: true,
+                        letterRendering: true,
+                        backgroundColor: '#ffffff',
+                        width: pxWidth,
+                        height: pxHeight,
+                        logging: false,
+                        scrollX: 0,
+                        scrollY: 0
+                    },
+                    jsPDF: {
+                        unit: 'px',
+                        format: [pxWidth, pxHeight],
+                        orientation: (pxWidth > pxHeight) ? 'landscape' : 'portrait',
+                        hotfixes: ['px_scaling']
+                    }
+                };
+
+                const cleanup = () => {
+                    if (container.parentNode) document.body.removeChild(container);
+                    toggleBtn.innerHTML = originalHtml;
+                    toggleBtn.disabled = false;
+                };
+
+                if (format === 'pdf') {
+                    html2pdf().set(opt).from(container).save().then(() => {
+                        cleanup();
+                        DOM.showToast("PDF Exported successfully!");
+                    }).catch(err => {
+                        cleanup();
+                        console.error("PDF Export Error:", err);
+                        DOM.showToast("Failed to export PDF", "error");
+                    });
+                } else if (format === 'png') {
+                    html2pdf().set(opt).from(container).outputImg('img').then((imgEl) => {
+                        const link = document.createElement('a');
+                        link.href = imgEl.src;
+                        link.download = opt.filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        cleanup();
+                        DOM.showToast("PNG Exported successfully!");
+                    }).catch(err => {
+                        cleanup();
+                        console.error("PNG Export Error:", err);
+                        DOM.showToast("Failed to export PNG", "error");
+                    });
+                }
+            };
+
+            // Ensure logo is loaded before capturing
+            if (logoImg.complete) {
+                performExport();
+            } else {
+                logoImg.onload = performExport;
+                logoImg.onerror = () => {
+                    console.error("Logo failed to load for export, continuing without it.");
+                    performExport();
+                };
+            }
+        };
+    };
+
+    document.getElementById('btn-export-pdf').addEventListener('click', handleExport('pdf'));
+    document.getElementById('btn-export-png').addEventListener('click', handleExport('png'));
 
     await loadSummaryData(today);
 };

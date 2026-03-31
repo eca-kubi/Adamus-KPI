@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 100 100">
+  <defs>
+    <mask id="crusher-cut">
+      <rect width="100" height="100" fill="white"/>
+      <!-- Track wheels cutout -->
+      <circle cx="15" cy="90" r="2.5" fill="black"/>
+      <circle cx="35" cy="90" r="2.5" fill="black"/>
+      <circle cx="55" cy="90" r="2.5" fill="black"/>
+      <circle cx="75" cy="90" r="2.5" fill="black"/>
+      <line x1="10" y1="88" x2="80" y2="88" stroke="black" stroke-width="1.5"/>
+      <line x1="10" y1="92" x2="80" y2="92" stroke="black" stroke-width="1.5"/>
+      
+      <!-- Hopper ribs cutout -->
+      <line x1="22" y1="10" x2="33" y2="35" stroke="black" stroke-width="2.5"/>
+      <line x1="36" y1="10" x2="41" y2="35" stroke="black" stroke-width="2.5"/>
+      <line x1="48" y1="10" x2="48" y2="35" stroke="black" stroke-width="2.5"/>
+      
+      <!-- Conveyor roller and belt line cutout -->
+      <circle cx="85" cy="18" r="3" fill="black"/>
+      <line x1="60" y1="55" x2="80" y2="28" stroke="black" stroke-width="2"/>
+      
+      <!-- Main body cutouts & accents -->
+      <rect x="26" y="42" width="8" height="12" fill="black"/>
+      <rect x="38" y="42" width="15" height="10" fill="black"/>
+      <circle cx="48" cy="55" r="2" fill="black"/>
+      
+      <!-- Side drive wheel cutouts -->
+      <circle cx="18" cy="72" r="4.5" fill="black"/>
+      <circle cx="40" cy="72" r="9" fill="black"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#crusher-cut)" fill="currentColor">
+    <!-- Main base -->
+    <rect x="6" y="80" width="85" height="4" fill="currentColor"/>
+    
+    <!-- Tracks -->
+    <path d="M 10 96 C 5 96, 5 84, 10 84 L 80 84 C 85 84, 85 96, 80 96 Z" />
+    
+    <!-- Platforms / railings left -->
+    <rect x="5" y="42" width="20" height="2"/>
+    <rect x="7" y="54" width="20" height="2"/>
+    <rect x="8" y="42" width="2" height="14"/>
+    <rect x="22" y="42" width="2" height="14"/>
+    <rect x="15" y="48" width="10" height="2"/>
+    
+    <!-- Main body -->
+    <polygon points="12,84 12,56 25,56 25,40 55,40 55,52 65,52 65,84"/>
+    
+    <!-- Hopper -->
+    <polygon points="15,6 65,6 50,38 28,38"/>
+    <polygon points="12,12 68,12 65,16 16,16"/> <!-- thick rim -->
+    
+    <!-- Conveyor -->
+    <polygon points="50,60 80,10 93,10 93,25 60,78"/>
+    
+    <!-- Large side drive enclosure -->
+    <rect x="8" y="60" width="46" height="24" rx="12"/>
+  </g>
+
+  <!-- Restore details inside cutouts -->
+  <circle cx="18" cy="72" r="1.5" fill="currentColor"/>
+  <circle cx="40" cy="72" r="3.5" fill="currentColor"/>
+  <path d="M 40 72 L 46 66 M 40 72 L 46 78 M 40 72 L 34 72" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

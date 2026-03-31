@@ -37,6 +37,77 @@
     --transition-fast: 150ms ease;
     --transition-normal: 250ms ease;
     --transition-slow: 350ms ease;
+
+    /* Sidebar Mini */
+    --sidebar-collapsed-width: 80px;
+}
+
+/* Custom OHS Icon */
+.bi-ohs {
+    display: inline-block;
+    width: 1.4em;
+    height: 1.4em;
+    background-color: currentColor;
+    -webkit-mask-image: url('../images/icon-ohs.svg');
+    mask-image: url('../images/icon-ohs.svg');
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+    vertical-align: -0.125em;
+}
+
+/* Custom Dump Truck Icon (Bootstrap Icons style) */
+.bi-dump-truck {
+    display: inline-block;
+    width: 1.2em;
+    height: 1.2em;
+    background-color: currentColor;
+    -webkit-mask-image: url('../images/icon-dump-truck.svg');
+    mask-image: url('../images/icon-dump-truck.svg');
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+    vertical-align: -0.125em;
+}
+
+/* Custom Crusher Icon */
+.bi-crusher {
+    display: inline-block;
+    width: 1.4em;
+    height: 1.4em;
+    background-color: currentColor;
+    -webkit-mask-image: url('../images/icon-crusher.svg');
+    mask-image: url('../images/icon-crusher.svg');
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+    vertical-align: -0.125em;
+}
+
+/* Custom Milling Icon */
+.bi-milling {
+    display: inline-block;
+    width: 1.4em;
+    height: 1.4em;
+    background-color: currentColor;
+    -webkit-mask-image: url('../images/icon-milling.svg');
+    mask-image: url('../images/icon-milling.svg');
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+    vertical-align: -0.125em;
 }
 
 /* -------------------------
@@ -152,12 +223,12 @@ a:hover {
     background-color: #f5f7fa;
     padding: 1.5rem;
     margin-left: var(--sidebar-width);
-    transition: margin-left var(--transition-normal);
+    transition: margin-left var(--transition-normal), padding-left var(--transition-normal);
 }
 
 .sidebar.collapsed ~ .main-content {
-    margin-left: 0;
-    padding-left: 4.5rem; /* Make room for the floating toggle button */
+    margin-left: var(--sidebar-collapsed-width);
+    padding-left: 1.5rem;
 }
 
 #app.auth-mode .main-content {
@@ -189,7 +260,7 @@ a:hover {
     width: var(--sidebar-width);
     background: var(--sidebar-bg);
     color: var(--sidebar-text);
-    padding: 1.5rem;
+    padding: 1.5rem 1rem;
     height: 100vh;
     position: fixed;
     top: 0;
@@ -199,11 +270,13 @@ a:hover {
     overflow-x: hidden;
     flex-shrink: 0;
     display: none;
-    transition: transform var(--transition-normal);
+    transition: width var(--transition-normal), transform var(--transition-normal);
 }
 
 .sidebar.collapsed {
-    transform: translateX(-100%);
+    width: var(--sidebar-collapsed-width);
+    padding: 1.5rem 0.5rem;
+    overflow: visible;
 }
 
 .sidebar.show {
@@ -219,6 +292,17 @@ a:hover {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.sidebar.collapsed h2 span,
+.sidebar.collapsed .sidebar-toggle-btn span {
+    display: none;
+}
+
+.sidebar.collapsed h2 {
+    justify-content: center;
+    gap: 0;
 }
 
 .sidebar .user-info {
@@ -289,13 +373,62 @@ a:hover {
 
 .sidebar .nav-link {
     color: var(--sidebar-text);
-    padding: 0.75rem 1rem;
+    padding: 0.85rem;
     border-radius: 8px;
     margin-bottom: 0.25rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;
     transition: all var(--transition-normal);
+    position: relative;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.sidebar.collapsed .nav-link {
+    justify-content: center;
+    padding: 0.85rem 0;
+    gap: 0;
+}
+
+.sidebar.collapsed .nav-link span {
+    display: none;
+}
+
+.sidebar .nav-link i {
+    font-size: 1.25rem;
+    width: 24px;
+    text-align: center;
+}
+
+/* Tooltip for collapsed sidebar */
+.sidebar.collapsed .nav-link[data-tooltip]::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 100%;
+    margin-left: 15px;
+    background: #333;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    transform: translateX(-10px);
+    z-index: 2000;
+}
+
+.sidebar.collapsed .nav-link[data-tooltip]:hover::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+}
+
+.sidebar.collapsed .user-details {
+    display: none;
 }
 
 .sidebar .nav-link:hover {

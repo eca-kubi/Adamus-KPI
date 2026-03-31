@@ -30,10 +30,10 @@ function authHeaders() {
 // Response Helper
 // ---------------------------------------------------------------------------
 
-async function handleResponse(response) {
+async function handleResponse(response, isLogin = false) {
     if (!response.ok) {
         // Handle unauthorized / expired token
-        if (response.status === 401) {
+        if (response.status === 401 && !isLogin) {
             if (typeof DOM !== 'undefined' && DOM.showToast) {
                 DOM.showToast('Session expired. Please log in again.', 'error');
             } else {
@@ -73,7 +73,7 @@ async function login(username, password) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
     });
-    const data = await handleResponse(response);
+    const data = await handleResponse(response, true);
     // Persist token for subsequent authenticated requests
     if (data.token) {
         setToken(data.token);

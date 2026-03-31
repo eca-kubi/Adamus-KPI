@@ -20,7 +20,8 @@ class User(SQLModel, table=True):
     full_name: Optional[str] = Field(default=None)
     hashed_password: str
     disabled: Optional[bool] = Field(default=False)
-    department: Optional[str] = Field(default=None)
-    role: Optional[str] = Field(default="user")
+    departments: Optional[List[str]] = Field(default_factory=list, sa_column=Column(JSON))
+    role: Optional[str] = Field(default="Staff")
     phone_number: Optional[str] = Field(default=None)
+    allowed_metrics: Optional[List[str]] = Field(default_factory=list, sa_column=Column(JSON))
 
