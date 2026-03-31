@@ -102,6 +102,35 @@ class UserCreate(BaseModel):
     department: Optional[str] = None
     role: Optional[str] = "user"
 
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    disabled: Optional[bool] = False
+    department: Optional[str] = None
+    role: Optional[str] = None
+    phone_number: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class UserUpdate(BaseModel):
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    department: Optional[str] = None
+    role: Optional[str] = None
+    phone_number: Optional[str] = None
+    disabled: Optional[bool] = None
+
+class PasswordReset(BaseModel):
+    new_password: str
+
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str
+
+
 async def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -125,6 +154,15 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: Session
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+def require_admin(current_user: User = Depends(get_current_active_user)):
+    """Dependency that raises HTTP 403 if the current user is not an Admin."""
+    if (current_user.role or "").lower() != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
     return current_user
 
 # API Endpoints
@@ -207,16 +245,143 @@ def login(data: Dict[str, Any], session: Session = Depends(get_session)):
         return {
             "token": access_token,
             "user": {
+                "id": user.id,
                 "name": user.full_name or user.username,
-                "username": user.username, 
+                "username": user.username,
                 "role": user.role,
-                "department": user.department 
+                "department": user.department
             }
         }
 
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
+
+# ---------------------------------------------------------------------------
+# Self-Service: Current User Profile
+# ---------------------------------------------------------------------------
+
+@app.get("/api/me", response_model=UserResponse)
+async def get_my_profile(current_user: User = Depends(get_current_active_user)):
+    """Return the authenticated user's own profile."""
+    return current_user
+
+@app.post("/api/me/change-password")
+async def change_my_password(
+    payload: ChangePassword,
+    current_user: User = Depends(get_current_active_user),
+    session: Session = Depends(get_session),
+):
+    """Allow the authenticated user to change their own password."""
+    if not security.verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    current_user.hashed_password = security.get_password_hash(payload.new_password)
+    session.add(current_user)
+    session.commit()
+    return {"message": "Password changed successfully"}
+
+# ---------------------------------------------------------------------------
+# Admin: User Management Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/users", response_model=List[UserResponse])
+def list_users(
+    _admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    """(Admin) Return all registered users."""
+    return session.exec(select(User)).all()
+
+@app.get("/api/users/{user_id}", response_model=UserResponse)
+def get_user(
+    user_id: int,
+    _admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    """(Admin) Fetch a single user by ID."""
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@app.post("/api/users", response_model=UserResponse)
+def admin_create_user(
+    user: UserCreate,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    """(Admin) Create a new user account."""
+    existing = session.exec(select(User).where(User.username == user.username)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    db_user = User(
+        username=user.username,
+        email=user.email,
+        full_name=user.full_name,
+        hashed_password=security.get_password_hash(user.password),
+        department=user.department,
+        role=user.role or "user",
+        phone_number=user.phone_number,
+    )
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
+
+@app.put("/api/users/{user_id}", response_model=UserResponse)
+def update_user(
+    user_id: int,
+    payload: UserUpdate,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    """(Admin) Update a user's profile fields."""
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(user, field, value)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+@app.patch("/api/users/{user_id}/status", response_model=UserResponse)
+def toggle_user_status(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    """(Admin) Toggle a user's disabled/enabled status."""
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot change your own account status")
+    user.disabled = not user.disabled
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+@app.post("/api/users/{user_id}/reset-password")
+def reset_user_password(
+    user_id: int,
+    payload: PasswordReset,
+    _admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    """(Admin) Forcibly reset a user's password."""
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not payload.new_password or len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    user.hashed_password = security.get_password_hash(payload.new_password)
+    session.add(user)
+    session.commit()
+    return {"message": f"Password reset successfully for user '{user.username}'"}
 
 @app.get("/api/kpi/{department}", response_model=List[KPIRecord])
 def get_kpi_records(
@@ -233,7 +398,7 @@ def get_kpi_records(
     return session.exec(query).all()
 
 @app.post("/api/kpi/{department}", response_model=KPIRecord)
-def create_kpi_record(department: str, record: KPIRecord, session: Session = Depends(get_session)):
+def create_kpi_record(department: str, record: KPIRecord, session: Session = Depends(get_session), _user: User = Depends(get_current_active_user)):
     try:
         # 1. Force date conversion if it's a string (fixes SQLite error)
         if isinstance(record.date, str):
@@ -294,7 +459,7 @@ def get_previous_mtd(
     return {"mtd_actual": 0}
 
 @app.delete("/api/kpi/{record_id}")
-def delete_kpi_record(record_id: int, session: Session = Depends(get_session)):
+def delete_kpi_record(record_id: int, session: Session = Depends(get_session), _user: User = Depends(get_current_active_user)):
     record = session.get(KPIRecord, record_id)
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
@@ -304,9 +469,10 @@ def delete_kpi_record(record_id: int, session: Session = Depends(get_session)):
 
 @app.post("/api/kpi/{department}/cascade-fixed")
 def cascade_fixed_input(
-    department: str, 
-    payload: CascadeFixedRequest, 
-    session: Session = Depends(get_session)
+    department: str,
+    payload: CascadeFixedRequest,
+    session: Session = Depends(get_session),
+    _user: User = Depends(get_current_active_user),
 ):
     try:
         # Parse Month

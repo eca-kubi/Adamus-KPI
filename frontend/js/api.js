@@ -3,7 +3,33 @@
 
 const API_BASE_URL = '/api';
 
-// Helper to handle response status
+// ---------------------------------------------------------------------------
+// Token Helpers
+// ---------------------------------------------------------------------------
+
+function getToken() {
+    return localStorage.getItem('kpi_auth_token');
+}
+
+function setToken(token) {
+    localStorage.setItem('kpi_auth_token', token);
+}
+
+function clearToken() {
+    localStorage.removeItem('kpi_auth_token');
+}
+
+/** Returns Authorization header object if a token is present, else empty object. */
+function authHeaders() {
+    const token = getToken();
+    if (!token) return {};
+    return { 'Authorization': `Bearer ${token}` };
+}
+
+// ---------------------------------------------------------------------------
+// Response Helper
+// ---------------------------------------------------------------------------
+
 async function handleResponse(response) {
     if (!response.ok) {
         let errorMsg = 'Unknown error';
@@ -11,9 +37,7 @@ async function handleResponse(response) {
             const error = await response.json();
             errorMsg = error.detail || JSON.stringify(error);
         } catch (e) {
-            // If JSON parse fails, use status text
             errorMsg = `Server Error (${response.status}): ${response.statusText}`;
-            // Try to get text body for more context
             try {
                 const text = await response.text();
                 if (text) errorMsg += ` - ${text.substring(0, 100)}`;
@@ -24,6 +48,9 @@ async function handleResponse(response) {
     return response.json();
 }
 
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
 
 async function login(username, password) {
     const response = await fetch(`${API_BASE_URL}/login`, {
@@ -31,14 +58,18 @@ async function login(username, password) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
     });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    // Persist token for subsequent authenticated requests
+    if (data.token) {
+        setToken(data.token);
+    }
+    return data;
 }
 
 async function checkSetupRequired() {
     const response = await fetch(`${API_BASE_URL}/setup-required`);
     return handleResponse(response);
 }
-
 
 async function registerUser(user) {
     const response = await fetch(`${API_BASE_URL}/register`, {
@@ -49,12 +80,88 @@ async function registerUser(user) {
     return handleResponse(response);
 }
 
+// ---------------------------------------------------------------------------
+// Self-Service Profile
+// ---------------------------------------------------------------------------
+
+async function fetchMe() {
+    const response = await fetch(`${API_BASE_URL}/me`, {
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+
+async function changeMyPassword(currentPassword, newPassword) {
+    const response = await fetch(`${API_BASE_URL}/me/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+    });
+    return handleResponse(response);
+}
+
+// ---------------------------------------------------------------------------
+// Admin: User Management
+// ---------------------------------------------------------------------------
+
+async function fetchUsers() {
+    const response = await fetch(`${API_BASE_URL}/users`, {
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+
+async function fetchUser(userId) {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+
+async function createUser(userData) {
+    const response = await fetch(`${API_BASE_URL}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(userData)
+    });
+    return handleResponse(response);
+}
+
+async function updateUser(userId, updateData) {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(updateData)
+    });
+    return handleResponse(response);
+}
+
+async function toggleUserStatus(userId) {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/status`, {
+        method: 'PATCH',
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+
+async function resetUserPassword(userId, newPassword) {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ new_password: newPassword })
+    });
+    return handleResponse(response);
+}
+
+// ---------------------------------------------------------------------------
+// KPI Records (public reads, auth-required writes)
+// ---------------------------------------------------------------------------
+
 async function fetchKPIRecords(department, startDate, endDate) {
     let url = `${API_BASE_URL}/kpi/${department}`;
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
-
     if (params.toString()) url += `?${params.toString()}`;
 
     const response = await fetch(url);
@@ -62,10 +169,9 @@ async function fetchKPIRecords(department, startDate, endDate) {
 }
 
 async function saveKPIRecord(department, record) {
-    // record structure: { metric_name, date, data: { ...values... }, subtype }
     const response = await fetch(`${API_BASE_URL}/kpi/${department}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(record)
     });
     return handleResponse(response);
@@ -73,7 +179,8 @@ async function saveKPIRecord(department, record) {
 
 async function deleteKPIRecord(recordId) {
     const response = await fetch(`${API_BASE_URL}/kpi/${recordId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { ...authHeaders() }
     });
     return handleResponse(response);
 }
@@ -84,7 +191,7 @@ async function fetchPreviousMTD(department, metric, currentDate, subtype) {
 
     try {
         const response = await fetch(url);
-        if (!response.ok) return 0; // Default to 0 if not found
+        if (!response.ok) return 0;
         const data = await response.json();
         return parseFloat(data.mtd_actual) || 0;
     } catch (e) {
@@ -96,10 +203,8 @@ async function fetchPreviousMTD(department, metric, currentDate, subtype) {
 async function cascadeFixedInputUpdate(department, payload) {
     const response = await fetch(`${API_BASE_URL}/kpi/${department}/cascade-fixed`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(payload)
     });
     return handleResponse(response);
 }
-
-

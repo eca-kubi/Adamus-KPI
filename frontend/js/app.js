@@ -5,7 +5,8 @@
 const STATE = {
     currentUser: null,
     currentDept: "OHS",
-    currentMetric: "Fixed Inputs"
+    currentMetric: "Fixed Inputs",
+    currentView: 'dept'  // 'dept' | 'users' | 'profile'
 };
 
 const DEPARTMENTS = ["OHS", "Geology", "Mining", "Crushing", "Milling_CIL", "Engineering"];
@@ -73,7 +74,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const storedUser = localStorage.getItem('kpi_current_user');
-    if (storedUser) {
+    const token = localStorage.getItem('kpi_auth_token');
+    if (storedUser && token) {
         try {
             STATE.currentUser = JSON.parse(storedUser);
             initApp();
@@ -90,7 +92,8 @@ function initApp() {
     if (!STATE.currentUser) {
         // Double check localstorage
         const storedUser = localStorage.getItem('kpi_current_user');
-        if (storedUser) {
+        const token = localStorage.getItem('kpi_auth_token');
+        if (storedUser && token) {
             STATE.currentUser = JSON.parse(storedUser);
         } else {
             renderLoginScreen();
@@ -350,13 +353,7 @@ async function performLogin(u, p) {
         const data = await login(u, p);
         STATE.currentUser = data.user;
         localStorage.setItem('kpi_current_user', JSON.stringify(data.user));
-        // Token handling should be improved in a real app (e.g. storage), but for now this matches existing flow
-        // Note: api.js handleResponse/fetch wrappers might need the token for authenticated requests later.
-        // The current api.js doesn't seem to attach tokens to requests yet. 
-        // We will assume the session/cookie or simple token auth is handled there or not yet implemented fully.
-        // looking at api.js, it doesn't attach headers.
-        // However, the requested task is about admin setup. I should fix the login at least.
-
+        // Token is already saved by login() in api.js via setToken()
         initApp();
     } catch (e) {
         DOM.showToast(e.message, 'error');
@@ -366,6 +363,7 @@ async function performLogin(u, p) {
 function logout() {
     STATE.currentUser = null;
     localStorage.removeItem('kpi_current_user');
+    clearToken();
     renderLoginScreen();
 }
 
@@ -373,6 +371,7 @@ function renderSidebar() {
     const nav = document.getElementById('sidebar');
     const userDisplay = STATE.currentUser ? STATE.currentUser.username : 'User';
     const userRole = STATE.currentUser ? STATE.currentUser.role : '';
+    const isAdmin = (userRole || '').toLowerCase() === 'admin';
 
     nav.innerHTML = `
         <h2 class="d-flex align-items-center gap-2">
@@ -388,6 +387,22 @@ function renderSidebar() {
                    ${dept.replace('_', ' ')}
                 </a>
             `).join('')}
+
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 0.75rem 0;">
+
+            ${isAdmin ? `
+            <a href="#" onclick="renderUserManagementPage(); return false;"
+               class="nav-link ${STATE.currentView === 'users' ? 'active' : ''}">
+               <i class="bi bi-people-fill"></i>
+               User Management
+            </a>
+            ` : ''}
+
+            <a href="#" onclick="renderMyProfilePage(); return false;"
+               class="nav-link ${STATE.currentView === 'profile' ? 'active' : ''}">
+               <i class="bi bi-person-circle"></i>
+               My Profile
+            </a>
         </nav>
 
         <div class="user-info mt-auto">
@@ -407,6 +422,19 @@ function renderSidebar() {
                         <i class="bi bi-three-dots-vertical"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="renderMyProfilePage(); return false;">
+                                <i class="bi bi-person-circle"></i> My Profile
+                            </a>
+                        </li>
+                        ${isAdmin ? `
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="renderUserManagementPage(); return false;">
+                                <i class="bi bi-people-fill"></i> User Management
+                            </a>
+                        </li>
+                        ` : ''}
+                        <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item text-danger d-flex align-items-center gap-2" href="#" onclick="logout(); return false;">
                                 <i class="bi bi-box-arrow-right"></i> Logout
@@ -9176,3 +9204,684 @@ async function loadRecentRecords(dept) {
         console.error("Error loading records", e);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getRoleBadgeClass(role) {
+    const r = (role || '').toLowerCase();
+    if (r === 'admin') return 'role-badge-admin';
+    if (r === 'gm') return 'role-badge-gm';
+    if (r === 'hod') return 'role-badge-hod';
+    return 'role-badge-staff';
+}
+
+function getInitials(user) {
+    if (user.full_name) {
+        return user.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    }
+    return (user.username || '?')[0].toUpperCase();
+}
+
+function switchToMainLayout() {
+    const app = document.getElementById('app');
+    const sidebar = document.getElementById('sidebar');
+    const content = document.getElementById('content');
+    app.classList.remove('auth-mode');
+    content.classList.remove('auth-layout');
+    content.className = 'main-content fade-in';
+    sidebar.classList.add('show');
+}
+
+// ---------------------------------------------------------------------------
+// User Management Page (Admin only)
+// ---------------------------------------------------------------------------
+
+window.renderUserManagementPage = async function () {
+    if (!STATE.currentUser || (STATE.currentUser.role || '').toLowerCase() !== 'admin') {
+        DOM.showToast('Access Denied: Admin only', 'error');
+        return;
+    }
+
+    STATE.currentView = 'users';
+    switchToMainLayout();
+    renderSidebar();
+
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h2 class="mb-1"><i class="bi bi-people-fill me-2 text-primary"></i>User Management</h2>
+                <p class="text-muted mb-0 small">Manage user accounts, roles, and access</p>
+            </div>
+            <button class="btn btn-primary" id="btn-add-user" onclick="showAddUserModal()">
+                <i class="bi bi-person-plus-fill me-2"></i>Add User
+            </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="user-search-bar mb-4">
+            <i class="bi bi-search text-muted"></i>
+            <input type="text" id="user-search-input" class="user-search-input" placeholder="Search by name, username, email, department…" oninput="filterUserTable()">
+            <select id="user-role-filter" class="form-select form-select-sm" style="width:auto;" onchange="filterUserTable()">
+                <option value="">All Roles</option>
+                <option value="Admin">Admin</option>
+                <option value="GM">GM</option>
+                <option value="HOD">HOD</option>
+                <option value="Staff">Staff</option>
+                <option value="user">User</option>
+            </select>
+            <select id="user-status-filter" class="form-select form-select-sm" style="width:auto;" onchange="filterUserTable()">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="disabled">Disabled</option>
+            </select>
+        </div>
+
+        <!-- Users Table -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="users-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;"></th>
+                                <th>Name / Username</th>
+                                <th>Email</th>
+                                <th>Department</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-tbody">
+                            <tr><td colspan="7" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <span class="ms-2 text-muted">Loading users…</span>
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Inject modals
+    injectUserModals();
+    await loadUsersTable();
+};
+
+window.ALL_USERS_DATA = [];
+
+async function loadUsersTable() {
+    const tbody = document.getElementById('users-tbody');
+    if (!tbody) return;
+    try {
+        const users = await fetchUsers();
+        window.ALL_USERS_DATA = users;
+        renderUserRows(users);
+    } catch (e) {
+        const tbody = document.getElementById('users-tbody');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</td></tr>`;
+    }
+}
+
+function renderUserRows(users) {
+    const tbody = document.getElementById('users-tbody');
+    if (!tbody) return;
+
+    if (!users || users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No users found</td></tr>';
+        return;
+    }
+
+    const currentUserId = STATE.currentUser ? STATE.currentUser.id : null;
+
+    tbody.innerHTML = users.map(user => {
+        const isDisabled = user.disabled;
+        const isSelf = user.id === currentUserId;
+        const initials = getInitials(user);
+        const roleBadge = getRoleBadgeClass(user.role);
+
+        return `
+            <tr id="user-row-${user.id}" style="${isDisabled ? 'opacity:0.6;' : ''}">
+                <td>
+                    <div class="user-avatar-sm">${initials}</div>
+                </td>
+                <td>
+                    <div class="fw-semibold">${user.full_name || '—'}</div>
+                    <div class="text-muted small">@${user.username}${isSelf ? ' <span class="badge bg-secondary">You</span>' : ''}</div>
+                </td>
+                <td class="text-muted small">${user.email || '—'}</td>
+                <td class="text-muted small">${user.department || '—'}</td>
+                <td><span class="role-badge ${roleBadge}">${user.role || 'user'}</span></td>
+                <td>
+                    <span class="status-badge ${isDisabled ? 'status-badge-disabled' : 'status-badge-active'}">
+                        <i class="bi bi-${isDisabled ? 'x-circle' : 'check-circle'}"></i>
+                        ${isDisabled ? 'Disabled' : 'Active'}
+                    </span>
+                </td>
+                <td class="text-end">
+                    <div class="d-flex gap-1 justify-content-end">
+                        <button class="action-icon-btn action-icon-btn-edit" onclick="showEditUserModal(${user.id})" title="Edit User">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="action-icon-btn action-icon-btn-reset" onclick="showResetPasswordModal(${user.id}, '${user.username}')" title="Reset Password">
+                            <i class="bi bi-key"></i>
+                        </button>
+                        ${!isSelf ? `
+                        <button class="action-icon-btn action-icon-btn-toggle ${isDisabled ? 'is-disabled' : ''}"
+                            onclick="confirmToggleStatus(${user.id}, '${user.username}', ${isDisabled})"
+                            title="${isDisabled ? 'Enable User' : 'Disable User'}">
+                            <i class="bi bi-${isDisabled ? 'person-check' : 'person-dash'}"></i>
+                        </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.filterUserTable = function () {
+    const search = (document.getElementById('user-search-input')?.value || '').toLowerCase();
+    const roleFilter = (document.getElementById('user-role-filter')?.value || '').toLowerCase();
+    const statusFilter = (document.getElementById('user-status-filter')?.value || '').toLowerCase();
+
+    const filtered = (window.ALL_USERS_DATA || []).filter(u => {
+        const matchSearch = !search ||
+            (u.username || '').toLowerCase().includes(search) ||
+            (u.full_name || '').toLowerCase().includes(search) ||
+            (u.email || '').toLowerCase().includes(search) ||
+            (u.department || '').toLowerCase().includes(search);
+
+        const matchRole = !roleFilter || (u.role || '').toLowerCase() === roleFilter;
+        const matchStatus = !statusFilter ||
+            (statusFilter === 'active' && !u.disabled) ||
+            (statusFilter === 'disabled' && u.disabled);
+
+        return matchSearch && matchRole && matchStatus;
+    });
+
+    renderUserRows(filtered);
+};
+
+// ---- Modals ----
+
+function injectUserModals() {
+    // Remove existing if present
+    ['modal-add-user', 'modal-edit-user', 'modal-reset-pw', 'modal-toggle-status'].forEach(id => {
+        const old = document.getElementById(id);
+        if (old) old.remove();
+    });
+
+    const ROLES = ['Admin', 'GM', 'HOD', 'Staff', 'user'];
+    const deptOptions = ['Management', ...DEPARTMENTS].map(d => `<option value="${d}">${d.replace('_', ' ')}</option>`).join('');
+    const roleOptions = ROLES.map(r => `<option value="${r}">${r}</option>`).join('');
+
+    document.body.insertAdjacentHTML('beforeend', `
+    <!-- Add User Modal -->
+    <div class="modal fade" id="modal-add-user" tabindex="-1" aria-labelledby="modal-add-user-label" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+          <div class="modal-header modal-header-custom">
+            <h5 class="modal-title" id="modal-add-user-label"><i class="bi bi-person-plus-fill me-2"></i>Add New User</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold small">Username <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="add-username" placeholder="e.g. jdoe">
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold small">Full Name</label>
+                <input type="text" class="form-control" id="add-fullname" placeholder="e.g. John Doe">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Email</label>
+                <input type="email" class="form-control" id="add-email" placeholder="user@example.com">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Phone</label>
+                <input type="text" class="form-control" id="add-phone" placeholder="+233 …">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Department</label>
+                <select class="form-select" id="add-dept"><option value="">— Select —</option>${deptOptions}</select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Role</label>
+                <select class="form-select" id="add-role">${roleOptions}</select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Password <span class="text-danger">*</span></label>
+                <input type="password" class="form-control" id="add-password" placeholder="Min. 6 characters">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Confirm Password <span class="text-danger">*</span></label>
+                <input type="password" class="form-control" id="add-confirm" placeholder="Repeat password">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer border-0 pt-0 px-4 pb-4">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitAddUser()">
+                <i class="bi bi-check-circle me-1"></i>Create User
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="modal-edit-user" tabindex="-1" aria-labelledby="modal-edit-user-label" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+          <div class="modal-header modal-header-custom">
+            <h5 class="modal-title" id="modal-edit-user-label"><i class="bi bi-pencil-square me-2"></i>Edit User</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+            <input type="hidden" id="edit-user-id">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold small">Full Name</label>
+                <input type="text" class="form-control" id="edit-fullname">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Email</label>
+                <input type="email" class="form-control" id="edit-email">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Phone</label>
+                <input type="text" class="form-control" id="edit-phone">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Department</label>
+                <select class="form-select" id="edit-dept"><option value="">— Select —</option>${deptOptions}</select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Role</label>
+                <select class="form-select" id="edit-role">${roleOptions}</select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer border-0 pt-0 px-4 pb-4">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitEditUser()">
+                <i class="bi bi-save me-1"></i>Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div class="modal fade" id="modal-reset-pw" tabindex="-1" aria-labelledby="modal-reset-pw-label" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+          <div class="modal-header modal-header-custom">
+            <h5 class="modal-title" id="modal-reset-pw-label"><i class="bi bi-key-fill me-2"></i>Reset Password</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+            <p class="text-muted small mb-3">Set a new password for <strong id="reset-pw-username"></strong>.</p>
+            <input type="hidden" id="reset-pw-user-id">
+            <div class="mb-3">
+              <label class="form-label fw-semibold small">New Password <span class="text-danger">*</span></label>
+              <input type="password" class="form-control" id="reset-new-pw" placeholder="Min. 6 characters">
+            </div>
+            <div>
+              <label class="form-label fw-semibold small">Confirm New Password <span class="text-danger">*</span></label>
+              <input type="password" class="form-control" id="reset-confirm-pw" placeholder="Repeat password">
+            </div>
+          </div>
+          <div class="modal-footer border-0 pt-0 px-4 pb-4">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-warning text-white" onclick="submitResetPassword()">
+                <i class="bi bi-key me-1"></i>Reset Password
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toggle Status Confirmation Modal -->
+    <div class="modal fade" id="modal-toggle-status" tabindex="-1" aria-labelledby="modal-toggle-status-label" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+          <div class="modal-header modal-header-custom">
+            <h5 class="modal-title" id="modal-toggle-status-label"><i class="bi bi-person-dash me-2"></i>Confirm Action</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+            <input type="hidden" id="toggle-user-id">
+            <p id="toggle-confirm-msg" class="mb-0"></p>
+          </div>
+          <div class="modal-footer border-0 pt-0 px-4 pb-4">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="btn-confirm-toggle" class="btn btn-danger" onclick="submitToggleStatus()">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    `);
+}
+
+window.showAddUserModal = function () {
+    ['add-username', 'add-fullname', 'add-email', 'add-phone', 'add-password', 'add-confirm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const modal = new bootstrap.Modal(document.getElementById('modal-add-user'));
+    modal.show();
+};
+
+window.submitAddUser = async function () {
+    const username = document.getElementById('add-username')?.value.trim();
+    const fullName = document.getElementById('add-fullname')?.value.trim();
+    const email = document.getElementById('add-email')?.value.trim();
+    const phone = document.getElementById('add-phone')?.value.trim();
+    const dept = document.getElementById('add-dept')?.value;
+    const role = document.getElementById('add-role')?.value;
+    const password = document.getElementById('add-password')?.value;
+    const confirm = document.getElementById('add-confirm')?.value;
+
+    if (!username || !password) { DOM.showToast('Username and password are required', 'error'); return; }
+    if (password !== confirm) { DOM.showToast('Passwords do not match', 'error'); return; }
+    if (password.length < 6) { DOM.showToast('Password must be at least 6 characters', 'error'); return; }
+
+    try {
+        await createUser({ username, full_name: fullName || null, email: email || null, phone_number: phone || null, department: dept || null, role, password });
+        bootstrap.Modal.getInstance(document.getElementById('modal-add-user'))?.hide();
+        DOM.showToast('User created successfully!', 'success');
+        await loadUsersTable();
+    } catch (e) {
+        DOM.showToast(e.message, 'error');
+    }
+};
+
+window.showEditUserModal = function (userId) {
+    const user = (window.ALL_USERS_DATA || []).find(u => u.id === userId);
+    if (!user) { DOM.showToast('User not found', 'error'); return; }
+
+    document.getElementById('edit-user-id').value = userId;
+    document.getElementById('edit-fullname').value = user.full_name || '';
+    document.getElementById('edit-email').value = user.email || '';
+    document.getElementById('edit-phone').value = user.phone_number || '';
+    document.getElementById('edit-dept').value = user.department || '';
+    document.getElementById('edit-role').value = user.role || 'user';
+
+    document.getElementById('modal-edit-user-label').innerHTML = `<i class="bi bi-pencil-square me-2"></i>Edit — @${user.username}`;
+
+    const modal = new bootstrap.Modal(document.getElementById('modal-edit-user'));
+    modal.show();
+};
+
+window.submitEditUser = async function () {
+    const userId = parseInt(document.getElementById('edit-user-id')?.value);
+    const fullName = document.getElementById('edit-fullname')?.value.trim();
+    const email = document.getElementById('edit-email')?.value.trim();
+    const phone = document.getElementById('edit-phone')?.value.trim();
+    const dept = document.getElementById('edit-dept')?.value;
+    const role = document.getElementById('edit-role')?.value;
+
+    if (!userId) return;
+
+    try {
+        await updateUser(userId, {
+            full_name: fullName || null,
+            email: email || null,
+            phone_number: phone || null,
+            department: dept || null,
+            role: role
+        });
+        bootstrap.Modal.getInstance(document.getElementById('modal-edit-user'))?.hide();
+        DOM.showToast('User updated successfully!', 'success');
+        await loadUsersTable();
+    } catch (e) {
+        DOM.showToast(e.message, 'error');
+    }
+};
+
+window.showResetPasswordModal = function (userId, username) {
+    document.getElementById('reset-pw-user-id').value = userId;
+    document.getElementById('reset-pw-username').textContent = `@${username}`;
+    document.getElementById('reset-new-pw').value = '';
+    document.getElementById('reset-confirm-pw').value = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('modal-reset-pw'));
+    modal.show();
+};
+
+window.submitResetPassword = async function () {
+    const userId = parseInt(document.getElementById('reset-pw-user-id')?.value);
+    const newPw = document.getElementById('reset-new-pw')?.value;
+    const confirmPw = document.getElementById('reset-confirm-pw')?.value;
+
+    if (!newPw || newPw.length < 6) { DOM.showToast('Password must be at least 6 characters', 'error'); return; }
+    if (newPw !== confirmPw) { DOM.showToast('Passwords do not match', 'error'); return; }
+
+    try {
+        await resetUserPassword(userId, newPw);
+        bootstrap.Modal.getInstance(document.getElementById('modal-reset-pw'))?.hide();
+        DOM.showToast('Password reset successfully!', 'success');
+    } catch (e) {
+        DOM.showToast(e.message, 'error');
+    }
+};
+
+window.confirmToggleStatus = function (userId, username, isCurrentlyDisabled) {
+    document.getElementById('toggle-user-id').value = userId;
+    const msg = document.getElementById('toggle-confirm-msg');
+    const btn = document.getElementById('btn-confirm-toggle');
+
+    if (isCurrentlyDisabled) {
+        msg.innerHTML = `Are you sure you want to <strong class="text-success">enable</strong> the account for <strong>@${username}</strong>?`;
+        btn.className = 'btn btn-success';
+        btn.innerHTML = '<i class="bi bi-person-check me-1"></i>Enable';
+    } else {
+        msg.innerHTML = `Are you sure you want to <strong class="text-danger">disable</strong> the account for <strong>@${username}</strong>? They will not be able to log in.`;
+        btn.className = 'btn btn-danger';
+        btn.innerHTML = '<i class="bi bi-person-dash me-1"></i>Disable';
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('modal-toggle-status'));
+    modal.show();
+};
+
+window.submitToggleStatus = async function () {
+    const userId = parseInt(document.getElementById('toggle-user-id')?.value);
+    if (!userId) return;
+
+    try {
+        await toggleUserStatus(userId);
+        bootstrap.Modal.getInstance(document.getElementById('modal-toggle-status'))?.hide();
+        DOM.showToast('User status updated', 'success');
+        await loadUsersTable();
+    } catch (e) {
+        DOM.showToast(e.message, 'error');
+    }
+};
+
+// ---------------------------------------------------------------------------
+// My Profile Page
+// ---------------------------------------------------------------------------
+
+window.renderMyProfilePage = async function () {
+    STATE.currentView = 'profile';
+    switchToMainLayout();
+    renderSidebar();
+
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="d-flex align-items-center mb-4">
+            <h2 class="mb-0"><i class="bi bi-person-circle me-2 text-primary"></i>My Profile</h2>
+        </div>
+        <div class="row g-4" id="profile-content">
+            <div class="col-12 text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        </div>
+    `;
+
+    try {
+        const me = await fetchMe();
+        renderProfileContent(me);
+    } catch (e) {
+        document.getElementById('profile-content').innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</div>
+            </div>`;
+    }
+};
+
+function renderProfileContent(user) {
+    const initials = getInitials(user);
+    const roleBadge = getRoleBadgeClass(user.role);
+    const container = document.getElementById('profile-content');
+
+    container.innerHTML = `
+        <!-- Profile Hero Card -->
+        <div class="col-12 col-lg-4">
+            <div class="profile-card mb-4">
+                <div class="d-flex align-items-center gap-3 mb-4" style="position:relative;z-index:1;">
+                    <div class="profile-avatar-lg">${initials}</div>
+                    <div>
+                        <div class="fw-bold fs-5">${user.full_name || user.username}</div>
+                        <div class="text-muted" style="color:#adb5bd!important;">@${user.username}</div>
+                        <div class="mt-1"><span class="role-badge ${roleBadge}">${user.role || 'user'}</span></div>
+                    </div>
+                </div>
+
+                <div style="position:relative;z-index:1;">
+                    ${user.email ? `<div class="d-flex align-items-center gap-2 mb-2" style="color:#adb5bd;">
+                        <i class="bi bi-envelope-fill"></i><span class="small">${user.email}</span>
+                    </div>` : ''}
+                    ${user.phone_number ? `<div class="d-flex align-items-center gap-2 mb-2" style="color:#adb5bd;">
+                        <i class="bi bi-telephone-fill"></i><span class="small">${user.phone_number}</span>
+                    </div>` : ''}
+                    ${user.department ? `<div class="d-flex align-items-center gap-2 mb-2" style="color:#adb5bd;">
+                        <i class="bi bi-building"></i><span class="small">${user.department}</span>
+                    </div>` : ''}
+                    <div class="d-flex align-items-center gap-2" style="color:#adb5bd;">
+                        <i class="bi bi-shield-check-fill"></i>
+                        <span class="small">Account is <strong style="color:${user.disabled ? '#ef4444' : '#10b981'}">${user.disabled ? 'Disabled' : 'Active'}</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Password Card -->
+        <div class="col-12 col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <i class="bi bi-shield-lock-fill text-primary"></i>
+                    <h5 class="mb-0">Change Password</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3" style="max-width:480px;">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small">Current Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="profile-current-pw" placeholder="Enter current password">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small">New Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="profile-new-pw" placeholder="Min. 6 characters">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small">Confirm New Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="profile-confirm-pw" placeholder="Repeat new password">
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-primary" onclick="submitChangeMyPassword()">
+                                <i class="bi bi-shield-lock me-2"></i>Update Password
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Details Card -->
+            <div class="card mt-4">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle-fill text-primary"></i>
+                    <h5 class="mb-0">Account Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="profile-info-row">
+                        <div class="profile-info-icon"><i class="bi bi-person"></i></div>
+                        <div>
+                            <div class="small text-muted">Full Name</div>
+                            <div class="fw-semibold">${user.full_name || '—'}</div>
+                        </div>
+                    </div>
+                    <div class="profile-info-row">
+                        <div class="profile-info-icon"><i class="bi bi-at"></i></div>
+                        <div>
+                            <div class="small text-muted">Username</div>
+                            <div class="fw-semibold">${user.username}</div>
+                        </div>
+                    </div>
+                    <div class="profile-info-row">
+                        <div class="profile-info-icon"><i class="bi bi-envelope"></i></div>
+                        <div>
+                            <div class="small text-muted">Email</div>
+                            <div class="fw-semibold">${user.email || '—'}</div>
+                        </div>
+                    </div>
+                    <div class="profile-info-row">
+                        <div class="profile-info-icon"><i class="bi bi-telephone"></i></div>
+                        <div>
+                            <div class="small text-muted">Phone</div>
+                            <div class="fw-semibold">${user.phone_number || '—'}</div>
+                        </div>
+                    </div>
+                    <div class="profile-info-row">
+                        <div class="profile-info-icon"><i class="bi bi-building"></i></div>
+                        <div>
+                            <div class="small text-muted">Department</div>
+                            <div class="fw-semibold">${user.department || '—'}</div>
+                        </div>
+                    </div>
+                    <div class="profile-info-row">
+                        <div class="profile-info-icon"><i class="bi bi-shield"></i></div>
+                        <div>
+                            <div class="small text-muted">Role</div>
+                            <div class="fw-semibold"><span class="role-badge ${roleBadge}">${user.role || 'user'}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+window.submitChangeMyPassword = async function () {
+    const currentPw = document.getElementById('profile-current-pw')?.value;
+    const newPw = document.getElementById('profile-new-pw')?.value;
+    const confirmPw = document.getElementById('profile-confirm-pw')?.value;
+
+    if (!currentPw || !newPw) { DOM.showToast('All password fields are required', 'error'); return; }
+    if (newPw.length < 6) { DOM.showToast('New password must be at least 6 characters', 'error'); return; }
+    if (newPw !== confirmPw) { DOM.showToast('New passwords do not match', 'error'); return; }
+
+    try {
+        await changeMyPassword(currentPw, newPw);
+        DOM.showToast('Password changed successfully!', 'success');
+        document.getElementById('profile-current-pw').value = '';
+        document.getElementById('profile-new-pw').value = '';
+        document.getElementById('profile-confirm-pw').value = '';
+    } catch (e) {
+        DOM.showToast(e.message, 'error');
+    }
+};
+
+// Update loadDepartmentView to reset currentView
+const _originalLoadDeptView = window.loadDepartmentView;
+window.loadDepartmentView = async function(dept) {
+    STATE.currentView = 'dept';
+    await _originalLoadDeptView(dept);
+};
