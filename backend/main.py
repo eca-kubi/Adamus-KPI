@@ -7,6 +7,14 @@ from datetime import date, timedelta, datetime
 from pydantic import BaseModel
 from jose import JWTError, jwt
 import os
+import smtplib
+import logging
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from dotenv import load_dotenv
+
+load_dotenv()
+logger = logging.getLogger(__name__)
 
 # Relative imports from within the backend package
 from .database import create_db_and_tables, get_session
@@ -14,6 +22,58 @@ from .models import KPIRecord, User
 from . import security
 
 app = FastAPI()
+
+# ---------------------------------------------------------------------------
+# Email helper
+# ---------------------------------------------------------------------------
+
+def send_confirmation_email(to_address: str, username: str) -> None:
+    """Send an account-confirmation email to the new admin.
+    All SMTP settings are sourced from environment variables.
+    Failures are logged but never raise so registration is never blocked.
+    """
+    smtp_host = os.getenv("SMTP_HOST", "")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    smtp_from = os.getenv("SMTP_FROM", smtp_user)
+    app_name = os.getenv("APP_NAME", "Adamus KPI")
+
+    if not smtp_host or not smtp_user or not to_address:
+        logger.warning(
+            "Email not sent: SMTP_HOST, SMTP_USER, or recipient address is missing."
+        )
+        return
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"Welcome to {app_name} – Admin Account Created"
+        msg["From"] = smtp_from
+        msg["To"] = to_address
+
+        html_body = f"""\
+<html>
+  <body style="font-family: Arial, sans-serif; color: #333;">
+    <h2 style="color:#0d6efd;">Welcome to {app_name}!</h2>
+    <p>Hi <strong>{username}</strong>,</p>
+    <p>Your administrator account has been successfully created.</p>
+    <p style="margin-top:24px;">You can now log in using your username and the password you chose during setup.</p>
+    <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+    <p style="font-size:12px;color:#888;">If you did not create this account, please contact your system administrator immediately.</p>
+  </body>
+</html>
+"""
+        msg.attach(MIMEText(html_body, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_from, to_address, msg.as_string())
+
+        logger.info("Confirmation email sent to %s", to_address)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to send confirmation email to %s: %s", to_address, exc)
 
 class CascadeFixedRequest(BaseModel):
     metric_name: str
@@ -104,6 +164,11 @@ def register_user(user: UserCreate, session: Session = Depends(get_session)):
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
+
+    # Send confirmation email to the first (admin) user if they provided an address
+    if is_first_user and db_user.email:
+        send_confirmation_email(db_user.email, db_user.username)
+
     return db_user
 
 @app.post("/api/token", response_model=Token)

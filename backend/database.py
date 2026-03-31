@@ -4,14 +4,22 @@ from sqlmodel import SQLModel, create_engine, Session
 
 load_dotenv()
 
-# Default to sqlite if not set, but expected to be set for MySQL
-database_url = os.getenv("DATABASE_URL", "sqlite:///database.db")
+database_url = os.getenv("DATABASE_URL")
+
+if not database_url:
+    raise RuntimeError(
+        "DATABASE_URL is required and must be a MySQL URL, e.g. "
+        "mysql+pymysql://user:password@localhost/adamus_kpi"
+    )
+
+if not database_url.startswith("mysql+pymysql://"):
+    raise RuntimeError(
+        "DATABASE_URL must use MySQL with PyMySQL. Expected prefix: mysql+pymysql://"
+    )
 
 connect_args = {}
-if database_url.startswith("sqlite"):
-    connect_args["check_same_thread"] = False
 
-engine = create_engine(database_url, connect_args=connect_args)
+engine = create_engine(database_url, connect_args=connect_args, pool_pre_ping=True)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)

@@ -219,15 +219,24 @@ function renderSetupScreen() {
     container.appendChild(subtitle);
 
     const username = DOM.createInputGroup('Username (Admin)', 'reg-username');
+    const email = DOM.createInputGroup('Email Address', 'reg-email', 'email');
     const password = DOM.createInputGroup('Password', 'reg-password', 'password');
     const confirm = DOM.createInputGroup('Confirm Password', 'reg-confirm', 'password');
 
+    // Helper text under email field
+    const emailHint = document.createElement('p');
+    emailHint.className = 'text-muted small mt-n2 mb-2 text-start';
+    emailHint.textContent = 'A confirmation email will be sent to this address.';
+
     container.appendChild(username.container);
+    container.appendChild(email.container);
+    container.appendChild(emailHint);
     container.appendChild(password.container);
     container.appendChild(confirm.container);
 
     const createBtn = DOM.createButton('Create Admin Account', async () => {
-        const u = username.input.value;
+        const u = username.input.value.trim();
+        const e = email.input.value.trim();
         const p = password.input.value;
         const c = confirm.input.value;
 
@@ -237,14 +246,15 @@ function renderSetupScreen() {
         try {
             await registerUser({
                 username: u,
+                email: e || null,
                 password: p,
                 department: 'Management',
                 role: 'Admin'
             });
             DOM.showToast('Admin account created! Please login.');
             renderLoginScreen();
-        } catch (e) {
-            DOM.showToast(e.message, 'error');
+        } catch (err) {
+            DOM.showToast(err.message, 'error');
         }
     }, 'primary', 'bi-person-plus-fill');
     createBtn.className = 'btn btn-primary btn-lg w-100 mt-4';

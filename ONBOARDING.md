@@ -7,14 +7,14 @@ Welcome to the Adamus KPI project! This guide will help you set up your developm
 **Adamus KPI** is a dashboard application for tracking Key Performance Indicators. It consists of:
 - **Backend**: Python FastAPI application (located in `backend/`).
 - **Frontend**: Vanilla JavaScript, HTML, and CSS (located in `frontend/`), served by the backend.
-- **Database**: SQLModel (SQLAlchemy) with Alembic for migrations (supports MySQL/SQLite).
+- **Database**: SQLModel (SQLAlchemy) with Alembic for migrations (MySQL only).
 
 ## 2. Prerequisites
 
 Before you begin, ensure you have the following installed:
 - **Python 3.8+**
 - **Git**
-- **MySQL Server** (Optional, can use SQLite for local dev if configured)
+- **MySQL Server**
 
 ## 3. Installation
 
@@ -60,7 +60,7 @@ Before you begin, ensure you have the following installed:
     ALGORITHM="HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES=30
     ```
-    *Note: If using SQLite for local testing, you can set `DATABASE_URL="sqlite:///./backend/database.db"`.*
+    *Note: The application enforces MySQL and will fail to start with non-MySQL database URLs.*
 
 ## 5. Running the Application
 

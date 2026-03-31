@@ -25,7 +25,17 @@ if config.config_file_name is not None:
 
 
 # Overwrite sqlalchemy.url with the one from .env
-database_url = os.getenv("DATABASE_URL", "sqlite:///database.db")
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    raise RuntimeError(
+        "DATABASE_URL is required and must be a MySQL URL, e.g. "
+        "mysql+pymysql://user:password@localhost/adamus_kpi"
+    )
+
+if not database_url.startswith("mysql+pymysql://"):
+    raise RuntimeError(
+        "DATABASE_URL must use MySQL with PyMySQL. Expected prefix: mysql+pymysql://"
+    )
 # Escape % for ConfigParser
 database_url = database_url.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", database_url)
