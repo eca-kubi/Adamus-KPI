@@ -434,6 +434,56 @@ a:hover {
 /* -------------------------
    8. Forms & Inputs
    ------------------------- */
+
+/* KPI Form Grid */
+.kpi-form-grid {
+    display: grid;
+    gap: 15px;
+    margin-bottom: 20px;
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.kpi-form-grid-3 {
+    display: grid;
+    gap: 15px;
+    margin-bottom: 20px;
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* Hidden KPI fields should not take grid space */
+.kpi-form-grid > .kpi-hidden-field,
+.kpi-form-grid-3 > .kpi-hidden-field {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+/* Empty spacer divs should not take grid space */
+.kpi-form-grid > div:empty,
+.kpi-form-grid-3 > div:empty {
+    display: none;
+}
+
+/* Date field auto-spans to fill row only when KPI field is hidden */
+.kpi-form-grid > .kpi-hidden-field ~ .kpi-date-field {
+    grid-column: span 4;
+}
+.kpi-form-grid-3 > .kpi-hidden-field ~ .kpi-date-field {
+    grid-column: span 3;
+}
+
+/* Span utility classes for grid children */
+.grid-span-2 {
+    grid-column: span 2;
+}
+.grid-span-3 {
+    grid-column: span 3;
+}
+.grid-span-4 {
+    grid-column: span 4;
+}
+
 .form-floating>label {
     color: #6c757d;
 }

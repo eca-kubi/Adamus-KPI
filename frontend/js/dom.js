@@ -11,6 +11,11 @@ const DOM = {
 
         if (labelText === 'KPI') {
             div.style.display = 'none';
+            div.classList.add('kpi-hidden-field');
+        }
+
+        if (type === 'date') {
+            div.classList.add('kpi-date-field');
         }
 
         const label = document.createElement('label');

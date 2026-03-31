@@ -1257,10 +1257,7 @@ function renderFixedInputForm(dept, card) {
 
 function renderGeologyDrillingForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -1554,10 +1551,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
 
 function renderGeologyTollForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -1888,10 +1882,7 @@ function renderGeologyTollForm(dept, metricName, card) {
 
 function renderMiningOreForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -2128,10 +2119,7 @@ function renderMiningOreForm(dept, metricName, card) {
 
 function renderMiningGradeForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -2339,10 +2327,7 @@ function renderMiningGradeForm(dept, metricName, card) {
 
 function renderMiningMaterialForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -2586,10 +2571,7 @@ function renderMiningMaterialForm(dept, metricName, card) {
 
 function renderMiningBlastHoleForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -2825,10 +2807,7 @@ function renderMiningBlastHoleForm(dept, metricName, card) {
 
 function renderCrushingGradeForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -3054,10 +3033,7 @@ function renderCrushingGradeForm(dept, metricName, card) {
 
 function renderCrushingOreForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -3253,10 +3229,7 @@ function renderCrushingOreForm(dept, metricName, card) {
 
 function renderMillingGoldContainedForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -3482,10 +3455,7 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
 
 function renderMillingGoldRecoveryForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -3719,10 +3689,7 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
 
 function renderMillingRecoveryForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -3951,10 +3918,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
 
 function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -4224,10 +4188,7 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
 
 function renderMillingTonnesTreatedForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -5354,10 +5315,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
 
 function renderEngineeringLightVehiclesForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -5590,10 +5548,7 @@ function renderEngineeringLightVehiclesForm(dept, metricName, card) {
 
 function renderEngineeringTipperTrucksForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -5826,10 +5781,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
 
 function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -6091,10 +6043,7 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
 
 function renderEngineeringAnxExcavatorsForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -6353,10 +6302,7 @@ function renderEngineeringAnxExcavatorsForm(dept, metricName, card) {
 
 function renderEngineeringDumpTrucksForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -6605,10 +6551,7 @@ function renderEngineeringDumpTrucksForm(dept, metricName, card) {
 
 function renderEngineeringArtDumpTrucksForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -6850,10 +6793,7 @@ function renderEngineeringArtDumpTrucksForm(dept, metricName, card) {
 
 function renderEngineeringWheelLoadersForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -7095,10 +7035,7 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
 
 function renderEngineeringGradersForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -7340,10 +7277,7 @@ function renderEngineeringGradersForm(dept, metricName, card) {
 
 function renderEngineeringDozersForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -7498,10 +7432,7 @@ function renderEngineeringDozersForm(dept, metricName, card) {
 
 function renderEngineeringCrusherForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
@@ -7605,10 +7536,7 @@ function renderEngineeringCrusherForm(dept, metricName, card) {
 
 function renderEngineeringMillForm(dept, metricName, card) {
     const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.marginBottom = '20px';
+    grid.className = 'kpi-form-grid-3';
 
     // Helper to add to grid
     const add = (group) => grid.appendChild(group.container);
