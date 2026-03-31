@@ -56,7 +56,9 @@ const DEPT_METRICS = {
         "Graders",
         "Dozers",
         "Crusher",
-        "Mill"
+        "Mill",
+        "Pumps",
+        "Drill Rigs"
     ]
 };
 
@@ -380,9 +382,17 @@ function renderSidebar() {
         </h2>
         
         <nav class="nav flex-column flex-grow-1">
+            <a href="#" onclick="renderSummaryDashboardPage(); return false;"
+               class="nav-link ${STATE.currentView === 'summary' ? 'active' : ''}">
+               <i class="bi bi-grid-1x2-fill"></i>
+               Summary Dashboard
+            </a>
+
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 0.5rem 0;">
+
             ${DEPARTMENTS.map(dept => `
                 <a href="#" onclick="loadDepartmentView('${dept}'); return false;" 
-                   class="nav-link ${STATE.currentDept === dept ? 'active' : ''}">
+                   class="nav-link ${STATE.currentView === 'dept' && STATE.currentDept === dept ? 'active' : ''}">
                    <i class="bi bi-folder2"></i>
                    ${dept.replace('_', ' ')}
                 </a>
@@ -719,7 +729,7 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
             `;
-        } else if ((metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Anx Excavators" || metric === "Dump Trucks" || metric === "ART Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
+        } else if ((metric === "Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Anx Excavators" || metric === "Dump Trucks" || metric === "ART Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -857,7 +867,7 @@ function renderKPIForm(dept, metricName) {
         renderOHSPropertyDamageForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Light Vehicles") {
         renderEngineeringLightVehiclesForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "Tipper Trucks") {
+    } else if (dept === "Engineering" && (metricName === "Tipper Trucks" || metricName === "Pumps" || metricName === "Drill Rigs")) {
         renderEngineeringTipperTrucksForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Prime Excavators") {
         renderEngineeringPrimeExcavatorsForm(dept, metricName, card);
@@ -9040,7 +9050,7 @@ async function loadRecentRecords(dept) {
         }
 
         // Handling for Light Vehicles and Tipper Trucks
-        if (STATE.currentMetric === 'Light Vehicles' || STATE.currentMetric === 'Tipper Trucks') {
+        if (STATE.currentMetric === 'Light Vehicles' || STATE.currentMetric === 'Tipper Trucks' || STATE.currentMetric === 'Pumps' || STATE.currentMetric === 'Drill Rigs') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | Qty Avail | D.Act(%) | D.Fcst(%) | Var% | MTD.Act | MTD.Fcst | Var% | F.Fcst | F.Budg | Action
@@ -9885,3 +9895,204 @@ window.loadDepartmentView = async function(dept) {
     STATE.currentView = 'dept';
     await _originalLoadDeptView(dept);
 };
+
+// ---------------------------------------------------------------------------
+// Summary Dashboard Page
+// ---------------------------------------------------------------------------
+
+const SUMMARY_METRIC_ORDER = {
+    "OHS": ["Safety Incidents", "Environmental Incidents", "Property Damage"],
+    "Milling_CIL": ["Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"],
+    "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
+    "Mining": ["Ore Mined", "Grade - Ore Mined", "Total Material Moved", "Blast Hole Drilling"],
+    "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
+    "Engineering": ["Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Pumps", "Drill Rigs"]
+};
+
+const DEPT_DISPLAY = {
+    "OHS": "OHS", "Milling_CIL": "Milling/CIL", "Crushing": "Crushing",
+    "Mining": "Mining", "Geology": "Geology", "Engineering": "Engineering"
+};
+
+const DEPT_SECONDARY_LABEL = {
+    "OHS": "", "Milling_CIL": "Day-2", "Crushing": "",
+    "Mining": "", "Geology": "", "Engineering": "Qty Available"
+};
+
+function summarySparkline(vals, isOHS) {
+    const valid = (vals || []).map(v => (v !== null && v !== undefined) ? v : null);
+    const nums = valid.filter(v => v !== null);
+    if (nums.length < 2) return '';
+    const w = 80, h = 22, pad = 2;
+    const mn = Math.min(...nums), mx = Math.max(...nums);
+    const range = mx - mn || 1;
+    const pts = [];
+    for (let i = 0; i < valid.length; i++) {
+        if (valid[i] !== null) {
+            const x = pad + (i / (valid.length - 1)) * (w - 2 * pad);
+            const y = pad + (1 - (valid[i] - mn) / range) * (h - 2 * pad);
+            pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+        }
+    }
+    const first = nums[0], last = nums[nums.length - 1];
+    let col = '#d2ab67';
+    if (last > first) col = isOHS ? '#ef4444' : '#22c55e';
+    else if (last < first) col = isOHS ? '#22c55e' : '#ef4444';
+    return `<svg width="${w}" height="${h}"><polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function svarClass(varStr) {
+    if (!varStr || varStr === '-' || varStr === '') return 'svar-na';
+    const n = parseFloat(String(varStr).replace(/[%,\s]/g, ''));
+    if (isNaN(n)) return 'svar-na';
+    if (n > 0) return 'svar-pos';
+    if (n < 0) return 'svar-neg';
+    return 'svar-zero';
+}
+
+function sstatusHtml(varStr) {
+    if (!varStr || varStr === '-' || varStr === '') return '';
+    const n = parseFloat(String(varStr).replace(/[%,\s]/g, ''));
+    if (isNaN(n)) return '';
+    return n >= 0 ? '🙂' : '😟';
+}
+
+function fmtVal(v) {
+    if (v === null || v === undefined || v === '') return '';
+    const s = String(v);
+    const n = parseFloat(s.replace(/,/g, ''));
+    if (isNaN(n)) return s;
+    if (s.includes('%')) return s;
+    if (Number.isInteger(n) && Math.abs(n) >= 1000) return n.toLocaleString();
+    return s;
+}
+
+function getSecondaryVal(dept, data) {
+    if (dept === 'Milling_CIL') return fmtVal(data.day_2 ?? '');
+    if (dept === 'Engineering') return fmtVal(data.qty_available ?? '');
+    return '';
+}
+
+window.renderSummaryDashboardPage = async function () {
+    STATE.currentView = 'summary';
+    switchToMainLayout();
+    renderSidebar();
+
+    const today = new Date().toISOString().slice(0, 10);
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="summary-header">
+            <div class="summary-date-box">
+                <label>Selected Date:</label>
+                <input type="date" id="summary-date-input" value="${today}">
+            </div>
+            <div class="summary-header-title">Adamus Resources Limited KPI – ${new Date().getFullYear()}</div>
+            <div></div>
+        </div>
+        <div class="summary-table-wrap">
+            <div id="summary-table-container" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <span class="ms-2 text-muted">Loading summary…</span>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('summary-date-input').addEventListener('change', function () {
+        loadSummaryData(this.value);
+    });
+
+    await loadSummaryData(today);
+};
+
+async function loadSummaryData(dateStr) {
+    const container = document.getElementById('summary-table-container');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div><span class="ms-2 text-muted">Loading…</span></div>';
+
+    try {
+        const resp = await fetchSummaryDashboard(dateStr);
+        const depts = resp.departments || {};
+        renderSummaryTable(depts);
+    } catch (e) {
+        container.innerHTML = `<div class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</div>`;
+    }
+}
+
+function renderSummaryTable(departments) {
+    const container = document.getElementById('summary-table-container');
+    if (!container) return;
+
+    const DEPT_ORDER = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"];
+    let html = '<table class="summary-table"><tbody>';
+
+    for (const dept of DEPT_ORDER) {
+        const rawMetrics = departments[dept] || [];
+        const deptKey = dept.toLowerCase();
+        const deptLabel = DEPT_DISPLAY[dept] || dept;
+        const secLabel = DEPT_SECONDARY_LABEL[dept] || '';
+        const isOHS = dept === 'OHS';
+
+        // Sort by defined order
+        const order = SUMMARY_METRIC_ORDER[dept] || [];
+        const sorted = [];
+        for (const name of order) {
+            const found = rawMetrics.find(m => m.metric_name === name);
+            if (found) sorted.push(found);
+        }
+        // Add any remaining
+        for (const m of rawMetrics) {
+            if (!sorted.find(s => s.metric_name === m.metric_name)) sorted.push(m);
+        }
+
+        // Department section header row
+        html += `<tr class="summary-dept-hdr dept-hdr-${deptKey}">
+            <td>Area</td><td>KPI</td><td>Daily Actual</td><td>${secLabel}</td>
+            <td>Daily Forecast</td><td>Variance</td><td>Status</td>
+            <td>MTD Actual</td><td>MTD Forecast</td><td>Variance</td><td>Status</td>
+            <td>Outlook (a)</td><td>Forecast (b)</td><td>Budget (c)</td><td>Variance (a-b)</td><td>Status</td>
+            <td>Last 7 Days Trend</td>
+        </tr>`;
+
+        // Data rows
+        sorted.forEach((m, idx) => {
+            const d = m.data || {};
+            const v1 = d.var1 ?? '';
+            const v2 = d.var2 ?? '';
+            const v3 = d.var3 ?? '';
+
+            html += '<tr>';
+
+            // Area cell (rowspan for first row)
+            if (idx === 0) {
+                html += `<td class="summary-area-cell area-${deptKey}" rowspan="${sorted.length}">${deptLabel}</td>`;
+            }
+
+            html += `<td style="font-weight:500;">${m.metric_name}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.daily_actual)}</td>`;
+            html += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.daily_forecast)}</td>`;
+            html += `<td class="${svarClass(v1)}">${fmtVal(v1)}</td>`;
+            html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.mtd_actual)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.mtd_forecast)}</td>`;
+            html += `<td class="${svarClass(v2)}">${fmtVal(v2)}</td>`;
+            html += `<td style="text-align:center;">${sstatusHtml(v2)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.outlook ?? '')}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.full_forecast ?? '')}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.full_budget ?? '')}</td>`;
+            html += `<td class="${svarClass(v3)}">${fmtVal(v3)}</td>`;
+            html += `<td style="text-align:center;">${sstatusHtml(v3)}</td>`;
+            html += `<td class="trend-cell">${summarySparkline(m.trend, isOHS)}</td>`;
+
+            html += '</tr>';
+        });
+
+        // Empty state row if no data
+        if (sorted.length === 0) {
+            html += `<tr><td class="summary-area-cell area-${deptKey}">${deptLabel}</td><td colspan="16" class="text-muted" style="text-align:center;">No data for this date</td></tr>`;
+        }
+    }
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}

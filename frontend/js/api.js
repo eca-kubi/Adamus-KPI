@@ -154,6 +154,15 @@ async function resetUserPassword(userId, newPassword) {
 }
 
 // ---------------------------------------------------------------------------
+// Summary Dashboard
+// ---------------------------------------------------------------------------
+
+async function fetchSummaryDashboard(targetDate) {
+    const response = await fetch(`${API_BASE_URL}/summary-dashboard?target_date=${targetDate}`);
+    return handleResponse(response);
+}
+
+// ---------------------------------------------------------------------------
 // KPI Records (public reads, auth-required writes)
 // ---------------------------------------------------------------------------
 

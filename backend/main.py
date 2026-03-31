@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlmodel import Session, select
+from sqlmodel import Session, select, or_
 from typing import List, Optional, Dict, Any
 from datetime import date, timedelta, datetime
 from pydantic import BaseModel
@@ -382,6 +382,69 @@ def reset_user_password(
     session.add(user)
     session.commit()
     return {"message": f"Password reset successfully for user '{user.username}'"}
+
+# ---------------------------------------------------------------------------
+# Summary Dashboard
+# ---------------------------------------------------------------------------
+
+SUMMARY_DEPARTMENTS = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"]
+
+@app.get("/api/summary-dashboard")
+def get_summary_dashboard(
+    target_date: date = Query(..., description="The date to show the summary for"),
+    session: Session = Depends(get_session),
+):
+    """Aggregate latest KPI data across all departments for the given date."""
+    trend_start = target_date - timedelta(days=6)
+
+    # Single query for all departments in the 7-day window, exclude fixed_input
+    all_records = session.exec(
+        select(KPIRecord).where(
+            KPIRecord.date >= trend_start,
+            KPIRecord.date <= target_date,
+            or_(KPIRecord.subtype != "fixed_input", KPIRecord.subtype == None),
+        )
+    ).all()
+
+    result = {}
+    for dept in SUMMARY_DEPARTMENTS:
+        dept_records = [r for r in all_records if r.department == dept]
+        today_records = [r for r in dept_records if r.date == target_date]
+
+        metrics_data = []
+        seen = set()
+        for rec in today_records:
+            if rec.metric_name in seen:
+                continue
+            seen.add(rec.metric_name)
+
+            # Build 7-day trend of daily_actual
+            trend = []
+            for d in range(7):
+                check_d = trend_start + timedelta(days=d)
+                match = next(
+                    (r for r in dept_records if r.metric_name == rec.metric_name and r.date == check_d),
+                    None,
+                )
+                if match:
+                    raw = match.data.get("daily_actual")
+                    try:
+                        cleaned = str(raw).replace("%", "").replace(",", "").strip() if raw is not None else None
+                        trend.append(float(cleaned) if cleaned else None)
+                    except (ValueError, TypeError):
+                        trend.append(None)
+                else:
+                    trend.append(None)
+
+            metrics_data.append({
+                "metric_name": rec.metric_name,
+                "data": rec.data,
+                "trend": trend,
+            })
+
+        result[dept] = metrics_data
+
+    return {"date": target_date.isoformat(), "departments": result}
 
 @app.get("/api/kpi/{department}", response_model=List[KPIRecord])
 def get_kpi_records(

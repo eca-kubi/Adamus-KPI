@@ -1,0 +1,200 @@
+import os
+import random
+from datetime import date, timedelta
+from dotenv import load_dotenv
+from sqlmodel import Session, select
+
+# Adjust path context
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from backend.database import engine
+from backend.models import KPIRecord
+
+load_dotenv()
+
+DEPARTMENTS = {
+    "OHS": [
+        "Safety Incidents", "Environmental Incidents", "Property Damage"
+    ],
+    "Milling_CIL": [
+        "Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"
+    ],
+    "Crushing": [
+        "Ore Crushed", "Grade - Ore Crushed"
+    ],
+    "Mining": [
+        "Ore Mined", "Grade - Ore Mined", "Total Material Moved", "Blast Hole Drilling"
+    ],
+    "Geology": [
+        "Grade Control Drilling", "Toll", "Exploration Drilling"
+    ],
+    "Engineering": [
+        "Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", 
+        "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles",
+        "Pumps", "Drill Rigs"
+    ]
+}
+
+def generate_random_val(metric):
+    """Generate a realistic random actual / forecast for a given metric type."""
+    m = metric.lower()
+    if "incident" in m or "damage" in m:
+        return random.choices([0, 1], weights=[0.95, 0.05])[0]
+    elif "recovery" in m:
+        return round(random.uniform(75.0, 95.0), 1)
+    elif "grade" in m:
+        return round(random.uniform(0.5, 2.0), 2)
+    elif "drilling" in m:
+        return random.randint(100, 800)
+    elif "tonne" in m or "crushed" in m or "mined" in m:
+        return random.randint(3000, 6000)
+    elif "moved" in m:
+        return random.randint(10000, 20000)
+    elif "toll" in m:
+        return random.randint(0, 3000)
+    elif "gold" in m: # Gold contained/recovered
+        return random.randint(80, 250)
+    else: # Engineering equip availability mostly percentage
+        return round(random.uniform(30.0, 100.0), 1)
+
+def format_val(val, metric):
+    """Format as string mostly, percentages for recovery/equip."""
+    m = metric.lower()
+    if "recovery" in m or ("%" in m) or "truck" in m or "excavator" in m or "loader" in m or "grader" in m or "dozer" in m or "crusher" == m or "mill" == m or "vehicle" in m:
+        return f"{val}%"
+    return str(val)
+
+def seed_data():
+    start_date = date(2026, 1, 1)
+    end_date = date(2026, 3, 31)
+    delta = timedelta(days=1)
+    
+    with Session(engine) as session:
+        # Check if we already seeded to avoid duplicates (optional, we could just delete old ones)
+        print("Clearing old 2026 Q1 records just in case...")
+        existing = session.exec(select(KPIRecord).where(KPIRecord.date >= start_date).where(KPIRecord.date <= end_date)).all()
+        for record in existing:
+            session.delete(record)
+        session.commit()
+
+        records_to_add = []
+        
+        for dept, metrics in DEPARTMENTS.items():
+            print(f"Generating data for {dept}...")
+            
+            # State trackers for month-to-date
+            mtd_state = {m: {"actual": 0.0, "forecast": 0.0} for m in metrics}
+            current_month = start_date.month
+            
+            curr_date = start_date
+            while curr_date <= end_date:
+                # Reset MTD on new month
+                if curr_date.month != current_month:
+                    mtd_state = {m: {"actual": 0.0, "forecast": 0.0} for m in metrics}
+                    current_month = curr_date.month
+                
+                for metric in metrics:
+                    actual_val = generate_random_val(metric)
+                    forecast_val = generate_random_val(metric)
+                    
+                    # Accumulate for MTD
+                    mtd_state[metric]["actual"] += actual_val
+                    mtd_state[metric]["forecast"] += forecast_val
+                    
+                    actual_str = format_val(actual_val, metric)
+                    forecast_str = format_val(forecast_val, metric)
+                    
+                    # Variance
+                    if "incident" in metric.lower() or "damage" in metric.lower():
+                        # Less is better
+                        var_val = forecast_val - actual_val 
+                    else:
+                        var_val = actual_val - forecast_val
+                        
+                    var_pct = 0
+                    if forecast_val != 0:
+                        var_pct = round((var_val / forecast_val) * 100)
+                    else:
+                        var_pct = 0 if actual_val == 0 else 100
+                    
+                    # MTD Variance
+                    mtd_a = mtd_state[metric]["actual"]
+                    mtd_f = mtd_state[metric]["forecast"]
+                    if "incident" in metric.lower() or "damage" in metric.lower():
+                        mtd_v = mtd_f - mtd_a
+                    else:
+                        mtd_v = mtd_a - mtd_f
+                        
+                    mtd_var_pct = 0
+                    if mtd_f != 0:
+                        mtd_var_pct = round((mtd_v / mtd_f) * 100)
+                        
+                    data = {
+                        "daily_actual": actual_str,
+                        "daily_forecast": forecast_str,
+                        "var1": f"{var_pct}%" if var_pct != 0 else "0%",
+                        "mtd_actual": format_val(round(mtd_a, 2) if mtd_a % 1 else int(mtd_a), metric),
+                        "mtd_forecast": format_val(round(mtd_f, 2) if mtd_f % 1 else int(mtd_f), metric),
+                        "var2": f"{mtd_var_pct}%" if mtd_var_pct != 0 else "0%",
+                        "outlook": format_val(round(mtd_a * 1.5, 1), metric),
+                        "full_forecast": format_val(round(mtd_a * 1.4, 1), metric),
+                        "full_budget": format_val(round(mtd_a * 1.6, 1), metric),
+                        "var3": f"{random.randint(-20, 20)}%",
+                    }
+
+                    # Add specific sub-fields
+                    if dept == "Engineering":
+                        data["qty_available"] = random.randint(0, 10)
+                    if dept == "Milling_CIL":
+                        data["day_2"] = format_val(generate_random_val(metric), metric)
+                        
+                    record = KPIRecord(
+                        department=dept,
+                        date=curr_date,
+                        metric_name=metric,
+                        data=data
+                    )
+                    records_to_add.append(record)
+                
+                curr_date += delta
+                
+        # 2. Add Fixed Inputs
+        print("Generating fixed inputs (monthly budgets & forecasts)...")
+        months = [1, 2, 3] # Jan, Feb, Mar 2026
+        for month in months:
+            first_day = date(2026, month, 1)
+            for dept, metrics in DEPARTMENTS.items():
+                for metric in metrics:
+                    base_forecast = generate_random_val(metric)
+                    base_budget = int(base_forecast * random.uniform(0.9, 1.3))
+
+                    # Format properly with percentages if needed
+                    forecast_str = format_val(base_forecast, metric).replace('%', '') if "%" in format_val(base_forecast, metric) else str(base_forecast)
+                    budget_str = format_val(base_budget, metric).replace('%', '') if "%" in format_val(base_budget, metric) else str(base_budget)
+
+                    # Some fields like "Available Rig Options" might be in fixed inputs depending on department
+                    data = {
+                        "full_forecast": forecast_str,
+                        "full_budget": budget_str,
+                    }
+
+                    if metric == "Exploration Drilling" or "Grade Control" in metric:
+                        data["available_rig_options"] = random.randint(1, 5)
+
+                    record = KPIRecord(
+                        department=dept,
+                        date=first_day,
+                        metric_name=metric,
+                        subtype="fixed_input",
+                        data=data
+                    )
+                    records_to_add.append(record)
+                    
+        print(f"Adding {len(records_to_add)} records to database...")
+        session.add_all(records_to_add)
+        session.commit()
+        print("Success! Database seeded.")
+
+if __name__ == "__main__":
+    seed_data()

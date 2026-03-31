@@ -858,4 +858,166 @@ a:hover {
 .user-search-input:focus {
     border-color: var(--bs-primary);
     box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
-}
+}
+
+/* -------------------------
+   16. Summary Dashboard
+   ------------------------- */
+
+/* Header bar */
+.summary-header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.summary-header-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #d2ab67;
+}
+
+.summary-date-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255,255,255,0.08);
+    padding: 0.4rem 0.75rem;
+    border-radius: 10px;
+}
+
+.summary-date-box label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #d2ab67;
+    white-space: nowrap;
+}
+
+.summary-date-box input[type="date"] {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    border-radius: 6px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+    font-family: inherit;
+}
+
+.summary-date-box input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+
+/* Table wrapper */
+.summary-table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    background: #fff;
+}
+
+/* Dense spreadsheet table */
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.7rem;
+    white-space: nowrap;
+}
+
+.summary-table th,
+.summary-table td {
+    padding: 3px 7px;
+    border: 1px solid #d5d5d5;
+    text-align: left;
+}
+
+.summary-table th {
+    background: #f0f0f0;
+    font-weight: 700;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #555;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* Department section header row */
+.summary-dept-hdr td {
+    font-weight: 700;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #fff;
+    padding: 4px 7px;
+}
+
+/* Area cell (rowspan) */
+.summary-area-cell {
+    font-weight: 700;
+    font-size: 0.72rem;
+    vertical-align: middle;
+    text-align: center;
+    background: #f8f8f8;
+}
+
+/* Variance color cells */
+.svar-pos { background-color: #c6efce; color: #006100; font-weight: 600; text-align: center; }
+.svar-neg { background-color: #ffc7ce; color: #9c0006; font-weight: 600; text-align: center; }
+.svar-zero { background-color: #ffeb9c; color: #9c5700; font-weight: 600; text-align: center; }
+.svar-na { text-align: center; color: #999; }
+
+/* Status indicator squares */
+.sstatus {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    vertical-align: middle;
+}
+
+.sstatus-good { background: #22c55e; }
+.sstatus-bad { background: #ef4444; }
+.sstatus-warn { background: #f59e0b; }
+.sstatus-na { background: #d1d5db; }
+
+/* Data rows hover */
+.summary-table tbody tr:not(.summary-dept-hdr):hover {
+    background-color: #f5f5dc;
+}
+
+/* Numeric cells */
+.summary-table .num-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Trend cell */
+.summary-table .trend-cell {
+    text-align: center;
+    padding: 2px 4px;
+}
+
+/* Department-specific header colors */
+.dept-hdr-ohs { background: #4a6741; }
+.dept-hdr-milling_cil { background: #2d6a6a; }
+.dept-hdr-crushing { background: #8b5e3c; }
+.dept-hdr-mining { background: #3d5a3d; }
+.dept-hdr-geology { background: #6b5b3e; }
+.dept-hdr-engineering { background: #3d4f5f; }
+
+/* Area cell department colors */
+.area-ohs { color: #4a6741; }
+.area-milling_cil { color: #2d6a6a; }
+.area-crushing { color: #8b5e3c; }
+.area-mining { color: #3d5a3d; }
+.area-geology { color: #6b5b3e; }
+.area-engineering { color: #3d4f5f; }
