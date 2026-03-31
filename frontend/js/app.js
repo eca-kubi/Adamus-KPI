@@ -112,6 +112,7 @@ function initApp() {
     content.classList.remove('auth-layout');
     content.classList.add('main-content');
     sidebar.classList.add('show');
+    document.getElementById('sidebar-toggle').style.display = 'block';
 
     renderSidebar();
     loadDepartmentView(STATE.currentDept);
@@ -376,12 +377,17 @@ function renderSidebar() {
     const isAdmin = (userRole || '').toLowerCase() === 'admin';
 
     nav.innerHTML = `
-        <h2 class="d-flex align-items-center gap-2">
-            <img src="images/adamus_logo_transparent_white_text.png" alt="Adamus Logo" style="height: 40px;">
-            Adamus KPI
-        </h2>
+        <div class="d-flex align-items-center justify-content-between mb-4 w-100">
+            <h2 class="d-flex align-items-center gap-2 mb-0">
+                <img src="images/adamus_logo_transparent_white_text.png" alt="Adamus Logo" style="height: 32px;">
+                <span class="fs-5">Adamus KPI</span>
+            </h2>
+            <button class="btn btn-link text-white p-0 hover-lift" onclick="document.getElementById('sidebar').classList.add('collapsed')" title="Collapse Sidebar">
+                <i class="bi bi-chevron-left fs-5"></i>
+            </button>
+        </div>
         
-        <nav class="nav flex-column flex-grow-1">
+        <nav class="nav flex-column flex-grow-1" style="margin-top: -1rem;">
             <a href="#" onclick="renderSummaryDashboardPage(); return false;"
                class="nav-link ${STATE.currentView === 'summary' ? 'active' : ''}">
                <i class="bi bi-grid-1x2-fill"></i>
@@ -489,8 +495,15 @@ window.loadDepartmentView = async function (dept) {
         <div id="kpi-forms-container" class="mb-4"></div>
         <div id="records-table-container">
             <div class="card p-4">
-                <div class="card-header d-flex align-items-center justify-content-between">
-                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Recent Records: <span id="table-metric-title" class="text-primary">${STATE.currentMetric}</span></h5>
+                <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Records: <span id="table-metric-title" class="text-primary">${STATE.currentMetric}</span></h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0 fw-bold text-nowrap" style="font-size: 0.9rem;">Date Range:</label>
+                        <input type="date" id="record-start-date" class="form-control form-control-sm" style="max-width: 130px; border-radius: 0.5rem;" onchange="loadRecentRecords('${dept}')">
+                        <span class="text-muted text-nowrap" style="font-size: 0.9rem;">to</span>
+                        <input type="date" id="record-end-date" class="form-control form-control-sm" style="max-width: 130px; border-radius: 0.5rem;" onchange="loadRecentRecords('${dept}')">
+                        <button class="btn btn-sm btn-outline-secondary" style="border-radius: 0.5rem;" onclick="document.getElementById('record-start-date').value=''; document.getElementById('record-end-date').value=''; loadRecentRecords('${dept}');" title="Clear Filter"><i class="bi bi-x-lg"></i></button>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -7876,8 +7889,24 @@ window.editRecord = (id) => {
 
 async function loadRecentRecords(dept) {
     try {
-        const records = await fetchKPIRecords(dept);
-        STATE.currentRecords = records; // Save for Edit/Delete
+        const allRecords = await fetchKPIRecords(dept);
+        STATE.currentRecords = allRecords; // Save for Edit/Delete
+
+        let records = allRecords;
+        const startDateStr = document.getElementById('record-start-date')?.value;
+        const endDateStr = document.getElementById('record-end-date')?.value;
+        
+        if (startDateStr || endDateStr) {
+            records = records.filter(r => {
+                if (!r.date || !r.date.includes('-')) return false;
+                
+                // Compare strings directly YYYY-MM-DD
+                if (startDateStr && r.date < startDateStr) return false;
+                if (endDateStr && r.date > endDateStr) return false;
+                
+                return true;
+            });
+        }
 
         const tbody = document.querySelector('#records-table tbody');
         const thead = document.querySelector('#records-table thead tr');

@@ -151,6 +151,26 @@ a:hover {
     min-width: 0;
     background-color: #f5f7fa;
     padding: 1.5rem;
+    margin-left: var(--sidebar-width);
+    transition: margin-left var(--transition-normal);
+}
+
+.sidebar.collapsed ~ .main-content {
+    margin-left: 0;
+    padding-left: 4.5rem; /* Make room for the floating toggle button */
+}
+
+#app.auth-mode .main-content {
+    margin-left: 0;
+    padding-left: 1.5rem; /* Reset padding for auth screen */
+}
+
+#app.auth-mode .main-content.auth-layout {
+    padding-left: 2rem;
+}
+
+#app.auth-mode #sidebar-toggle {
+    display: none !important;
 }
 
 .main-content.auth-layout {
@@ -170,11 +190,20 @@ a:hover {
     background: var(--sidebar-bg);
     color: var(--sidebar-text);
     padding: 1.5rem;
-    min-height: 100vh;
-    position: sticky;
+    height: 100vh;
+    position: fixed;
     top: 0;
+    left: 0;
+    z-index: 1040;
+    overflow-y: auto;
+    overflow-x: hidden;
     flex-shrink: 0;
     display: none;
+    transition: transform var(--transition-normal);
+}
+
+.sidebar.collapsed {
+    transform: translateX(-100%);
 }
 
 .sidebar.show {
@@ -337,9 +366,15 @@ a:hover {
 .table {
     background: #fff;
     border-radius: 12px;
-    overflow: hidden;
     box-shadow: var(--shadow-sm);
     margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table-responsive {
+    max-height: 65vh;
+    overflow-y: auto;
 }
 
 .table thead th {
@@ -351,6 +386,9 @@ a:hover {
     letter-spacing: 0.5px;
     color: #6c757d;
     padding: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .table tbody td {
@@ -548,13 +586,23 @@ a:hover {
     .sidebar {
         width: 100%;
         position: fixed;
-        z-index: 1040;
+        z-index: 1050;
         transform: translateX(-100%);
         transition: transform var(--transition-normal);
     }
 
     .sidebar.show {
         transform: translateX(0);
+    }
+
+    .sidebar.collapsed {
+        transform: translateX(-100%) !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding-top: 4.5rem; /* Room for floating toggle when sidebar is naturally hidden on mobile */
+        padding-left: 1.5rem !important;
     }
 
     #content {

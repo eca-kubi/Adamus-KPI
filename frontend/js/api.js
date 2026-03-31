@@ -32,6 +32,21 @@ function authHeaders() {
 
 async function handleResponse(response) {
     if (!response.ok) {
+        // Handle unauthorized / expired token
+        if (response.status === 401) {
+            if (typeof DOM !== 'undefined' && DOM.showToast) {
+                DOM.showToast('Session expired. Please log in again.', 'error');
+            } else {
+                alert('Session expired. Please log in again.');
+            }
+            setTimeout(() => {
+                if (typeof logout === 'function') {
+                    logout();
+                }
+            }, 2000);
+            throw new Error('Session expired. Please log in again.');
+        }
+
         let errorMsg = 'Unknown error';
         try {
             const error = await response.json();
