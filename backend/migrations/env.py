@@ -25,7 +25,7 @@ if config.config_file_name is not None:
 
 
 # Overwrite sqlalchemy.url with the one from .env
-database_url = os.getenv("DATABASE_URL")
+database_url = os.getenv("ALEMBIC_DATABASE_URL") or os.getenv("DATABASE_URL")
 if not database_url:
     raise RuntimeError(
         "DATABASE_URL is required and must be a MySQL URL, e.g. "

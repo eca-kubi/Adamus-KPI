@@ -1,0 +1,44 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: arl-kpi-app
+    environment:
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db/${MYSQL_DATABASE}
+      - ALEMBIC_DATABASE_URL=mysql+pymysql://alembic_user:${ALEMBIC_PASSWORD}@db/${MYSQL_DATABASE}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - arl-kpi-network
+
+  db:
+    image: mariadb:10.11
+    restart: always
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      ALEMBIC_PASSWORD: ${ALEMBIC_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - arl-kpi-network
+
+volumes:
+  db_data:
+
+networks:
+  arl-kpi-network:
+    driver: bridge

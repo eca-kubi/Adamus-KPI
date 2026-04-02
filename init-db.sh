@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+# This script is executed by the MariaDB container on its first startup.
+# It uses environment variables so that no passwords are hardcoded in source control.
+
+mysql -u root -p"${MARIADB_ROOT_PASSWORD}" <<-EOSQL
+    -- 1. Create the highly-privileged Alembic user
+    CREATE USER IF NOT EXISTS 'alembic_user'@'%' IDENTIFIED BY '${ALEMBIC_PASSWORD}';
+    GRANT ALL PRIVILEGES ON ${MARIADB_DATABASE}.* TO 'alembic_user'@'%';
+
+    -- 2. Create the default app user to least privileges explicitly
+    CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ${MARIADB_DATABASE}.* TO '${MYSQL_USER}'@'%';
+
+    -- 3. Apply the changes
+    FLUSH PRIVILEGES;
+EOSQL

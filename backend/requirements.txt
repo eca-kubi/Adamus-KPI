@@ -9,3 +9,5 @@ python-jose[cryptography]
 python-multipart
 alembic
 argon2-cffi
+resend
+

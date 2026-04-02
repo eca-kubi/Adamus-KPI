@@ -9,6 +9,7 @@ from jose import JWTError, jwt
 import os
 import smtplib
 import logging
+import resend
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
@@ -29,29 +30,17 @@ app = FastAPI()
 
 def send_confirmation_email(to_address: str, username: str) -> None:
     """Send an account-confirmation email to the new admin.
-    All SMTP settings are sourced from environment variables.
+    Can use either SMTP or Resend based on EMAIL_PROVIDER setting.
     Failures are logged but never raise so registration is never blocked.
     """
-    smtp_host = os.getenv("SMTP_HOST", "")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "")
-    smtp_password = os.getenv("SMTP_PASSWORD", "")
-    smtp_from = os.getenv("SMTP_FROM", smtp_user)
+    provider = os.getenv("EMAIL_PROVIDER", "smtp").lower()
     app_name = os.getenv("APP_NAME", "Adamus KPI")
 
-    if not smtp_host or not smtp_user or not to_address:
-        logger.warning(
-            "Email not sent: SMTP_HOST, SMTP_USER, or recipient address is missing."
-        )
+    if not to_address:
+        logger.warning("Email not sent: recipient address is missing.")
         return
 
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Welcome to {app_name} – Admin Account Created"
-        msg["From"] = smtp_from
-        msg["To"] = to_address
-
-        html_body = f"""\
+    html_body = f"""\
 <html>
   <body style="font-family: Arial, sans-serif; color: #333;">
     <h2 style="color:#0d6efd;">Welcome to {app_name}!</h2>
@@ -63,17 +52,54 @@ def send_confirmation_email(to_address: str, username: str) -> None:
   </body>
 </html>
 """
-        msg.attach(MIMEText(html_body, "html"))
 
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_from, to_address, msg.as_string())
+    if provider == "resend":
+        resend_api_key = os.getenv("RESEND_API_KEY", "")
+        resend_from = os.getenv("RESEND_FROM", "onboarding@resend.dev")
+        if not resend_api_key:
+            logger.warning("Email not sent: RESEND_API_KEY is missing.")
+            return
+        
+        resend.api_key = resend_api_key
+        try:
+            params = {
+                "from": resend_from,
+                "to": [to_address],
+                "subject": f"Welcome to {app_name} – Admin Account Created",
+                "html": html_body,
+            }
+            resend.Emails.send(params)
+            logger.info("Confirmation email sent to %s via Resend", to_address)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to send Resend email to %s: %s", to_address, exc)
 
-        logger.info("Confirmation email sent to %s", to_address)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to send confirmation email to %s: %s", to_address, exc)
+    else:
+        # Default to SMTP
+        smtp_host = os.getenv("SMTP_HOST", "")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_user = os.getenv("SMTP_USER", "")
+        smtp_password = os.getenv("SMTP_PASSWORD", "")
+        smtp_from = os.getenv("SMTP_FROM", smtp_user)
+
+        if not smtp_host or not smtp_user:
+            logger.warning("Email not sent: SMTP_HOST or SMTP_USER is missing.")
+            return
+
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"Welcome to {app_name} – Admin Account Created"
+            msg["From"] = smtp_from
+            msg["To"] = to_address
+            msg.attach(MIMEText(html_body, "html"))
+
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_from, to_address, msg.as_string())
+            logger.info("Confirmation email sent to %s via SMTP", to_address)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to send SMTP email to %s: %s", to_address, exc)
 
 class CascadeFixedRequest(BaseModel):
     metric_name: str
@@ -84,7 +110,8 @@ class CascadeFixedRequest(BaseModel):
 
 @app.on_event("startup")
 def on_startup():
-    create_db_and_tables()
+    # create_db_and_tables() 
+    pass
 
 # Auth Infrastructure
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")

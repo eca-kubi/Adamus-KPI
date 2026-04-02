@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+.env.*
+!.env.coolify
+.git/
+.github/
+.gitignore
+alembic/
+database.db
+*.log

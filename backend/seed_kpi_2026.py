@@ -8,8 +8,8 @@ from sqlmodel import Session, select
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from backend.database import engine
-from backend.models import KPIRecord
+from database import engine
+from models import KPIRecord
 
 load_dotenv()
 
