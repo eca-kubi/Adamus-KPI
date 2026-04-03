@@ -4,12 +4,26 @@ services:
       context: .
       dockerfile: Dockerfile
     image: arl-kpi-app
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
     environment:
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db/${MYSQL_DATABASE}
       - ALEMBIC_DATABASE_URL=mysql+pymysql://alembic_user:${ALEMBIC_PASSWORD}@db/${MYSQL_DATABASE}
+      - APP_URL=${APP_URL}
       - SECRET_KEY=${SECRET_KEY}
-      - ALGORITHM=${ALGORITHM:-HS256}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      - ALGORITHM=${ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER}
+      - APP_NAME=${APP_NAME}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_FROM=${RESEND_FROM}
+      - SEED_DB=${SEED_DB}
     depends_on:
       db:
         condition: service_healthy

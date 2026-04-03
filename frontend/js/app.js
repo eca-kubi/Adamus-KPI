@@ -21,6 +21,11 @@ const DEPT_ICONS = {
     "Engineering": "bi-tools"
 };
 
+const validateAdamusEmail = (email) => {
+    if (!email) return false;
+    return email.toLowerCase().trim().endsWith("@adamusgh.com");
+};
+
 const DEPT_METRICS = {
     "Milling_CIL": [
         "Fixed Inputs",
@@ -239,7 +244,10 @@ function renderSetupScreen() {
     container.appendChild(subtitle);
 
     const username = DOM.createInputGroup('Username (Admin)', 'reg-username');
-    const email = DOM.createInputGroup('Email Address', 'reg-email', 'email');
+    const fullName = DOM.createInputGroup('Full Name', 'reg-fullname');
+    const email = DOM.createInputGroup('Corporate Email (@adamusgh.com)', 'reg-email', 'email');
+    email.input.placeholder = 'your-username@adamusgh.com';
+    const phoneNumber = DOM.createInputGroup('Phone Number', 'reg-phone');
     const password = DOM.createInputGroup('Password', 'reg-password', 'password');
     const confirm = DOM.createInputGroup('Confirm Password', 'reg-confirm', 'password');
 
@@ -249,32 +257,54 @@ function renderSetupScreen() {
     emailHint.textContent = 'A confirmation email will be sent to this address.';
 
     container.appendChild(username.container);
+    container.appendChild(fullName.container);
     container.appendChild(email.container);
     container.appendChild(emailHint);
+    container.appendChild(phoneNumber.container);
     container.appendChild(password.container);
     container.appendChild(confirm.container);
 
+    // Real-time validation
+    email.input.addEventListener('input', () => {
+        if (!email.input.value) {
+            email.input.classList.remove('is-invalid', 'is-valid');
+            return;
+        }
+        if (validateAdamusEmail(email.input.value)) {
+            email.input.classList.remove('is-invalid');
+            email.input.classList.add('is-valid');
+        } else {
+            email.input.classList.remove('is-valid');
+            email.input.classList.add('is-invalid');
+        }
+    });
+
     const handleEnter = (e) => { if (e.key === 'Enter') createBtn.click(); };
-    [username, email, password, confirm].forEach(g => { if (g.input) g.input.onkeypress = handleEnter; });
+    [username, fullName, email, phoneNumber, password, confirm].forEach(g => { if (g.input) g.input.onkeypress = handleEnter; });
 
     const createBtn = DOM.createButton('Create Admin Account', async () => {
         const u = username.input.value.trim();
+        const fn = fullName.input.value.trim();
         const e = email.input.value.trim();
+        const ph = phoneNumber.input.value.trim();
         const p = password.input.value;
         const c = confirm.input.value;
 
-        if (!u || !p) { DOM.showToast('Please fill all fields', 'error'); return; }
+        if (!u || !p || !e) { DOM.showToast('Please fill all required fields, including email', 'error'); return; }
+        if (!validateAdamusEmail(e)) { DOM.showToast('Only @adamusgh.com email addresses are allowed', 'error'); return; }
         if (p !== c) { DOM.showToast('Passwords do not match', 'error'); return; }
 
         try {
             await registerUser({
                 username: u,
+                full_name: fn || null,
                 email: e || null,
+                phone_number: ph || null,
                 password: p,
                 departments: ['All'],
                 role: 'Admin'
             });
-            DOM.showToast('Admin account created! Please login.');
+            DOM.showToast('Admin account created! A confirmation email has been sent.');
             renderLoginScreen();
         } catch (err) {
             DOM.showToast(err.message, 'error');
@@ -9438,9 +9468,10 @@ function injectUserModals() {
                 <label class="form-label fw-semibold small">Full Name</label>
                 <input type="text" class="form-control" id="add-fullname" placeholder="e.g. John Doe">
               </div>
-              <div class="col-md-6">
-                <label class="form-label fw-semibold small">Email</label>
-                <input type="email" class="form-control" id="add-email" placeholder="user@example.com">
+              <div class="col-md-12">
+                <label class="form-label fw-semibold small">Corporate Email <span class="text-danger">*</span></label>
+                <input type="email" class="form-control" id="add-email" placeholder="user@adamusgh.com">
+                <div class="form-text" style="font-size: 0.75rem;">A confirmation email will be sent to this address.</div>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold small">Phone</label>
@@ -9488,9 +9519,9 @@ function injectUserModals() {
                 <label class="form-label fw-semibold small">Full Name</label>
                 <input type="text" class="form-control" id="edit-fullname">
               </div>
-              <div class="col-md-6">
-                <label class="form-label fw-semibold small">Email</label>
-                <input type="email" class="form-control" id="edit-email">
+              <div class="col-md-12">
+                <label class="form-label fw-semibold small">Corporate Email <span class="text-danger">*</span></label>
+                <input type="email" class="form-control" id="edit-email" placeholder="user@adamusgh.com">
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold small">Phone</label>
@@ -9589,6 +9620,26 @@ window.showAddUserModal = function () {
     }
 
     const modal = new bootstrap.Modal(document.getElementById('modal-add-user'));
+    
+    // Add real-time validation listener
+    const emailInput = document.getElementById('add-email');
+    if (emailInput) {
+        emailInput.classList.remove('is-invalid', 'is-valid');
+        emailInput.oninput = () => {
+            if (!emailInput.value) {
+                emailInput.classList.remove('is-invalid', 'is-valid');
+                return;
+            }
+            if (validateAdamusEmail(emailInput.value)) {
+                emailInput.classList.remove('is-invalid');
+                emailInput.classList.add('is-valid');
+            } else {
+                emailInput.classList.remove('is-valid');
+                emailInput.classList.add('is-invalid');
+            }
+        };
+    }
+
     modal.show();
 };
 
@@ -9602,14 +9653,15 @@ window.submitAddUser = async function () {
     const password = document.getElementById('add-password')?.value;
     const confirm = document.getElementById('add-confirm')?.value;
 
-    if (!username || !password) { DOM.showToast('Username and password are required', 'error'); return; }
+    if (!username || !password || !email) { DOM.showToast('Username, Email, and Password are required', 'error'); return; }
+    if (!validateAdamusEmail(email)) { DOM.showToast('Only @adamusgh.com emails are allowed', 'error'); return; }
     if (password !== confirm) { DOM.showToast('Passwords do not match', 'error'); return; }
     if (password.length < 6) { DOM.showToast('Password must be at least 6 characters', 'error'); return; }
 
     try {
         await createUser({ username, full_name: fullName || null, email: email || null, phone_number: phone || null, departments: depts, role, password });
         bootstrap.Modal.getInstance(document.getElementById('modal-add-user'))?.hide();
-        DOM.showToast('User created successfully!', 'success');
+        DOM.showToast('User created! Confirmation email sent.', 'success');
         await loadUsersTable();
     } catch (e) {
         DOM.showToast(e.message, 'error');
@@ -9638,6 +9690,28 @@ window.showEditUserModal = function (userId) {
     document.getElementById('modal-edit-user-label').innerHTML = `<i class="bi bi-pencil-square me-2"></i>Edit — @${user.username}`;
 
     const modal = new bootstrap.Modal(document.getElementById('modal-edit-user'));
+    
+    // Add real-time validation listener
+    const emailInput = document.getElementById('edit-email');
+    if (emailInput) {
+        emailInput.classList.remove('is-invalid');
+        if (validateAdamusEmail(emailInput.value)) emailInput.classList.add('is-valid');
+        
+        emailInput.oninput = () => {
+            if (!emailInput.value) {
+                emailInput.classList.remove('is-invalid', 'is-valid');
+                return;
+            }
+            if (validateAdamusEmail(emailInput.value)) {
+                emailInput.classList.remove('is-invalid');
+                emailInput.classList.add('is-valid');
+            } else {
+                emailInput.classList.remove('is-valid');
+                emailInput.classList.add('is-invalid');
+            }
+        };
+    }
+
     modal.show();
 };
 

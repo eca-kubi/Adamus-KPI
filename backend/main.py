@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi import FastAPI, Depends, HTTPException, Query, status, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select, or_
@@ -28,28 +28,71 @@ app = FastAPI()
 # Email helper
 # ---------------------------------------------------------------------------
 
+def is_adamus_email(email: str) -> bool:
+    """Validate that the email belongs to the @adamusgh.com domain."""
+    if not email:
+        return False
+    return email.lower().strip().endswith("@adamusgh.com")
+
 def send_confirmation_email(to_address: str, username: str) -> None:
-    """Send an account-confirmation email to the new admin.
+    """Send an account-confirmation email to the new user.
     Can use either SMTP or Resend based on EMAIL_PROVIDER setting.
     Failures are logged but never raise so registration is never blocked.
+    Now with enhanced design and branding.
     """
     provider = os.getenv("EMAIL_PROVIDER", "smtp").lower()
     app_name = os.getenv("APP_NAME", "Adamus KPI")
+    app_url = os.getenv("APP_URL", "https://adamusgh.com")
 
     if not to_address:
         logger.warning("Email not sent: recipient address is missing.")
         return
+    
+    if not is_adamus_email(to_address):
+        logger.warning("Email skip: recipient address '%s' not an adamusgh.com address.", to_address)
+        return
 
+    # Premium Email HTML Body
     html_body = f"""\
+<!DOCTYPE html>
 <html>
-  <body style="font-family: Arial, sans-serif; color: #333;">
-    <h2 style="color:#0d6efd;">Welcome to {app_name}!</h2>
-    <p>Hi <strong>{username}</strong>,</p>
-    <p>Your administrator account has been successfully created.</p>
-    <p style="margin-top:24px;">You can now log in using your username and the password you chose during setup.</p>
-    <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
-    <p style="font-size:12px;color:#888;">If you did not create this account, please contact your system administrator immediately.</p>
-  </body>
+<head>
+  <style>
+    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #334155; margin: 0; padding: 0; }}
+    .container {{ max-width: 600px; margin: 40px auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }}
+    .header {{ background: #0f172a; color: #ffffff; padding: 30px; text-align: center; }}
+    .content {{ padding: 40px; background-color: #ffffff; }}
+    .footer {{ background: #f8fafc; color: #64748b; padding: 20px; text-align: center; font-size: 12px; border-top: 1px solid #e2e8f0; }}
+    .button {{ display: inline-block; padding: 12px 24px; background-color: #d2ab67; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }}
+    .h1 {{ margin: 0; font-size: 24px; color: #ffffff; }}
+    .highlight {{ color: #020617; font-weight: 600; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="h1">Adamus KPI Portal</div>
+    </div>
+    <div class="content">
+      <h2 style="color: #0f172a; margin-top: 0;">Welcome aboard!</h2>
+      <p>Hi <span class="highlight">{username}</span>,</p>
+      <p>Your account for the <span class="highlight">{app_name}</span> has been successfully created. You now have access to monitor and manage key performance indicators across the organization.</p>
+      
+      <p style="margin-top: 24px;">Please use your username and the password provided by your administrator to sign in.</p>
+      
+      <center>
+        <a href="{app_url}" class="button">Access KPI Portal</a>
+      </center>
+      
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+      <p style="font-size: 13px;">If you did not expect this email, please contact the IT Service Desk immediately.</p>
+    </div>
+    <div class="footer">
+      &copy; {datetime.now().year} Adamus Resources Limited. All rights reserved.<br>
+      Confidential Organization Monitoring System
+    </div>
+  </div>
+</body>
 </html>
 """
 
@@ -65,7 +108,7 @@ def send_confirmation_email(to_address: str, username: str) -> None:
             params = {
                 "from": resend_from,
                 "to": [to_address],
-                "subject": f"Welcome to {app_name} – Admin Account Created",
+                "subject": f"Welcome to {app_name} – Your Account is Ready",
                 "html": html_body,
             }
             resend.Emails.send(params)
@@ -87,7 +130,7 @@ def send_confirmation_email(to_address: str, username: str) -> None:
 
         try:
             msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"Welcome to {app_name} – Admin Account Created"
+            msg["Subject"] = f"Welcome to {app_name} – Your Account is Ready"
             msg["From"] = smtp_from
             msg["To"] = to_address
             msg.attach(MIMEText(html_body, "html"))
@@ -236,7 +279,11 @@ def check_setup_required(session: Session = Depends(get_session)):
     return {"setup_required": user is None}
 
 @app.post("/api/register", response_model=User)
-def register_user(user: UserCreate, session: Session = Depends(get_session)):
+def register_user(user: UserCreate, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+    # Validate adamus email if provided
+    if user.email and not is_adamus_email(user.email):
+         raise HTTPException(status_code=400, detail="Only @adamusgh.com email addresses are allowed")
+
     # Check if this is the first user
     first_user = session.exec(select(User)).first()
     is_first_user = first_user is None
@@ -269,9 +316,9 @@ def register_user(user: UserCreate, session: Session = Depends(get_session)):
     session.commit()
     session.refresh(db_user)
 
-    # Send confirmation email to the first (admin) user if they provided an address
-    if is_first_user and db_user.email:
-        send_confirmation_email(db_user.email, db_user.username)
+    # Send confirmation email for all user creations if they provided an adamus address
+    if db_user.email:
+        background_tasks.add_task(send_confirmation_email, db_user.email, db_user.username)
 
     return db_user
 
@@ -374,10 +421,14 @@ def get_user(
 @app.post("/api/users", response_model=UserResponse)
 def admin_create_user(
     user: UserCreate,
+    background_tasks: BackgroundTasks,
     admin: User = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """(Admin) Create a new user account."""
+    if user.email and not is_adamus_email(user.email):
+         raise HTTPException(status_code=400, detail="Only @adamusgh.com email addresses are allowed")
+
     existing = session.exec(select(User).where(User.username == user.username)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already taken")
@@ -397,6 +448,11 @@ def admin_create_user(
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
+
+    # Send confirmation email for all user creations if they provided an adamus address
+    if db_user.email:
+        background_tasks.add_task(send_confirmation_email, db_user.email, db_user.username)
+
     return db_user
 
 @app.put("/api/users/{user_id}", response_model=UserResponse)
@@ -410,6 +466,10 @@ def update_user(
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    if payload.email and not is_adamus_email(payload.email):
+         raise HTTPException(status_code=400, detail="Only @adamusgh.com email addresses are allowed")
+
     update_data = payload.model_dump(exclude_unset=True)
     
     # If departments are updated, automatically recalculate allowed_metrics
