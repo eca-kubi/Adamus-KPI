@@ -8134,6 +8134,10 @@ async function loadRecentRecords(dept) {
             filteredRecords.forEach(r => {
                 const tr = document.createElement('tr');
                 tr.style.borderTop = '1px solid #e5e7eb';
+                if (r.last_modification && r.last_modification.username) {
+                    tr.title = `Updated by ${r.last_modification.username}`;
+                    tr.setAttribute('data-bs-toggle', 'tooltip');
+                }
 
                 let dateDisplay = r.date;
                 if (r.date && r.date.includes('-')) {
