@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select, or_
 from typing import List, Optional, Dict, Any
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, timezone
 from pydantic import BaseModel
 from jose import JWTError, jwt
 import os
@@ -619,6 +619,11 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
         if existing:
             # Update existing
             existing.data = record.data
+            existing.last_modification = {
+                "at": datetime.now(timezone.utc).isoformat(),
+                "by_user_id": _user.id,
+                "username": _user.username
+            }
             session.add(existing)
             session.commit()
             session.refresh(existing)
@@ -626,6 +631,8 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
         else:
             # Create new
             record.department = department
+            record.created_by_user_id = _user.id
+            record.created_at = datetime.now(timezone.utc)
             session.add(record)
             session.commit()
             session.refresh(record)
@@ -784,6 +791,11 @@ def cascade_fixed_input(
             new_data['var3'] = calc_var(payload.full_forecast, payload.full_budget, is_ohs_dept)
 
             record.data = new_data
+            record.last_modification = {
+                "at": datetime.now(timezone.utc).isoformat(),
+                "by_user_id": _user.id,
+                "username": _user.username
+            }
             session.add(record)
             count += 1
             
