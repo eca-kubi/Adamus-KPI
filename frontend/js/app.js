@@ -77,6 +77,174 @@ const DEPT_METRICS = {
     ]
 };
 
+const ROUTER_STATE = {
+    isApplyingRoute: false,
+    suppressHashChange: false
+};
+
+function slugifyRoutePart(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[_\s]+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+}
+
+const DEPT_BY_SLUG = DEPARTMENTS.reduce((acc, dept) => {
+    acc[slugifyRoutePart(dept)] = dept;
+    return acc;
+}, {});
+
+const METRIC_BY_DEPT_SLUG = DEPARTMENTS.reduce((acc, dept) => {
+    acc[dept] = (DEPT_METRICS[dept] || []).reduce((metricMap, metric) => {
+        metricMap[slugifyRoutePart(metric)] = metric;
+        return metricMap;
+    }, {});
+    return acc;
+}, {});
+
+function parseRouteFromHash(hashInput = window.location.hash) {
+    let hash = (hashInput || '').trim();
+    if (!hash || hash === '#') return { view: 'summary' };
+
+    if (hash.startsWith('#')) hash = hash.slice(1);
+    if (!hash.startsWith('/')) hash = `/${hash}`;
+
+    const parts = hash
+        .split('/')
+        .filter(Boolean)
+        .map(p => decodeURIComponent(p).toLowerCase());
+
+    if (parts.length === 0) return { view: 'summary' };
+
+    if (parts[0] === 'summary') return { view: 'summary' };
+    if (parts[0] === 'users') return { view: 'users' };
+    if (parts[0] === 'profile') return { view: 'profile' };
+
+    if (parts[0] === 'dept') {
+        const dept = DEPT_BY_SLUG[parts[1]];
+        if (!dept) return { invalid: true };
+
+        if (parts.length === 2) {
+            return { view: 'dept', dept };
+        }
+
+        if (parts.length === 4 && parts[2] === 'metric') {
+            const metric = (METRIC_BY_DEPT_SLUG[dept] || {})[parts[3]];
+            if (!metric) return { invalid: true };
+            return { view: 'dept', dept, metric };
+        }
+
+        return { invalid: true };
+    }
+
+    return { invalid: true };
+}
+
+function getCanonicalHashFromState() {
+    if (STATE.currentView === 'users') return '#/users';
+    if (STATE.currentView === 'profile') return '#/profile';
+
+    if (STATE.currentView === 'dept') {
+        const dept = DEPARTMENTS.includes(STATE.currentDept) ? STATE.currentDept : DEPARTMENTS[0];
+        const availableMetrics = DEPT_METRICS[dept] || [];
+        const metric = availableMetrics.includes(STATE.currentMetric) ? STATE.currentMetric : availableMetrics[0];
+
+        if (metric) {
+            return `#/dept/${slugifyRoutePart(dept)}/metric/${slugifyRoutePart(metric)}`;
+        }
+
+        return `#/dept/${slugifyRoutePart(dept)}`;
+    }
+
+    return '#/summary';
+}
+
+function setRouteHash(hash, { replace = false } = {}) {
+    if (!STATE.currentUser || !hash || window.location.hash === hash) return;
+
+    ROUTER_STATE.suppressHashChange = true;
+
+    if (replace) {
+        const url = `${window.location.pathname}${window.location.search}${hash}`;
+        window.history.replaceState(null, '', url);
+        setTimeout(() => {
+            ROUTER_STATE.suppressHashChange = false;
+        }, 0);
+        return;
+    }
+
+    window.location.hash = hash;
+    setTimeout(() => {
+        ROUTER_STATE.suppressHashChange = false;
+    }, 0);
+}
+
+function syncRouteHashFromState() {
+    const canonicalHash = getCanonicalHashFromState();
+    setRouteHash(canonicalHash, { replace: ROUTER_STATE.isApplyingRoute });
+}
+
+async function applyRouteFromHash() {
+    if (!STATE.currentUser) return false;
+
+    const route = parseRouteFromHash(window.location.hash);
+    const isAdmin = ((STATE.currentUser.role || '').toLowerCase() === 'admin');
+
+    ROUTER_STATE.isApplyingRoute = true;
+    try {
+        if (route.invalid) {
+            await renderSummaryDashboardPage();
+            setRouteHash('#/summary', { replace: true });
+            return true;
+        }
+
+        if (route.view === 'summary') {
+            await renderSummaryDashboardPage();
+            return true;
+        }
+
+        if (route.view === 'users') {
+            if (!isAdmin) {
+                await renderSummaryDashboardPage();
+                setRouteHash('#/summary', { replace: true });
+                return true;
+            }
+            await renderUserManagementPage();
+            return true;
+        }
+
+        if (route.view === 'profile') {
+            await renderMyProfilePage();
+            return true;
+        }
+
+        if (route.view === 'dept') {
+            await window.loadDepartmentView(route.dept);
+            if (route.metric && route.metric !== STATE.currentMetric) {
+                window.loadMetricView(route.metric);
+            }
+            return true;
+        }
+
+        await renderSummaryDashboardPage();
+        setRouteHash('#/summary', { replace: true });
+        return true;
+    } finally {
+        ROUTER_STATE.isApplyingRoute = false;
+    }
+}
+
+window.addEventListener('hashchange', () => {
+    if (!STATE.currentUser || ROUTER_STATE.suppressHashChange || ROUTER_STATE.isApplyingRoute) {
+        return;
+    }
+    applyRouteFromHash();
+});
+
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -95,7 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (storedUser && token) {
         try {
             STATE.currentUser = JSON.parse(storedUser);
-            initApp();
+            await initApp();
         } catch (e) {
             renderLoginScreen();
         }
@@ -104,7 +272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-function initApp() {
+async function initApp() {
     // Failsafe: if no user logic, redirect to login
     if (!STATE.currentUser) {
         // Double check localstorage
@@ -129,8 +297,7 @@ function initApp() {
     sidebar.classList.add('show');
     document.getElementById('sidebar-toggle').style.display = 'block';
 
-    renderSidebar();
-    renderSummaryDashboardPage();
+    await applyRouteFromHash();
 }
 
 function renderLoginScreen() {
@@ -407,7 +574,7 @@ async function performLogin(u, p) {
         STATE.currentUser = data.user;
         localStorage.setItem('kpi_current_user', JSON.stringify(data.user));
         // Token is already saved by login() in api.js via setToken()
-        initApp();
+        await initApp();
     } catch (e) {
         DOM.showToast(e.message, 'error');
     }
@@ -602,6 +769,7 @@ window.getStatusEmoji = function (varianceStr) {
 };
 
 window.loadMetricView = function (metric) {
+    STATE.currentView = 'dept';
     STATE.currentMetric = metric;
 
     // Update active button state with Bootstrap-friendly approach
@@ -889,6 +1057,8 @@ window.loadMetricView = function (metric) {
             `;
         }
     }
+
+    syncRouteHashFromState();
 
     document.getElementById('table-metric-title').textContent = metric;
     document.getElementById('kpi-forms-container').innerHTML = ''; // Clear previous form
@@ -9282,6 +9452,7 @@ window.renderUserManagementPage = async function () {
     STATE.currentView = 'users';
     switchToMainLayout();
     renderSidebar();
+    syncRouteHashFromState();
 
     const content = document.getElementById('content');
     content.innerHTML = `
@@ -9813,6 +9984,7 @@ window.renderMyProfilePage = async function () {
     STATE.currentView = 'profile';
     switchToMainLayout();
     renderSidebar();
+    syncRouteHashFromState();
 
     const content = document.getElementById('content');
     content.innerHTML = `
@@ -9983,6 +10155,7 @@ const _originalLoadDeptView = window.loadDepartmentView;
 window.loadDepartmentView = async function(dept) {
     STATE.currentView = 'dept';
     await _originalLoadDeptView(dept);
+    syncRouteHashFromState();
 };
 
 // ---------------------------------------------------------------------------
@@ -10066,6 +10239,7 @@ window.renderSummaryDashboardPage = async function () {
     STATE.currentView = 'summary';
     switchToMainLayout();
     renderSidebar();
+    syncRouteHashFromState();
 
     const today = new Date().toISOString().slice(0, 10);
     const content = document.getElementById('content');
