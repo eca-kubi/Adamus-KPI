@@ -15,4 +15,9 @@ mysql -h db -u root -p"${MARIADB_ROOT_PASSWORD}" <<-EOSQL
 
     -- 3. Apply the changes
     FLUSH PRIVILEGES;
+    
+    -- 4. List all users for confirmation
+    SELECT User, Host FROM mysql.user;
 EOSQL
+
+echo "✅ Database users initialized successfully. See list above."
