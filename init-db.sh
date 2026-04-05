@@ -6,7 +6,7 @@ set -e
 
 echo "Connecting to MariaDB host: db as root..."
 
-mysql -h db -u root -p"${MARIADB_ROOT_PASSWORD}" <<-EOSQL
+mysql -h db --skip-ssl -u root -p"${MARIADB_ROOT_PASSWORD}" <<-EOSQL
     -- 1. Create the highly-privileged Alembic user
     CREATE USER IF NOT EXISTS 'alembic_user'@'%' IDENTIFIED BY '${ALEMBIC_PASSWORD}';
     GRANT ALL PRIVILEGES ON ${MARIADB_DATABASE}.* TO 'alembic_user'@'%';
