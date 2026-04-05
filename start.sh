@@ -4,6 +4,10 @@
 # Initialize database users
 echo "Initializing database users..."
 ./init-db.sh
+if [ $? -ne 0 ]; then
+  echo "Database initialization failed! Exiting..."
+  exit 1
+fi
 
 # Run migrations first
 echo "Running Database Migrations..."

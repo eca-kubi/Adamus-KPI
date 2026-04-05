@@ -4,6 +4,8 @@ set -e
 # This script is executed by the app container on startup.
 # It uses environment variables so that no passwords are hardcoded in source control.
 
+echo "Connecting to MariaDB host: db as root..."
+
 mysql -h db -u root -p"${MARIADB_ROOT_PASSWORD}" <<-EOSQL
     -- 1. Create the highly-privileged Alembic user
     CREATE USER IF NOT EXISTS 'alembic_user'@'%' IDENTIFIED BY '${ALEMBIC_PASSWORD}';
