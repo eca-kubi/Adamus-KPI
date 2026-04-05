@@ -23,10 +23,10 @@ COPY frontend/ ./frontend/
 #COPY .env.coolify .env
 
 COPY alembic.ini .
+COPY start.sh .
 
 # Expose the API port
 EXPOSE 8000
 
-# Start the application using uvicorn
-# We run it as a module to handle relative imports correctly
-CMD sh -c "alembic upgrade head && uvicorn backend.main:app --host 0.0.0.0 --port 8000"
+# Run the application
+CMD ["./start.sh"]
