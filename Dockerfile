@@ -7,6 +7,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    mariadb-client \    
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
@@ -24,9 +25,10 @@ COPY frontend/ ./frontend/
 
 COPY alembic.ini .
 COPY start.sh .
+COPY init-db.sh .
 
 # Force Linux to make the script executable inside the image
-RUN chmod +x start.sh
+RUN chmod +x start.sh init-db.sh    
 
 # Expose the API port
 EXPOSE 8000

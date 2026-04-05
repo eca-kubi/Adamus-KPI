@@ -1,6 +1,10 @@
 #!/bin/bash
 # start.sh
 
+# Initialize database users
+echo "Initializing database users..."
+./init-db.sh
+
 # Run migrations first
 echo "Running Database Migrations..."
 alembic upgrade head
