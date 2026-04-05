@@ -32,10 +32,10 @@ jobs:
 
       - name: Trigger Coolify Deployment Softenprise
         run: |
-          curl -k -X GET "https://coolify.softenprise.com/api/v1/deploy?uuid=vu5oshkv9aba3vjmex6wjpk2&force=false" \
+          curl -k -X GET "https://coolify.softenprise.com/api/v1/deploy?uuid=wexx5afvrw8rbuvibohw3lsr&force=false" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN_SOFTENPRISE }}"
 
-      - name: Trigger Coolify Deployment ARL
-        run: |
-          curl -k -X GET "https://coolify.adamusgh.com/api/v1/deploy?uuid=c8kgccc40oo08osoggc0004s&force=false" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN_ARL }}"
+      # - name: Trigger Coolify Deployment ARL
+      #   run: |
+      #     curl -k -X GET "https://coolify.adamusgh.com/api/v1/deploy?uuid=c8kgccc40oo08osoggc0004s&force=false" \
+      #       -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN_ARL }}"
