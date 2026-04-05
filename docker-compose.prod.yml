@@ -12,6 +12,7 @@ services:
       - ALEMBIC_PASSWORD=${ALEMBIC_PASSWORD}
       - APP_URL=${APP_URL}
       - SECRET_KEY=${SECRET_KEY}
+      - SEED_DB=${SEED_DB}
       - ALGORITHM=${ALGORITHM}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
       - EMAIL_PROVIDER=${EMAIL_PROVIDER}
@@ -48,6 +49,7 @@ services:
       retries: 5
     networks:
       - arl-kpi-network
+      - coolify-network
 
 volumes:
   db_data:
@@ -55,3 +57,5 @@ volumes:
 networks:
   arl-kpi-network:
     driver: bridge
+  coolify-network:
+    external: true
