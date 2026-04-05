@@ -25,6 +25,9 @@ COPY frontend/ ./frontend/
 COPY alembic.ini .
 COPY start.sh .
 
+# Force Linux to make the script executable inside the image
+RUN chmod +x start.sh
+
 # Expose the API port
 EXPOSE 8000
 

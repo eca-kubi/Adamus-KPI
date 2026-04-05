@@ -30,3 +30,7 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/arl-kpi-app:latest
 
+      - name: Trigger Coolify Deployment
+        run: |
+          curl -k -X GET "https://coolify.softenprise.com/api/v1/deploy?uuid=vu5oshkv9aba3vjmex6wjpk2&force=false" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN_SOFTENPRISE }}"
