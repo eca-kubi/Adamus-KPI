@@ -3,10 +3,8 @@
 
 # Initialize database users
 echo "Initializing database users..."
-./init-db.sh
-if [ $? -ne 0 ]; then
-  echo "Database initialization failed! Exiting..."
-  exit 1
+if ! ./init-db.sh; then
+  echo "Database initialization skipped (users may already exist or root remote access is disabled). Continuing startup..."
 fi
 
 # Run migrations first

@@ -6,7 +6,8 @@ const STATE = {
     currentUser: null,
     currentDept: "OHS",
     currentMetric: "Fixed Inputs",
-    currentView: 'dept'  // 'dept' | 'users' | 'profile'
+    currentView: 'dept',  // 'dept' | 'users' | 'profile' | 'summary'
+    summaryDate: null
 };
 
 const DEPARTMENTS = ["OHS", "Geology", "Mining", "Crushing", "Milling_CIL", "Engineering"];
@@ -110,6 +111,13 @@ function parseRouteFromHash(hashInput = window.location.hash) {
     let hash = (hashInput || '').trim();
     if (!hash || hash === '#') return { view: 'summary' };
 
+    let qs = '';
+    const qIndex = hash.indexOf('?');
+    if (qIndex !== -1) {
+        qs = hash.slice(qIndex + 1);
+        hash = hash.slice(0, qIndex);
+    }
+
     if (hash.startsWith('#')) hash = hash.slice(1);
     if (!hash.startsWith('/')) hash = `/${hash}`;
 
@@ -118,30 +126,43 @@ function parseRouteFromHash(hashInput = window.location.hash) {
         .filter(Boolean)
         .map(p => decodeURIComponent(p).toLowerCase());
 
-    if (parts.length === 0) return { view: 'summary' };
+    const route = { invalid: true };
 
-    if (parts[0] === 'summary') return { view: 'summary' };
-    if (parts[0] === 'users') return { view: 'users' };
-    if (parts[0] === 'profile') return { view: 'profile' };
-
-    if (parts[0] === 'dept') {
+    if (parts.length === 0 || parts[0] === 'summary') {
+        route.view = 'summary';
+        route.invalid = false;
+        if (qs) {
+            const urlParams = new URLSearchParams(qs);
+            if (urlParams.has('date')) {
+                route.date = urlParams.get('date');
+            }
+        }
+    } else if (parts[0] === 'users') {
+        route.view = 'users';
+        route.invalid = false;
+    } else if (parts[0] === 'profile') {
+        route.view = 'profile';
+        route.invalid = false;
+    } else if (parts[0] === 'dept') {
         const dept = DEPT_BY_SLUG[parts[1]];
-        if (!dept) return { invalid: true };
-
-        if (parts.length === 2) {
-            return { view: 'dept', dept };
+        if (dept) {
+            if (parts.length === 2) {
+                route.view = 'dept';
+                route.dept = dept;
+                route.invalid = false;
+            } else if (parts.length === 4 && parts[2] === 'metric') {
+                const metric = (METRIC_BY_DEPT_SLUG[dept] || {})[parts[3]];
+                if (metric) {
+                    route.view = 'dept';
+                    route.dept = dept;
+                    route.metric = metric;
+                    route.invalid = false;
+                }
+            }
         }
-
-        if (parts.length === 4 && parts[2] === 'metric') {
-            const metric = (METRIC_BY_DEPT_SLUG[dept] || {})[parts[3]];
-            if (!metric) return { invalid: true };
-            return { view: 'dept', dept, metric };
-        }
-
-        return { invalid: true };
     }
 
-    return { invalid: true };
+    return route;
 }
 
 function getCanonicalHashFromState() {
@@ -160,6 +181,9 @@ function getCanonicalHashFromState() {
         return `#/dept/${slugifyRoutePart(dept)}`;
     }
 
+    if (STATE.summaryDate) {
+        return `#/summary?date=${STATE.summaryDate}`;
+    }
     return '#/summary';
 }
 
@@ -203,6 +227,9 @@ async function applyRouteFromHash() {
         }
 
         if (route.view === 'summary') {
+            if (route.date) {
+                STATE.summaryDate = route.date;
+            }
             await renderSummaryDashboardPage();
             return true;
         }
@@ -10239,17 +10266,25 @@ window.renderSummaryDashboardPage = async function () {
     STATE.currentView = 'summary';
     switchToMainLayout();
     renderSidebar();
-    syncRouteHashFromState();
 
     const today = new Date().toISOString().slice(0, 10);
+    const selectedDate = STATE.summaryDate || today;
+    
+    // Default to the correct date in the state if not set
+    if (!STATE.summaryDate) {
+        STATE.summaryDate = selectedDate;
+    }
+    
+    syncRouteHashFromState();
+
     const content = document.getElementById('content');
     content.innerHTML = `
         <div class="summary-header" id="summary-export-header">
             <div class="summary-date-box" data-html2canvas-ignore>
                 <label>Selected Date:</label>
-                <input type="date" id="summary-date-input" value="${today}">
+                <input type="date" id="summary-date-input" value="${selectedDate}">
             </div>
-            <div class="summary-header-title">Adamus Resources Limited KPI – <span id="summary-header-year">${today.substring(0, 4)}</span></div>
+            <div class="summary-header-title">Adamus Resources Limited KPI – <span id="summary-header-year">${selectedDate.substring(0, 4)}</span></div>
             <div class="d-flex justify-content-end align-items-center" data-html2canvas-ignore>
                 <div class="dropdown">
                     <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="dropdownExportButton" data-bs-toggle="dropdown" aria-expanded="false">
@@ -10272,6 +10307,8 @@ window.renderSummaryDashboardPage = async function () {
 
     document.getElementById('summary-date-input').addEventListener('change', function () {
         document.getElementById('summary-header-year').textContent = this.value.substring(0, 4);
+        STATE.summaryDate = this.value;
+        syncRouteHashFromState();
         loadSummaryData(this.value);
     });
 
@@ -10438,7 +10475,7 @@ window.renderSummaryDashboardPage = async function () {
     document.getElementById('btn-export-pdf').addEventListener('click', handleExport('pdf'));
     document.getElementById('btn-export-png').addEventListener('click', handleExport('png'));
 
-    await loadSummaryData(today);
+    await loadSummaryData(selectedDate);
 };
 
 async function loadSummaryData(dateStr) {
