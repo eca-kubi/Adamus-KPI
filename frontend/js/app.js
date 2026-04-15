@@ -62,6 +62,27 @@ const DEPT_METRICS = {
     "GM_Report": []
 };
 
+// URL Slug Generators
+window.generateSlug = function(text) {
+    if (!text) return '';
+    return text.toString().toLowerCase()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^\w\-]+/g, '')
+        .replace(/\-\-+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '');
+};
+
+window.resolveDeptFromSlug = function(slug) {
+    if (!slug) return null;
+    return DEPARTMENTS.find(d => window.generateSlug(d) === slug) || null;
+};
+
+window.resolveMetricFromSlug = function(dept, slug) {
+    if (!slug || !DEPT_METRICS[dept]) return null;
+    return DEPT_METRICS[dept].find(m => window.generateSlug(m) === slug) || null;
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // Initial fetch of system user
     fetchSystemUser().then(u => {
@@ -473,6 +494,50 @@ function initApp() {
         }
     }
 
+    // Parse URL hash for exact department and metric
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+        const parts = hash.split('/');
+        const deptSlug = parts[0];
+        const metricSlug = parts[1];
+        
+        const resolvedDept = window.resolveDeptFromSlug(deptSlug);
+        if (resolvedDept) {
+            STATE.currentDept = resolvedDept;
+            const resolvedMetric = window.resolveMetricFromSlug(resolvedDept, metricSlug);
+            if (resolvedMetric) {
+                STATE.currentMetric = resolvedMetric;
+            } else if (DEPT_METRICS[resolvedDept] && DEPT_METRICS[resolvedDept].length > 0) {
+                STATE.currentMetric = DEPT_METRICS[resolvedDept][0];
+            }
+        }
+    }
+
+    // Setup hashchange listener if not already set
+    if (!window.hashChangeListenerAttached) {
+        window.addEventListener('hashchange', () => {
+            if (!STATE.currentUser) return; // Ignore if logged out
+            const currentHash = window.location.hash.substring(1);
+            if (!currentHash) return;
+            const parts = currentHash.split('/');
+            
+            const resolvedDept = window.resolveDeptFromSlug(parts[0]);
+            if (resolvedDept) {
+                const resolvedMetric = window.resolveMetricFromSlug(resolvedDept, parts[1]);
+                const metricToLoad = resolvedMetric || (DEPT_METRICS[resolvedDept] && DEPT_METRICS[resolvedDept][0]) || "General";
+                
+                // Only load if state actually changed to prevent infinite loops
+                if (STATE.currentDept !== resolvedDept || STATE.currentMetric !== metricToLoad) {
+                    window.loadDepartmentView(resolvedDept, false);
+                    if (STATE.currentMetric !== metricToLoad) {
+                        window.loadMetricView(metricToLoad, false);
+                    }
+                }
+            }
+        });
+        window.hashChangeListenerAttached = true;
+    }
+
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.style.display = 'block';
 
@@ -820,9 +885,14 @@ function renderSidebar() {
             case 'Engineering': iconClass = 'fa-solid fa-wrench'; break;
             case 'GM_Report': iconClass = 'fa-solid fa-file-invoice'; break;
         }
+        let defaultMetric = DEPT_METRICS[dept] && DEPT_METRICS[dept].length > 0 ? DEPT_METRICS[dept][0] : '';
+        let slugHash = `#${window.generateSlug(dept)}`;
+        if (defaultMetric) slugHash += `/${window.generateSlug(defaultMetric)}`;
+        if (dept === 'GM_Report') slugHash = `#${window.generateSlug(dept)}`;
+        
         return `
                 <li style="margin-bottom: 4px; list-style: none;">
-                    <a href="#" onclick="loadDepartmentView('${dept}')" 
+                    <a href="${slugHash}" onclick="loadDepartmentView('${dept}'); window.scrollTo(0,0); return false;" 
                        style="text-decoration: none; color: ${sidebarText}; display: flex; align-items: center; padding: 10px 12px; border-radius: 6px; font-weight: 500; transition: all 0.2s; ${dept === 'GM_Report' ? 'font-size: 14px;' : ''}"
                        onmouseover="this.style.backgroundColor='${sidebarHover}'"
                        onmouseout="this.style.backgroundColor='transparent'">
@@ -942,7 +1012,7 @@ function renderSidebar() {
 }
 
 // Make loadDepartmentView global so HTML onclick can find it
-window.loadDepartmentView = async function (dept) {
+window.loadDepartmentView = async function (dept, updateHash = true) {
     if (STATE.intervals) {
         STATE.intervals.forEach(i => clearInterval(i));
         STATE.intervals = [];
@@ -952,6 +1022,9 @@ window.loadDepartmentView = async function (dept) {
 
     // -- GM Report View --
     if (dept === "GM_Report") {
+        if (updateHash) {
+            window.history.pushState(null, null, `#${window.generateSlug(dept)}`);
+        }
         content.innerHTML = '';
         renderGMReport(content);
         return;
@@ -961,6 +1034,15 @@ window.loadDepartmentView = async function (dept) {
     // Default to the first metric if not set or if switching depts
     if (!availableMetrics.includes(STATE.currentMetric)) {
         STATE.currentMetric = availableMetrics[0];
+    }
+
+    if (updateHash) {
+        const hashDept = window.generateSlug(STATE.currentDept);
+        const hashMetric = window.generateSlug(STATE.currentMetric);
+        const newHash = hashMetric ? `#${hashDept}/${hashMetric}` : `#${hashDept}`;
+        if (window.location.hash !== newHash) {
+            window.history.pushState(null, null, newHash);
+        }
     }
 
     const userDisplay = STATE.systemUser || (STATE.currentUser ? STATE.currentUser.username : 'User');
@@ -1012,11 +1094,20 @@ window.loadDepartmentView = async function (dept) {
         </div>
     `;
 
-    loadMetricView(STATE.currentMetric);
+    loadMetricView(STATE.currentMetric, updateHash);
 };
 
-window.loadMetricView = function (metric) {
+window.loadMetricView = function (metric, updateHash = true) {
     STATE.currentMetric = metric;
+
+    if (updateHash) {
+        const hashDept = window.generateSlug(STATE.currentDept);
+        const hashMetric = window.generateSlug(STATE.currentMetric);
+        const newHash = hashMetric ? `#${hashDept}/${hashMetric}` : `#${hashDept}`;
+        if (window.location.hash !== newHash) {
+            window.history.pushState(null, null, newHash);
+        }
+    }
 
     // Update active button state
     const buttons = document.querySelectorAll('#submenu-nav button');

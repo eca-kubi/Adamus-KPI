@@ -7,7 +7,7 @@ import os
 
 # Relative imports from within the backend package
 from .database import create_db_and_tables, get_session
-from .models import Employee, LeaveRequest, KPIRecord, ChatMessage
+from .models import Employee, KPIRecord, ChatMessage
 
 app = FastAPI()
 
