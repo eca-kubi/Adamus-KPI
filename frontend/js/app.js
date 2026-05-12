@@ -78,6 +78,95 @@ const DEPT_METRICS = {
     ]
 };
 
+const IMPORT_CONFIGS = {
+    'Fixed Inputs': {
+        headers: ['KPI', 'Target Month (YYYY-MM)', 'Days', 'Full Forecast', 'Full Budget', 'Forecast Per Rig'],
+        keys: ['metric_name', 'date', 'num_days', 'full_forecast', 'full_budget', 'forecast_per_rig']
+    },
+    'Exploration Drilling': {
+        headers: ['Date (YYYY-MM-DD)', 'Rigs', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'num_rigs', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Grade Control Drilling': {
+        headers: ['Date (YYYY-MM-DD)', 'Rigs', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'num_rigs', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Toll': {
+        headers: ['Date (YYYY-MM-DD)', 'Wet Tonnes', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Grade', 'Grade-7'],
+        keys: ['date', 'wet_tonnes', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'grade', 'grade_7']
+    },
+    'Ore Mined': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Grade - Ore Mined': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Actual(g/t)', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_act_grade', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Total Material Moved': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual(bcm)', 'Daily Forecast(bcm)', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Blast Hole Drilling': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Grade - Ore Crushed': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual(t)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_act_tonnes', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Ore Crushed': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Plant Feed Grade': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual(t)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
+        keys: ['date', 'daily_act_tonnes', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+    },
+    'Gold Contained': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+    },
+    'Gold Recovery': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+    },
+    'Recovery': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+    },
+    'Tonnes Treated': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+    },
+    'Safety Incidents': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Environmental Incidents': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Property Damage': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    }
+};
+
+// Engineering metrics mapping
+['Light Vehicles', 'Tipper Trucks', 'Pumps', 'Drill Rigs', 'Prime Excavators', 'Anx Excavators', 'Dump Trucks', 'ART Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
+    IMPORT_CONFIGS[m] = {
+        headers: ['Date (YYYY-MM-DD)', 'Qty Available', 'Daily Actual(%)', 'Daily Forecast(%)', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'qty_available', 'daily_actual', 'daily_forecast', 'full_forecast', 'full_budget']
+    };
+});
+['Crusher', 'Mill'].forEach(m => {
+    IMPORT_CONFIGS[m] = {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual(%)', 'Daily Forecast(%)', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'full_forecast', 'full_budget']
+    };
+});
+
 const ROUTER_STATE = {
     isApplyingRoute: false,
     suppressHashChange: false
@@ -761,6 +850,16 @@ window.loadDepartmentView = async function (dept) {
                         <span class="text-muted text-nowrap" style="font-size: 0.9rem;">to</span>
                         <input type="date" id="record-end-date" class="form-control form-control-sm" style="max-width: 130px; border-radius: 0.5rem;" onchange="loadRecentRecords('${dept}')">
                         <button class="btn btn-sm btn-outline-secondary" style="border-radius: 0.5rem;" onclick="document.getElementById('record-start-date').value=''; document.getElementById('record-end-date').value=''; loadRecentRecords('${dept}');" title="Clear Filter"><i class="bi bi-x-lg"></i></button>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-primary dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 0.5rem;">
+                                <i class="bi bi-file-earmark-arrow-up"></i> Import
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow">
+                                <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="handleImportClick('${dept}', STATE.currentMetric); return false;"><i class="bi bi-upload"></i> Upload CSV</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="downloadImportTemplate('${dept}', STATE.currentMetric); return false;"><i class="bi bi-download"></i> Download Template</a></li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -10569,4 +10668,259 @@ function renderSummaryTable(departments) {
 
     html += '</tbody></table>';
     container.innerHTML = html;
+}
+
+/**
+ * Get the import configuration (headers/keys) for a metric, respecting department-specific column visibility.
+ */
+function getImportConfig(dept, metric) {
+    let config = IMPORT_CONFIGS[metric] || {
+        headers: ['Date (YYYY-MM-DD)', 'Metric', 'Daily Actual', 'Daily Forecast'],
+        keys: ['date', 'metric_name', 'daily_actual', 'daily_forecast']
+    };
+
+    // Special handling for Fixed Inputs to hide 'Forecast Per Rig' for non-Geology departments
+    if (metric === 'Fixed Inputs') {
+        const hideRigColumn = dept === 'Mining' || dept === 'Crushing' || dept === 'Milling_CIL' || dept === 'OHS' || dept === 'Engineering';
+        if (hideRigColumn) {
+            config = {
+                headers: config.headers.filter(h => h !== 'Forecast Per Rig'),
+                keys: config.keys.filter(k => k !== 'forecast_per_rig')
+            };
+        }
+    }
+    return config;
+}
+
+/**
+ * Download a CSV template for the current metric.
+ */
+window.downloadImportTemplate = function(dept, metric) {
+    const config = getImportConfig(dept, metric);
+
+    const csvContent = "data:text/csv;charset=utf-8," + config.headers.join(",") + "\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${dept}_${metric}_template.csv`.toLowerCase().replace(/\s+/g, '_'));
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+/**
+ * Identify fields that should be computed automatically during import,
+ * ignoring any values provided in the CSV for these fields.
+ */
+const COMPUTED_FIELDS = ['var1', 'var2', 'var3', 'daily_var', 'mtd_var', 'budget_var', 'mtd_actual', 'mtd_forecast', 'outlook'];
+
+/**
+ * Computes fields for a record based on its data and the previous record's data.
+ */
+async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs) {
+    const d = record.data;
+    const pd = prevRecord ? prevRecord.data : null;
+
+    // 1. Ignore existing computed values from CSV
+    COMPUTED_FIELDS.forEach(field => delete d[field]);
+
+    // 2. Variances logic
+    const calcVar = (act, fcst) => {
+        if (!fcst || isNaN(act) || isNaN(fcst)) return "0%";
+        const v = ((act - fcst) / fcst) * 100;
+        return Math.round(v) + "%";
+    };
+
+    // a. Daily Variance
+    if (d.daily_actual !== undefined && d.daily_forecast !== undefined) {
+        d.var1 = calcVar(d.daily_actual, d.daily_forecast);
+        d.daily_var = d.var1;
+    }
+
+    // b. MTD calculations
+    if (d.daily_actual !== undefined) {
+        const prevMtd = pd ? (parseFloat(pd.mtd_actual) || 0) : 0;
+        d.mtd_actual = prevMtd + parseFloat(d.daily_actual);
+    }
+    if (d.daily_forecast !== undefined) {
+        const prevMtdFcst = pd ? (parseFloat(pd.mtd_forecast) || 0) : 0;
+        d.mtd_forecast = prevMtdFcst + parseFloat(d.daily_forecast);
+    }
+
+    if (d.mtd_actual !== undefined && d.mtd_forecast !== undefined) {
+        d.var2 = calcVar(d.mtd_actual, d.mtd_forecast);
+        d.mtd_var = d.var2;
+    }
+
+    // 3. Outlook logic (depends on day of month)
+    if (record.date && record.subtype !== 'fixed_input') {
+        const dateObj = new Date(record.date);
+        const day = dateObj.getDate();
+        const monthStr = record.date.substring(0, 7); // YYYY-MM
+        
+        // Find fixed input for this month
+        const monthFixed = fixedInputs.find(f => f.date.startsWith(monthStr));
+        const fullFcst = monthFixed ? (parseFloat(monthFixed.data.full_forecast) || 0) : (parseFloat(d.full_forecast) || 0);
+        const fullBudg = monthFixed ? (parseFloat(monthFixed.data.full_budget) || 0) : (parseFloat(d.full_budget) || 0);
+
+        // Copy fixed values to record if missing
+        if (d.full_forecast === undefined) d.full_forecast = fullFcst;
+        if (d.full_budget === undefined) d.full_budget = fullBudg;
+
+        const dailyAct = parseFloat(d.daily_actual) || 0;
+        const dailyFcst = parseFloat(d.daily_forecast) || 0;
+
+        if (day === 1) {
+            d.outlook = (dailyAct - dailyFcst) + fullFcst;
+        } else {
+            const prevOutlook = pd ? (parseFloat(pd.outlook) || 0) : 0;
+            d.outlook = (dailyAct - dailyFcst) + prevOutlook;
+        }
+
+        // Outlook Variance
+        if (d.outlook !== undefined && fullBudg) {
+            d.var3 = calcVar(d.outlook, fullBudg);
+            d.budget_var = d.var3;
+        }
+    }
+
+    return record;
+}
+
+/**
+ * Handle clicking the Import button: open file dialog and process.
+ */
+window.handleImportClick = function(dept, metric) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const text = event.target.result;
+            try {
+                const rows = parseCSV(text);
+                if (rows.length === 0) {
+                    DOM.showToast("The CSV file is empty.", "warning");
+                    return;
+                }
+
+                const config = getImportConfig(dept, metric);
+
+                // 1. Initial Mapping
+                let importPayload = rows.map(row => {
+                    const record = {
+                        department: dept,
+                        metric_name: metric,
+                        subtype: metric === 'Fixed Inputs' ? 'fixed_input' : 'daily_input',
+                        data: {}
+                    };
+
+                    config.headers.forEach((header, idx) => {
+                        const key = config.keys[idx];
+                        let value = row[header];
+
+                        if (key === 'date') {
+                            if (metric === 'Fixed Inputs' && value && value.length === 7) {
+                                record.date = value + "-01";
+                            } else {
+                                record.date = value;
+                            }
+                        } else if (key === 'metric_name') {
+                            record.metric_name = value;
+                        } else {
+                            if (value && !isNaN(value.replace(/[%,\s]/g, ''))) {
+                                record.data[key] = parseFloat(value.replace(/[%,\s]/g, ''));
+                            } else {
+                                record.data[key] = value || 0;
+                            }
+                        }
+                    });
+                    return record;
+                });
+
+                // 2. Sort by Date
+                importPayload.sort((a, b) => a.date.localeCompare(b.date));
+
+                // 3. Preparation: Fetch Fixed Inputs and History
+                DOM.showToast("Preparing calculations...", "info");
+                
+                // Fetch Fixed Inputs for the months involved
+                const months = [...new Set(importPayload.map(r => r.date.substring(0, 7)))];
+                const fixedInputs = [];
+                for (const m of months) {
+                    const records = await fetchKPIRecords(dept, `${m}-01`, `${m}-01`);
+                    const fi = records.find(r => r.metric_name === (metric === 'Fixed Inputs' ? 'Fixed Inputs' : metric) && r.subtype === 'fixed_input');
+                    if (fi) fixedInputs.push(fi);
+                }
+
+                // 4. Sequential Calculation
+                const finalPayload = [];
+                for (let i = 0; i < importPayload.length; i++) {
+                    const record = importPayload[i];
+                    
+                    // Find previous record (either from current batch or from server)
+                    let prevRecord = i > 0 ? finalPayload[i - 1] : null;
+                    if (!prevRecord && record.subtype !== 'fixed_input') {
+                        const d = new Date(record.date);
+                        d.setDate(d.getDate() - 1);
+                        const prevDateStr = d.toISOString().split('T')[0];
+                        const history = await fetchKPIRecords(dept, prevDateStr, prevDateStr);
+                        prevRecord = history.find(r => r.metric_name === metric && r.subtype !== 'fixed_input');
+                    }
+
+                    const computed = await computeImportRecord(dept, metric, record, prevRecord, fixedInputs);
+                    finalPayload.push(computed);
+                }
+
+                // 5. Send to bulk API
+                DOM.showToast(`Importing ${finalPayload.length} records...`);
+                const result = await importKPIRecords(dept, finalPayload);
+                
+                if (result.status === 'success') {
+                    DOM.showToast(`Successfully imported ${result.imported_count} records.`, "success");
+                    if (result.errors && result.errors.length > 0) {
+                        console.warn("Import errors:", result.errors);
+                        DOM.showToast(`Some rows had errors. Check console.`, "warning");
+                    }
+                    loadRecentRecords(dept);
+                } else {
+                    DOM.showToast("Import failed: " + result.message, "error");
+                }
+
+            } catch (err) {
+                console.error("Import Error", err);
+                DOM.showToast("Failed to process import: " + err.message, "error");
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+};
+
+/**
+ * Simple CSV parser that handles basic comma-separated values.
+ */
+function parseCSV(text) {
+    const lines = text.split(/\r?\n/);
+    if (lines.length === 0) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const result = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const currentline = line.split(',');
+        const obj = {};
+        headers.forEach((header, idx) => {
+            obj[header] = currentline[idx] ? currentline[idx].trim() : '';
+        });
+        result.push(obj);
+    }
+    return result;
 }

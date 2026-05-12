@@ -151,6 +151,12 @@ class CascadeFixedRequest(BaseModel):
     full_budget: float
     forecast_per_rig: Optional[float] = None
 
+class KPIImportRecord(BaseModel):
+    date: date
+    metric_name: str
+    subtype: Optional[str] = "daily_input"
+    data: Dict[str, Any]
+
 @app.on_event("startup")
 def on_startup():
     # create_db_and_tables() 
@@ -642,6 +648,60 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
+
+@app.post("/api/kpi/{department}/import")
+def import_kpi_records(
+    department: str, 
+    records: List[KPIImportRecord], 
+    session: Session = Depends(get_session), 
+    _user: User = Depends(get_current_active_user)
+):
+    if (_user.role or "").lower() != "admin":
+        # Check if user is allowed for ALL metrics in the import
+        allowed = set(_user.allowed_metrics or [])
+        for r in records:
+            if r.metric_name != "Fixed Inputs" and r.metric_name not in allowed:
+                raise HTTPException(status_code=403, detail=f"Not authorized to modify metric: {r.metric_name}")
+
+    count = 0
+    errors = []
+    
+    for i, rec in enumerate(records):
+        try:
+            # Upsert logic
+            existing_stmt = select(KPIRecord).where(
+                KPIRecord.department == department,
+                KPIRecord.date == rec.date,
+                KPIRecord.metric_name == rec.metric_name,
+                KPIRecord.subtype == rec.subtype
+            )
+            existing = session.exec(existing_stmt).first()
+            
+            if existing:
+                existing.data = rec.data
+                existing.last_modification = {
+                    "at": datetime.now(timezone.utc).isoformat(),
+                    "by_user_id": _user.id,
+                    "username": _user.username
+                }
+                session.add(existing)
+            else:
+                db_record = KPIRecord(
+                    department=department,
+                    date=rec.date,
+                    metric_name=rec.metric_name,
+                    subtype=rec.subtype,
+                    data=rec.data,
+                    created_by_user_id=_user.id,
+                    created_at=datetime.now(timezone.utc)
+                )
+                session.add(db_record)
+            count += 1
+        except Exception as e:
+            errors.append(f"Row {i+1}: {str(e)}")
+
+    session.commit()
+    return {"status": "success", "imported_count": count, "errors": errors}
 
 @app.get("/api/kpi/{department}/previous-mtd")
 def get_previous_mtd(

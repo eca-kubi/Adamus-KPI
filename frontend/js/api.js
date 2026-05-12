@@ -232,3 +232,12 @@ async function cascadeFixedInputUpdate(department, payload) {
     });
     return handleResponse(response);
 }
+
+async function importKPIRecords(department, records) {
+    const response = await fetch(`${API_BASE_URL}/kpi/${department}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(records)
+    });
+    return handleResponse(response);
+}
