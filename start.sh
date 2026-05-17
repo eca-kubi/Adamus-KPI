@@ -27,6 +27,12 @@ if [ "${SEED_DB}" = "true" ] || [ "${SEED_DB}" = "1" ]; then
   fi
 fi
 
-echo "Starting Uvicorn..."
-# Start the application
-exec uvicorn backend.main:app --host 0.0.0.0 --port 8000
+echo "Starting Gunicorn with Uvicorn workers..."
+# Start the application using Gunicorn for process management
+exec gunicorn backend.main:app \
+    --workers 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 0.0.0.0:8000 \
+    --timeout 120 \
+    --access-logformat '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(L)s' \
+    --access-logfile -

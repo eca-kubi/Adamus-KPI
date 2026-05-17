@@ -10,4 +10,7 @@ python-multipart
 alembic
 argon2-cffi
 resend
+pyinstrument
+psutil
+gunicorn
 

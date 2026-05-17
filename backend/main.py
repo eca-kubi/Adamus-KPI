@@ -21,8 +21,11 @@ logger = logging.getLogger(__name__)
 from .database import create_db_and_tables, get_session
 from .models import KPIRecord, User
 from . import security
+from .profiler import ProfilingMiddleware, monitor_memory
+import asyncio
 
 app = FastAPI()
+app.add_middleware(ProfilingMiddleware)
 
 # ---------------------------------------------------------------------------
 # Email helper
@@ -158,9 +161,10 @@ class KPIImportRecord(BaseModel):
     data: Dict[str, Any]
 
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
     # create_db_and_tables() 
-    pass
+    # Start memory monitoring in the background
+    asyncio.create_task(monitor_memory(interval_seconds=300)) # Log every 5 mins
 
 # Auth Infrastructure
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
