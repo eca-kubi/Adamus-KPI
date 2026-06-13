@@ -49,6 +49,9 @@ def verify_cascade():
         session.add(r2)
         session.commit()
         
+        from backend.models import User
+        mock_user = User(username="admin", role="Admin", allowed_metrics=[metric])
+        
         # 2. Call Cascade Function (Simulate API Call)
         payload = CascadeFixedRequest(
             metric_name=metric,
@@ -58,7 +61,7 @@ def verify_cascade():
         )
         
         print("Running cascade update...")
-        result = cascade_fixed_input(dept, payload, session)
+        result = cascade_fixed_input(dept, payload, session, _user=mock_user)
         print(f"Update Result: {result}")
         
         # 3. Verify Updates

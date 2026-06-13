@@ -193,12 +193,20 @@ async function fetchKPIRecords(department, startDate, endDate) {
 }
 
 async function saveKPIRecord(department, record) {
+    const commentInput = document.getElementById('input-daily-comment');
+    if (commentInput && record && record.data) {
+        record.data.comment = commentInput.value.trim();
+    }
     const response = await fetch(`${API_BASE_URL}/kpi/${department}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(record)
     });
-    return handleResponse(response);
+    const result = await handleResponse(response);
+    if (commentInput) {
+        commentInput.value = '';
+    }
+    return result;
 }
 
 async function deleteKPIRecord(recordId) {
@@ -241,3 +249,22 @@ async function importKPIRecords(department, records) {
     });
     return handleResponse(response);
 }
+
+async function forgotPassword(identity) {
+    const response = await fetch(`${API_BASE_URL}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity })
+    });
+    return handleResponse(response);
+}
+
+async function resetPassword(identity, code, newPassword) {
+    const response = await fetch(`${API_BASE_URL}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity, code, new_password: newPassword })
+    });
+    return handleResponse(response);
+}
+

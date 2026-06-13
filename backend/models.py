@@ -29,4 +29,7 @@ class User(SQLModel, table=True):
     role: Optional[str] = Field(default="Staff")
     phone_number: Optional[str] = Field(default=None)
     allowed_metrics: Optional[List[str]] = Field(default_factory=list, sa_column=Column(JSON))
+    reset_code: Optional[str] = Field(default=None)
+    reset_code_expires_at: Optional[datetime] = Field(default=None)
+
 

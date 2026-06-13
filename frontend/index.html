@@ -28,12 +28,12 @@
     <!-- App Container -->
     <div id="app">
         <!-- Persistent toggle button when sidebar is collapsed -->
-        <button id="sidebar-toggle" class="btn btn-light shadow-sm position-fixed px-2" style="top: 1rem; left: 1rem; z-index: 1030; display: none;" onclick="document.getElementById('sidebar').classList.remove('collapsed')" title="Expand Sidebar">
+        <button id="sidebar-toggle" class="btn btn-light shadow-sm position-fixed px-2" style="top: 1rem; left: 1rem; z-index: 1030; display: none;" onclick="window.expandSidebarExplicit()" title="Expand Sidebar">
             <i class="bi bi-list fs-4 text-primary"></i>
         </button>
 
         <!-- Sidebar Navigation (hidden by default, shown when logged in) -->
-        <nav id="sidebar" class="sidebar">
+        <nav id="sidebar" class="sidebar collapsed">
             <!-- Sidebar content rendered by JS -->
         </nav>
 

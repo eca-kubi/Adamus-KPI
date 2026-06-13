@@ -10,9 +10,12 @@ import os
 import smtplib
 import logging
 import resend
+import random
+import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
+
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -147,11 +150,194 @@ def send_confirmation_email(to_address: str, username: str) -> None:
         except Exception as exc:  # noqa: BLE001
             logger.error("Failed to send SMTP email to %s: %s", to_address, exc)
 
+def send_password_reset_email(to_address: str, username: str, code: str) -> None:
+    """Send a password reset email containing a 6-digit verification code.
+    Can use either SMTP or Resend based on EMAIL_PROVIDER setting.
+    """
+    provider = os.getenv("EMAIL_PROVIDER", "smtp").lower()
+    app_name = os.getenv("APP_NAME", "Adamus KPI")
+    app_url = os.getenv("APP_URL", "https://adamusgh.com")
+    simulate = os.getenv("SIMULATE_NOTIFICATIONS", "false").lower() == "true"
+
+    if simulate:
+        logger.info("[SIMULATION] Email to %s: Reset code is %s", to_address, code)
+        print(f"[SIMULATION] Email to {to_address}: Reset code is {code}", flush=True)
+        return
+
+
+    if not to_address:
+
+        logger.warning("Email not sent: recipient address is missing.")
+        return
+    
+    if not is_adamus_email(to_address):
+        logger.warning("Email skip: recipient address '%s' not an adamusgh.com address.", to_address)
+        return
+
+    # Premium Email HTML Body
+    html_body = f"""\
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #334155; margin: 0; padding: 0; }}
+    .container {{ max-width: 600px; margin: 40px auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }}
+    .header {{ background: #0f172a; color: #ffffff; padding: 30px; text-align: center; }}
+    .content {{ padding: 40px; background-color: #ffffff; }}
+    .footer {{ background: #f8fafc; color: #64748b; padding: 20px; text-align: center; font-size: 12px; border-top: 1px solid #e2e8f0; }}
+    .code-box {{ font-size: 32px; font-weight: 700; color: #d2ab67; text-align: center; margin: 30px 0; letter-spacing: 5px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #d2ab67; }}
+    .h1 {{ margin: 0; font-size: 24px; color: #ffffff; }}
+    .highlight {{ color: #020617; font-weight: 600; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="h1">Adamus KPI Portal</div>
+    </div>
+    <div class="content">
+      <h2 style="color: #0f172a; margin-top: 0;">Password Reset Request</h2>
+      <p>Hi <span class="highlight">{username}</span>,</p>
+      <p>We received a request to reset your password for the <span class="highlight">{app_name}</span>. Please use the following 6-digit verification code to complete your password reset:</p>
+      
+      <div class="code-box">{code}</div>
+      
+      <p>This code will expire in 15 minutes. If you did not request a password reset, please ignore this email or contact your administrator immediately.</p>
+      
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+      <p style="font-size: 13px;">If you have any questions, please contact the IT Service Desk.</p>
+    </div>
+    <div class="footer">
+      &copy; {datetime.now().year} Adamus Resources Limited. All rights reserved.<br>
+      Confidential Organization Monitoring System
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+    if provider == "resend":
+        resend_api_key = os.getenv("RESEND_API_KEY", "")
+        resend_from = os.getenv("RESEND_FROM", "onboarding@resend.dev")
+        if not resend_api_key:
+            logger.warning("Email not sent: RESEND_API_KEY is missing.")
+            return
+        
+        resend.api_key = resend_api_key
+        try:
+            params = {
+                "from": resend_from,
+                "to": [to_address],
+                "subject": f"Reset Your Password - {app_name}",
+                "html": html_body,
+            }
+            resend.Emails.send(params)
+            logger.info("Password reset email sent to %s via Resend", to_address)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to send Resend email to %s: %s", to_address, exc)
+
+    else:
+        # Default to SMTP
+        smtp_host = os.getenv("SMTP_HOST", "")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_user = os.getenv("SMTP_USER", "")
+        smtp_password = os.getenv("SMTP_PASSWORD", "")
+        smtp_from = os.getenv("SMTP_FROM", smtp_user)
+
+        if not smtp_host or not smtp_user:
+            logger.warning("Email not sent: SMTP_HOST or SMTP_USER is missing.")
+            return
+
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"Reset Your Password - {app_name}"
+            msg["From"] = smtp_from
+            msg["To"] = to_address
+            msg.attach(MIMEText(html_body, "html"))
+
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_from, to_address, msg.as_string())
+            logger.info("Password reset email sent to %s via SMTP", to_address)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to send SMTP email to %s: %s", to_address, exc)
+
+def normalize_phone_number(phone: str) -> str:
+    """Normalize phone number to digits-only international format (Ghana default 233)."""
+    if not phone:
+        return ""
+    digits = "".join(c for c in phone if c.isdigit())
+    if digits.startswith("233") and len(digits) >= 12:
+        return digits
+    if digits.startswith("0") and len(digits) == 10:
+        return "233" + digits[1:]
+    return digits
+
+def send_sms(text: str, recipient: str) -> dict:
+    """Send SMS via SMSOnlineGH. Supports simulation mode."""
+    api_key = os.getenv("SMS_ONLINE_GH_API_KEY")
+    sender = os.getenv("SMS_ONLINE_GH_SENDER_ID", "MONITOR")
+    simulate = os.getenv("SIMULATE_NOTIFICATIONS", "false").lower() == "true"
+
+    if not api_key or not recipient:
+        if simulate:
+            log_msg = f'[SIMULATION] SMS to {recipient or "unknown"}: "{text}"'
+            logger.info(log_msg)
+            print(log_msg, flush=True)
+            return {"status": "simulated", "details": log_msg}
+        logger.error("Configuration Error: SMS_ONLINE_GH_API_KEY is missing or recipient is invalid.")
+        return {"status": "failed", "details": "Configuration Error: SMS_ONLINE_GH_API_KEY is missing."}
+
+    if simulate:
+        log_msg = f'[SIMULATION] SMS to {recipient}: "{text}"'
+        logger.info(log_msg)
+        print(log_msg, flush=True)
+        return {"status": "simulated", "details": log_msg}
+
+
+    # Normalize recipient number to international digits-only
+    clean_recipient = normalize_phone_number(recipient)
+
+    
+    try:
+        response = requests.post(
+            "https://api.smsonlinegh.com/v5/message/sms/send",
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"key {api_key}"
+            },
+            json={
+                "text": text,
+                "sender": sender,
+                "destinations": [clean_recipient],
+                "type": 0
+            },
+            timeout=10.0
+        )
+        response.raise_for_status()
+        data = response.json()
+        
+        # SMSOnlineGH Handshake Validation
+        if data and "handshake" in data and data["handshake"].get("label") != "HSHK_OK":
+            err_lbl = data["handshake"].get("label")
+            err_id = data["handshake"].get("id")
+            raise Exception(f"SMSOnlineGH API Error: {err_lbl} (ID: {err_id})")
+            
+        logger.info("[SMS] SMS sent successfully via SMSOnlineGH: %s", data)
+        return {"status": "sent", "details": str(data)}
+    except Exception as exc:
+        logger.error("[SMS] Failed to send SMS via SMSOnlineGH: %s", exc)
+        return {"status": "failed", "details": str(exc)}
+
 class CascadeFixedRequest(BaseModel):
     metric_name: str
     target_month: str # YYYY-MM
     full_forecast: float
     full_budget: float
+    annual_target: Optional[float] = None
     forecast_per_rig: Optional[float] = None
 
 class KPIImportRecord(BaseModel):
@@ -213,6 +399,15 @@ class ChangePassword(BaseModel):
     current_password: str
     new_password: str
 
+class ForgotPasswordRequest(BaseModel):
+    identity: str
+
+class ResetPasswordRequest(BaseModel):
+    identity: str
+    code: str
+    new_password: str
+
+
 # ---------------------------------------------------------------------------
 # Metric Mapping Constants
 # ---------------------------------------------------------------------------
@@ -222,7 +417,7 @@ DEPARTMENT_METRICS = {
     "Geology": ["Fixed Inputs", "Exploration Drilling", "Grade Control Drilling", "Toll"],
     "Mining": ["Fixed Inputs", "Ore Mined", "Grade - Ore Mined", "Total Material Moved", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
-    "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage"],
+    "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
     "Engineering": ["Fixed Inputs", "Light Vehicles", "Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Pumps", "Drill Rigs"]
 }
 
@@ -378,6 +573,151 @@ def login(data: Dict[str, Any], session: Session = Depends(get_session)):
         }
 
     raise HTTPException(status_code=401, detail="Invalid credentials")
+
+@app.post("/api/forgot-password")
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session)
+):
+    """Generate password reset code and send it via registered email or SMS."""
+    identity = payload.identity.strip()
+    if not identity:
+        raise HTTPException(status_code=400, detail="Email or phone number is required")
+
+    # Search for user by email (case-insensitive) or phone number
+    statement = select(User).where(
+        (User.email == identity) | (User.phone_number == identity)
+    )
+    user = session.exec(statement).first()
+
+    # Case-insensitive checks for email and normalized phone number checks
+    if not user:
+        statement_all = select(User)
+        users = session.exec(statement_all).all()
+        normalized_identity = normalize_phone_number(identity)
+        for u in users:
+            if u.email and u.email.strip().lower() == identity.lower():
+                user = u
+                break
+            if u.phone_number and normalize_phone_number(u.phone_number) == normalized_identity:
+                user = u
+                break
+
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="No user found with the registered email address or phone number."
+        )
+
+    # Generate 6-digit verification code
+    code = f"{random.randint(100000, 999999)}"
+    user.reset_code = code
+    # Code is valid for 15 minutes
+    user.reset_code_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+    
+    session.add(user)
+    session.commit()
+
+    # Determine delivery method
+    is_email = False
+    normalized_identity = normalize_phone_number(identity)
+    if user.email and user.email.strip().lower() == identity.lower():
+        is_email = True
+    elif user.phone_number and normalize_phone_number(user.phone_number) == normalized_identity:
+        is_email = False
+    elif user.email:
+        # Fallback to email if user has both
+        is_email = True
+    else:
+        is_email = False
+
+
+    if is_email:
+        background_tasks.add_task(send_password_reset_email, user.email, user.username, code)
+        return {
+            "message": "A reset code has been sent to your registered email address.",
+            "delivery_method": "email"
+        }
+    else:
+        # Send SMS via background tasks
+        sms_text = f"Your Adamus KPI password reset verification code is {code}. It is valid for 15 minutes."
+        background_tasks.add_task(send_sms, sms_text, user.phone_number)
+        return {
+            "message": "A reset code has been sent to your registered phone number.",
+            "delivery_method": "sms"
+        }
+
+@app.post("/api/reset-password")
+def reset_password(
+    payload: ResetPasswordRequest,
+    session: Session = Depends(get_session)
+):
+    """Verify reset code and update user's password."""
+    identity = payload.identity.strip()
+    code = payload.code.strip()
+    new_password = payload.new_password
+
+    if not identity or not code or not new_password:
+        raise HTTPException(status_code=400, detail="All fields (identity, code, new_password) are required")
+
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    # Find user by email or phone
+    statement = select(User).where(
+        (User.email == identity) | (User.phone_number == identity)
+    )
+    user = session.exec(statement).first()
+
+    # Case-insensitive checks
+    if not user:
+        statement_all = select(User)
+        users = session.exec(statement_all).all()
+        normalized_identity = normalize_phone_number(identity)
+        for u in users:
+            if u.email and u.email.strip().lower() == identity.lower():
+                user = u
+                break
+            if u.phone_number and normalize_phone_number(u.phone_number) == normalized_identity:
+                user = u
+                break
+
+
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="No user found with the registered email address or phone number."
+        )
+
+    # Check reset code
+    if not user.reset_code or user.reset_code != code:
+        raise HTTPException(status_code=400, detail="Invalid verification code.")
+
+    # Check code expiration
+    now = datetime.now(timezone.utc)
+    expires_at = user.reset_code_expires_at
+    if expires_at:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        
+        if now > expires_at:
+            raise HTTPException(status_code=400, detail="Verification code has expired.")
+    else:
+        raise HTTPException(status_code=400, detail="No verification code was requested.")
+
+    # Reset password
+    user.hashed_password = security.get_password_hash(new_password)
+    user.reset_code = None
+    user.reset_code_expires_at = None
+    
+    session.add(user)
+    session.commit()
+
+    return {"message": "Your password has been successfully reset. You can now log in."}
+
 
 
 
@@ -535,43 +875,461 @@ def reset_user_password(
 
 SUMMARY_DEPARTMENTS = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"]
 
+def recalculate_metric_month(department: str, metric_name: str, year: int, month: int, session: Session):
+    """Recalculates MTD, Outlook, and variances for all daily records of a metric in a given month sequentially."""
+    month_start = date(year, month, 1)
+    
+    # 1. Fetch fixed input for the month
+    fixed_stmt = select(KPIRecord).where(
+        KPIRecord.department == department,
+        KPIRecord.date == month_start,
+        KPIRecord.metric_name == metric_name,
+        KPIRecord.subtype == 'fixed_input'
+    )
+    fixed_input = session.exec(fixed_stmt).first()
+    
+    # 2. Fetch all daily records for the month, sorted by date
+    if month == 12:
+        next_month_start = date(year + 1, 1, 1)
+    else:
+        next_month_start = date(year, month + 1, 1)
+        
+    daily_stmt = select(KPIRecord).where(
+        KPIRecord.department == department,
+        KPIRecord.date >= month_start,
+        KPIRecord.date < next_month_start,
+        KPIRecord.metric_name == metric_name,
+        or_(KPIRecord.subtype != 'fixed_input', KPIRecord.subtype == None)
+    ).order_by(KPIRecord.date)
+    daily_records = session.exec(daily_stmt).all()
+    
+    if not daily_records:
+        return
+        
+    def parse_float(val):
+        if val is None:
+            return 0.0
+        try:
+            return float(str(val).replace("%", "").replace(",", "").strip())
+        except (ValueError, TypeError):
+            return 0.0
+
+    is_ohs_dept = (department == "OHS")
+
+    full_fcst = 0.0
+    full_budg = 0.0
+    if is_ohs_dept:
+        annual_target = 0.0
+        if fixed_input and fixed_input.data:
+            annual_target = parse_float(fixed_input.data.get('annual_target') or fixed_input.data.get('full_budget'))
+        else:
+            # Fallback to checking daily records
+            for r in daily_records:
+                if r.data and ('annual_target' in r.data or 'full_budget' in r.data):
+                    annual_target = parse_float(r.data.get('annual_target') or r.data.get('full_budget'))
+                    break
+            else:
+                annual_target = 0.0 if metric_name == "Environmental Incidents" else 24.0
+        full_fcst = annual_target / 12.0
+        full_budg = annual_target
+    else:
+        if fixed_input and fixed_input.data:
+            full_fcst = parse_float(fixed_input.data.get('full_forecast'))
+            full_budg = parse_float(fixed_input.data.get('full_budget'))
+        else:
+            # Fallback to checking daily records if fixed_input is not in DB
+            for r in daily_records:
+                if r.data and ('full_forecast' in r.data or 'full_budget' in r.data):
+                    full_fcst = parse_float(r.data.get('full_forecast'))
+                    full_budg = parse_float(r.data.get('full_budget'))
+                    break
+
+    forecast_per_rig = 0.0
+    if metric_name == "Grade Control Drilling":
+        if fixed_input and fixed_input.data:
+            forecast_per_rig = parse_float(fixed_input.data.get('forecast_per_rig'))
+        else:
+            # Fallback to checking daily records
+            for r in daily_records:
+                if r.data and 'forecast_per_rig' in r.data:
+                    forecast_per_rig = parse_float(r.data.get('forecast_per_rig'))
+                    break
+        
+    total_days = (next_month_start - month_start).days
+            
+    def calc_var(act, fcst, is_ohs=False, use_act_denom=False):
+        if act is None or fcst is None or act == "-" or fcst == "-":
+            return "-"
+        try:
+            act_f = float(str(act).replace("%", "").replace(",", "").strip())
+            fcst_f = float(str(fcst).replace("%", "").replace(",", "").strip())
+        except (ValueError, TypeError):
+            return "-"
+            
+        if is_ohs:
+            # Round both inputs up to the nearest whole number first
+            import math
+            act_f = float(math.ceil(act_f))
+            fcst_f = float(math.ceil(fcst_f))
+            if use_act_denom:
+                if act_f == 0:
+                    return "0%"
+                var = ((fcst_f - act_f) / act_f) * 100
+                return f"{round(var)}%"
+            else:
+                if fcst_f == 0:
+                    return "0%" if act_f == 0 else "-100%"
+                var = ((fcst_f - act_f) / fcst_f) * 100
+                return f"{round(var)}%"
+        else:
+            if fcst_f == 0:
+                return "0%" if act_f == 0 else "-"
+            var = ((act_f - fcst_f) / fcst_f) * 100
+            return f"{round(var)}%"
+    
+    # Running values
+    running_fcst = 0.0
+    running_act = 0.0
+    running_weights = 0.0
+    running_weighted_sum = 0.0
+    
+    for idx, r in enumerate(daily_records):
+        d = dict(r.data)
+        
+        # Clear existing computed fields
+        COMPUTED_FIELDS = ['var1', 'var2', 'var3', 'daily_var', 'mtd_var', 'budget_var', 'mtd_actual', 'mtd_forecast', 'outlook']
+        for field in COMPUTED_FIELDS:
+            d.pop(field, None)
+            
+        # Auto-calculate daily forecast for Grade Control Drilling if not specified
+        if metric_name == "Grade Control Drilling":
+            is_fcst_empty = d.get('daily_forecast') in (None, 0, 0.0, "", "-")
+            if is_fcst_empty:
+                rigs = parse_float(d.get('num_rigs') or d.get('qty_available'))
+                d['daily_forecast'] = round(rigs * forecast_per_rig, 2)
+
+        # Auto-calculate daily forecast for Toll if not specified
+        if metric_name == "Toll":
+            is_fcst_empty = d.get('daily_forecast') in (None, 0, 0.0, "", "-")
+            if is_fcst_empty:
+                d['daily_forecast'] = full_fcst / total_days
+
+        daily_act = parse_float(d.get('daily_actual'))
+        daily_fcst = parse_float(d.get('daily_forecast'))
+        
+        current_day = r.date.day
+        remaining_days = max(0, total_days - current_day)
+
+        # MTD Forecast
+        if is_ohs_dept:
+            mtd_forecast = full_fcst
+        else:
+            running_fcst += daily_fcst
+            mtd_forecast = running_fcst
+        
+        # MTD Actual
+        if department == "Geology" and metric_name == "Toll":
+            if 'wet_tonnes' in d:
+                wet_tonnes = parse_float(d['wet_tonnes'])
+            else:
+                wet_tonnes = round(daily_act * 0.85)
+                d['wet_tonnes'] = wet_tonnes
+            running_act += wet_tonnes
+            mtd_actual = running_act
+        elif department == "Mining" and metric_name == "Grade - Ore Mined":
+            daily_act_grade = parse_float(d.get('daily_act_grade'))
+            running_weighted_sum += (daily_act_grade * daily_fcst)
+            running_weights += daily_fcst
+            mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
+        elif department == "Milling_CIL" and metric_name == "Plant Feed Grade":
+            running_weighted_sum += (daily_act * daily_fcst)
+            running_weights += daily_fcst
+            mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
+        elif department == "Engineering":
+            running_weighted_sum += (daily_act * daily_fcst)
+            running_weights += daily_act
+            mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
+        else:
+            running_act += daily_act
+            mtd_actual = running_act
+            
+        # Outlook
+        if department == "Geology":
+            if metric_name == "Toll":
+                # Toll Outlook uses daily_actual (Wet Tonnes) cumulative
+                mtd_act_wet = sum(parse_float(x.data.get('daily_actual')) for x in daily_records[:idx+1])
+                outlook = (mtd_act_wet - mtd_forecast) + full_fcst
+            else:
+                outlook = (mtd_actual - mtd_forecast) + full_fcst
+        elif department == "OHS":
+            outlook = mtd_actual + ((full_fcst - mtd_actual) / current_day)
+        elif department == "Mining" and metric_name == "Ore Mined":
+            outlook = mtd_actual + (full_fcst / total_days) * remaining_days
+        elif department == "Mining" and metric_name == "Total Material Moved":
+            if remaining_days <= 0:
+                outlook = mtd_actual
+            else:
+                outlook = mtd_actual + (full_fcst - mtd_actual) / remaining_days
+        elif department == "Milling_CIL" and metric_name in ["Gold Contained", "Gold Recovery", "Recovery", "Tonnes Treated"]:
+            outlook = (mtd_actual / current_day) * total_days if current_day > 0 else 0.0
+        elif department == "Crushing" and metric_name == "Ore Crushed":
+            outlook = (mtd_actual / current_day) * total_days if current_day > 0 else 0.0
+        else:
+            outlook = mtd_actual
+            
+        # Variances
+        var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
+        var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
+        if department in ("Geology", "OHS"):
+            var3 = calc_var(outlook, full_fcst, is_ohs_dept, use_act_denom=True)
+        else:
+            var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
+            
+        d["var1"] = var1
+        d["daily_var"] = var1
+        d["var2"] = var2
+        d["mtd_var"] = var2
+        d["var3"] = var3
+        d["budget_var"] = var3
+        d["mtd_actual"] = round(mtd_actual, 2) if mtd_actual % 1 else int(mtd_actual)
+        d["mtd_forecast"] = round(mtd_forecast, 2) if mtd_forecast % 1 else int(mtd_forecast)
+        d["outlook"] = "-" if outlook is None else (round(outlook, 2) if outlook % 1 else int(outlook))
+        
+        if department == "OHS":
+            d["full_forecast"] = "-" if full_fcst is None else (round(full_fcst, 2) if full_fcst % 1 else int(full_fcst))
+            d["full_budget"] = "-" if full_budg is None else (round(full_budg, 2) if full_budg % 1 else int(full_budg))
+            d["annual_target"] = d["full_budget"]
+        else:
+            if department == "Geology":
+                is_fcst_empty = d.get("full_forecast") in (None, 0, 0.0, "", "-")
+                is_budg_empty = d.get("full_budget") in (None, 0, 0.0, "", "-")
+                if is_fcst_empty:
+                    d["full_forecast"] = round(full_fcst, 2) if full_fcst % 1 else int(full_fcst)
+                if is_budg_empty:
+                    d["full_budget"] = round(full_budg, 2) if full_budg % 1 else int(full_budg)
+            else:
+                if d.get("full_forecast") is None:
+                    d["full_forecast"] = round(full_fcst, 2) if full_fcst % 1 else int(full_fcst)
+                if d.get("full_budget") is None:
+                    d["full_budget"] = round(full_budg, 2) if full_budg % 1 else int(full_budg)
+            
+        r.data = d
+        session.add(r)
+
 @app.get("/api/summary-dashboard")
 def get_summary_dashboard(
     target_date: date = Query(..., description="The date to show the summary for"),
     session: Session = Depends(get_session),
 ):
-    """Aggregate latest KPI data across all departments for the given date."""
+    """Aggregate latest KPI data across all departments for the given date, calculating values in realtime from daily records."""
+    month_start = date(target_date.year, target_date.month, 1)
     trend_start = target_date - timedelta(days=6)
+    query_start = min(month_start, trend_start)
 
-    # Single query for all departments in the 7-day window, exclude fixed_input
+    # Fetch all records from query_start to target_date
     all_records = session.exec(
         select(KPIRecord).where(
-            KPIRecord.date >= trend_start,
-            KPIRecord.date <= target_date,
-            or_(KPIRecord.subtype != "fixed_input", KPIRecord.subtype == None),
+            KPIRecord.date >= query_start,
+            KPIRecord.date <= target_date
         )
     ).all()
+
+    def parse_float(val):
+        if val is None:
+            return 0.0
+        try:
+            return float(str(val).replace("%", "").replace(",", "").strip())
+        except (ValueError, TypeError):
+            return 0.0
+
+    def calc_var(act, fcst, is_ohs=False, use_act_denom=False):
+        if act is None or fcst is None or act == "-" or fcst == "-":
+            return "-"
+        try:
+            act_f = float(str(act).replace("%", "").replace(",", "").strip())
+            fcst_f = float(str(fcst).replace("%", "").replace(",", "").strip())
+        except (ValueError, TypeError):
+            return "-"
+            
+        if is_ohs:
+            # Round both inputs up to the nearest whole number first
+            import math
+            act_f = float(math.ceil(act_f))
+            fcst_f = float(math.ceil(fcst_f))
+            if use_act_denom:
+                if act_f == 0:
+                    return "0%"
+                var = ((fcst_f - act_f) / act_f) * 100
+                return f"{round(var)}%"
+            else:
+                if fcst_f == 0:
+                    return "0%" if act_f == 0 else "-100%"
+                var = ((fcst_f - act_f) / fcst_f) * 100
+                return f"{round(var)}%"
+        else:
+            if fcst_f == 0:
+                return "0%" if act_f == 0 else "-"
+            var = ((act_f - fcst_f) / fcst_f) * 100
+            return f"{round(var)}%"
+
+    if target_date.month == 12:
+        next_month_start = date(target_date.year + 1, 1, 1)
+    else:
+        next_month_start = date(target_date.year, target_date.month + 1, 1)
+    total_days = (next_month_start - month_start).days
+    current_day = target_date.day
+    remaining_days = max(0, total_days - current_day)
 
     result = {}
     for dept in SUMMARY_DEPARTMENTS:
         dept_records = [r for r in all_records if r.department == dept]
-        today_records = [r for r in dept_records if r.date == target_date]
+        
+        # Get the list of metrics for this department
+        metrics = DEPARTMENT_METRICS.get(dept, [])
+        # Exclude "Fixed Inputs" row from summary
+        metrics = [m for m in metrics if m != "Fixed Inputs"]
 
         metrics_data = []
-        seen = set()
-        for rec in today_records:
-            if rec.metric_name in seen:
+        for metric_name in metrics:
+            is_ohs_dept = (dept == "OHS")
+            # Get fixed input for this month
+            fixed_input = next((r for r in dept_records if r.metric_name == metric_name and r.subtype == 'fixed_input' and r.date == month_start), None)
+            full_fcst = 0.0
+            full_budg = 0.0
+            if is_ohs_dept:
+                annual_target = 0.0
+                if fixed_input and fixed_input.data:
+                    annual_target = parse_float(fixed_input.data.get('annual_target') or fixed_input.data.get('full_budget'))
+                else:
+                    annual_target = 0.0 if metric_name == "Environmental Incidents" else 24.0
+                full_fcst = annual_target / 12.0
+                full_budg = annual_target
+            else:
+                if fixed_input and fixed_input.data:
+                    full_fcst = parse_float(fixed_input.data.get('full_forecast'))
+                    full_budg = parse_float(fixed_input.data.get('full_budget'))
+
+            # Get daily records for this month up to target_date
+            daily_records = [r for r in dept_records if r.metric_name == metric_name and r.subtype != 'fixed_input' and r.date >= month_start and r.date <= target_date]
+            daily_records.sort(key=lambda x: x.date)
+
+            # Target record for target_date
+            target_rec = next((r for r in daily_records if r.date == target_date), None)
+            
+            # If there are no daily records for this month up to target_date, skip
+            if not daily_records and not target_rec:
                 continue
-            seen.add(rec.metric_name)
+
+            # Parse daily values
+            if target_rec:
+                daily_actual = target_rec.data.get('daily_actual')
+                daily_forecast = target_rec.data.get('daily_forecast')
+                qty_available = target_rec.data.get('qty_available')
+                day2 = target_rec.data.get('day_2') or target_rec.data.get('day2')
+            else:
+                daily_actual = None
+                daily_forecast = None
+                qty_available = None
+                day2 = None
+
+            # Calculate MTD Forecast
+            if is_ohs_dept:
+                mtd_forecast = full_fcst
+            else:
+                mtd_forecast = sum(parse_float(r.data.get('daily_forecast')) for r in daily_records)
+
+            # Calculate MTD Actual
+            if dept == "Geology" and metric_name == "Toll":
+                def get_dry_tonnes(r):
+                    if 'wet_tonnes' in r.data:
+                        return parse_float(r.data['wet_tonnes'])
+                    da = parse_float(r.data.get('daily_actual'))
+                    return round(da * 0.85)
+                mtd_actual = sum(get_dry_tonnes(r) for r in daily_records)
+            elif dept == "Mining" and metric_name == "Grade - Ore Mined":
+                sum_prod = sum(parse_float(r.data.get('daily_act_grade')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                sum_weights = sum(parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+            elif dept == "Milling_CIL" and metric_name == "Plant Feed Grade":
+                sum_prod = sum(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                sum_weights = sum(parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+            elif dept == "Engineering":
+                sum_prod = sum(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                sum_weights = sum(parse_float(r.data.get('daily_actual')) for r in daily_records)
+                mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+            else:
+                mtd_actual = sum(parse_float(r.data.get('daily_actual')) for r in daily_records)
+
+            # Calculate Outlook
+            if dept == "Geology":
+                if metric_name == "Toll":
+                    mtd_act_wet = sum(parse_float(r.data.get('daily_actual')) for r in daily_records)
+                    outlook = (mtd_act_wet - mtd_forecast) + full_fcst
+                else:
+                    outlook = (mtd_actual - mtd_forecast) + full_fcst
+            elif dept == "OHS":
+                outlook = mtd_actual + ((full_fcst - mtd_actual) / current_day)
+            elif dept == "Mining" and metric_name == "Ore Mined":
+                outlook = mtd_actual + (full_fcst / total_days) * remaining_days
+            elif dept == "Mining" and metric_name == "Total Material Moved":
+                if remaining_days <= 0:
+                    outlook = mtd_actual
+                else:
+                    outlook = mtd_actual + (full_fcst - mtd_actual) / remaining_days
+            elif dept == "Milling_CIL" and metric_name in ["Gold Contained", "Gold Recovery", "Recovery", "Tonnes Treated"]:
+                outlook = (mtd_actual / current_day) * total_days if current_day > 0 else 0.0
+            elif dept == "Crushing" and metric_name == "Ore Crushed":
+                outlook = (mtd_actual / current_day) * total_days if current_day > 0 else 0.0
+            else:
+                outlook = mtd_actual
+
+            # Variances
+            var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
+            var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
+            if dept in ("Geology", "OHS"):
+                var3 = calc_var(outlook, full_fcst, is_ohs_dept, use_act_denom=True)
+            else:
+                var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
+
+            data = {
+                "daily_actual": daily_actual if daily_actual is not None else 0,
+                "daily_forecast": daily_forecast if daily_forecast is not None else 0,
+                "var1": var1,
+                "daily_var": var1,
+                "mtd_actual": round(mtd_actual, 2) if mtd_actual % 1 else int(mtd_actual),
+                "mtd_forecast": mtd_forecast,
+                "var2": var2,
+                "mtd_var": var2,
+                "outlook": "-" if outlook is None else (round(outlook, 2) if outlook % 1 else int(outlook)),
+                "full_forecast": "-" if full_fcst is None else (round(full_fcst, 2) if full_fcst % 1 else int(full_fcst)),
+                "full_budget": "-" if full_budg is None else (round(full_budg, 2) if full_budg % 1 else int(full_budg)),
+                "var3": var3,
+                "budget_var": var3,
+            }
+
+            if is_ohs_dept:
+                data["annual_target"] = data["full_budget"]
+
+            if qty_available is not None:
+                data["qty_available"] = qty_available
+            if day2 is not None:
+                data["day_2"] = day2
+                data["day2"] = day2
+            if target_rec and 'wet_tonnes' in target_rec.data:
+                data["wet_tonnes"] = target_rec.data["wet_tonnes"]
+            if target_rec and 'daily_act_grade' in target_rec.data:
+                data["daily_act_grade"] = target_rec.data["daily_act_grade"]
+            if target_rec and 'daily_act_tonnes' in target_rec.data:
+                data["daily_act_tonnes"] = target_rec.data["daily_act_tonnes"]
+            if target_rec and 'comment' in target_rec.data:
+                data["comment"] = target_rec.data["comment"]
 
             # Build 7-day trend of daily_actual
             trend = []
             for d in range(7):
                 check_d = trend_start + timedelta(days=d)
-                match = next(
-                    (r for r in dept_records if r.metric_name == rec.metric_name and r.date == check_d),
-                    None,
-                )
+                match = next((r for r in dept_records if r.metric_name == metric_name and r.subtype != 'fixed_input' and r.date == check_d), None)
                 if match:
                     raw = match.data.get("daily_actual")
                     try:
@@ -583,8 +1341,8 @@ def get_summary_dashboard(
                     trend.append(None)
 
             metrics_data.append({
-                "metric_name": rec.metric_name,
-                "data": rec.data,
+                "metric_name": metric_name,
+                "data": data,
                 "trend": trend,
             })
 
@@ -637,6 +1395,16 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
             session.add(existing)
             session.commit()
             session.refresh(existing)
+            
+            # Recalculate metric month
+            rec_date = existing.date
+            if isinstance(rec_date, str):
+                rec_date = datetime.strptime(rec_date, "%Y-%m-%d").date()
+            if existing.metric_name != "Fixed Inputs":
+                recalculate_metric_month(department, existing.metric_name, rec_date.year, rec_date.month, session)
+                session.commit()
+                session.refresh(existing)
+                
             return existing
         else:
             # Create new
@@ -646,6 +1414,16 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
             session.add(record)
             session.commit()
             session.refresh(record)
+            
+            # Recalculate metric month
+            rec_date = record.date
+            if isinstance(rec_date, str):
+                rec_date = datetime.strptime(rec_date, "%Y-%m-%d").date()
+            if record.metric_name != "Fixed Inputs":
+                recalculate_metric_month(department, record.metric_name, rec_date.year, rec_date.month, session)
+                session.commit()
+                session.refresh(record)
+                
             return record
     except Exception as e:
         print(f"ERROR creating KPI record: {e}")
@@ -669,6 +1447,7 @@ def import_kpi_records(
 
     count = 0
     errors = []
+    mutated_keys = set()
     
     for i, rec in enumerate(records):
         try:
@@ -680,6 +1459,13 @@ def import_kpi_records(
                 KPIRecord.subtype == rec.subtype
             )
             existing = session.exec(existing_stmt).first()
+            
+            # Track mutated key
+            rec_date = rec.date
+            if isinstance(rec_date, str):
+                rec_date = datetime.strptime(rec_date, "%Y-%m-%d").date()
+            if rec.metric_name != "Fixed Inputs":
+                mutated_keys.add((rec.metric_name, rec_date.year, rec_date.month))
             
             if existing:
                 existing.data = rec.data
@@ -705,6 +1491,17 @@ def import_kpi_records(
             errors.append(f"Row {i+1}: {str(e)}")
 
     session.commit()
+    
+    # Recalculate mutated metric months
+    for m_name, y, m in mutated_keys:
+        try:
+            recalculate_metric_month(department, m_name, y, m, session)
+        except Exception as e:
+            print(f"Error recalculating imported metric {m_name} in {y}-{m}: {e}")
+            
+    if mutated_keys:
+        session.commit()
+        
     return {"status": "success", "imported_count": count, "errors": errors}
 
 @app.get("/api/kpi/{department}/previous-mtd")
@@ -737,8 +1534,25 @@ def delete_kpi_record(record_id: int, session: Session = Depends(get_session), _
     record = session.get(KPIRecord, record_id)
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
+    
+    # Store key info before deleting
+    dept = record.department
+    metric_name = record.metric_name
+    rec_date = record.date
+    if isinstance(rec_date, str):
+        rec_date = datetime.strptime(rec_date, "%Y-%m-%d").date()
+        
     session.delete(record)
     session.commit()
+    
+    # Recalculate remaining records for this month
+    if metric_name != "Fixed Inputs":
+        try:
+            recalculate_metric_month(dept, metric_name, rec_date.year, rec_date.month, session)
+            session.commit()
+        except Exception as e:
+            print(f"Error recalculating metric month after deletion: {e}")
+            
     return {"ok": True}
 
 @app.post("/api/kpi/{department}/cascade-fixed")
@@ -777,31 +1591,48 @@ def cascade_fixed_input(
         for record in records:
             # Need to create a new dict to ensure SQLAlchemy detects change in JSON
             new_data = dict(record.data)
-            new_data['full_forecast'] = payload.full_forecast
-            new_data['full_budget'] = payload.full_budget
+            if department == "OHS":
+                annual_target = payload.annual_target if payload.annual_target is not None else payload.full_budget
+                new_data['annual_target'] = annual_target
+                new_data['full_budget'] = annual_target
+                new_data['full_forecast'] = annual_target / 12.0
+                new_data['mtd_forecast'] = annual_target / 12.0
+            else:
+                new_data['full_forecast'] = payload.full_forecast
+                new_data['full_budget'] = payload.full_budget
             
             # Helper for variance
-            def calc_var(act_val, fcst_val, is_ohs=False):
+            def calc_var(act_val, fcst_val, is_ohs=False, use_act_denom=False):
                 try:
                     act = float(act_val)
                     fcst = float(fcst_val)
                     
                     if is_ohs:
-                        # OHS Logic (Lower is Better)
-                        # If Forecast is 0:
-                        # - Actual 0 -> 0% (Green/Good)
-                        # - Actual > 0 -> -100% (Red/Bad)
-                        if fcst == 0:
+                        # Round both inputs up to the nearest whole number first
+                        import math
+                        act = float(math.ceil(act))
+                        fcst = float(math.ceil(fcst))
+                        if use_act_denom:
                             if act == 0:
                                 return "0%"
-                            else:
-                                return "-100%"
-                        
-                        # Normal OHS Logic: ((Forecast - Actual) / Forecast) * 100
-                        # Example: Fcst 10, Act 5. (5/10)*100 = 50% (Good)
-                        # Example: Fcst 10, Act 15. (-5/10)*100 = -50% (Bad)
-                        var = ((fcst - act) / fcst) * 100
-                        return f"{round(var)}%"
+                            var = ((fcst - act) / act) * 100
+                            return f"{round(var)}%"
+                        else:
+                            # OHS Logic (Lower is Better)
+                            # If Forecast is 0:
+                            # - Actual 0 -> 0% (Green/Good)
+                            # - Actual > 0 -> -100% (Red/Bad)
+                            if fcst == 0:
+                                if act == 0:
+                                    return "0%"
+                                else:
+                                    return "-100%"
+                            
+                            # Normal OHS Logic: ((Forecast - Actual) / Forecast) * 100
+                            # Example: Fcst 10, Act 5. (5/10)*100 = 50% (Good)
+                            # Example: Fcst 10, Act 15. (-5/10)*100 = -50% (Bad)
+                            var = ((fcst - act) / fcst) * 100
+                            return f"{round(var)}%"
                     
                     else:
                         # Standard Logic (Higher is Better/Production)
@@ -822,12 +1653,13 @@ def cascade_fixed_input(
             is_ohs_dept = department == "OHS"
 
             # Special case for Geology Grade Control: forecast_per_rig changes daily_forecast
-            if payload.forecast_per_rig is not None:
+            if payload.metric_name == "Grade Control Drilling" and payload.forecast_per_rig is not None:
                 new_data['forecast_per_rig'] = payload.forecast_per_rig
-                # Update daily forecast based on qty_available (rigs) * forecast_per_rig
-                if 'qty_available' in new_data:
+                # Update daily forecast based on rigs count * forecast_per_rig (checks both num_rigs and qty_available)
+                rigs_key = 'num_rigs' if 'num_rigs' in new_data else ('qty_available' if 'qty_available' in new_data else None)
+                if rigs_key:
                     try:
-                        rigs = float(new_data['qty_available'])
+                        rigs = float(new_data[rigs_key])
                         new_daily_fcst = rigs * float(payload.forecast_per_rig)
                         new_data['daily_forecast'] = round(new_daily_fcst, 2)
                     except (ValueError, TypeError):
@@ -836,23 +1668,21 @@ def cascade_fixed_input(
             # Recalculate Daily Variance (var1)
             # Logic: ((Actual - Forecast) / Forecast) * 100
             if 'daily_actual' in new_data and 'daily_forecast' in new_data:
-                 new_data['var1'] = calc_var(new_data['daily_actual'], new_data['daily_forecast'], is_ohs_dept)
+                 new_data['var1'] = calc_var(new_data['daily_actual'], new_data['daily_forecast'], is_ohs_dept, use_act_denom=is_ohs_dept)
 
             # Recalculate MTD Variance (var2)
             # Logic: ((MTD Actual - MTD Forecast) / MTD Forecast) * 100
             if 'mtd_actual' in new_data and 'mtd_forecast' in new_data:
-                 new_data['var2'] = calc_var(new_data['mtd_actual'], new_data['mtd_forecast'], is_ohs_dept)
+                 new_data['var2'] = calc_var(new_data['mtd_actual'], new_data['mtd_forecast'], is_ohs_dept, use_act_denom=True)
 
             # Recalculate Budget Variance (var3)
-            # Logic: ((Full Forecast - Full Budget) / Full Budget) * 100
-            # Note: The logic in JS is Budget Variance = (Full Forecast - Full Budget) / Full Budget
-            # But wait, looking at app.js line 1408: attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
-            # It uses the SAME logic: (Actual - Forecast) / Forecast.
-            # Where 'Actual' is dependent on the context.
-            # For Fixed Input context: 'Outlook' vs 'Full Forecast'? No.
-            # Let's stick to (Full Forecast - Full Budget) / Full Budget as standard Budget Variance.
-            # Actually, let's use the helper: Act=Full Forecast, Fcst=Full Budget
-            new_data['var3'] = calc_var(payload.full_forecast, payload.full_budget, is_ohs_dept)
+            # For Geology department: third variance is Outlook (a) vs Full Forecast (b)
+            # For other departments: standard Budget Variance (Full Forecast vs Full Budget)
+            if department in ("Geology", "OHS"):
+                fcst_target = payload.full_forecast if not is_ohs_dept else (annual_target / 12.0)
+                new_data['var3'] = calc_var(new_data.get('outlook'), fcst_target, is_ohs_dept, use_act_denom=True)
+            else:
+                new_data['var3'] = calc_var(payload.full_forecast, payload.full_budget, is_ohs_dept)
 
             record.data = new_data
             record.last_modification = {
@@ -862,8 +1692,15 @@ def cascade_fixed_input(
             }
             session.add(record)
             count += 1
-            
         session.commit()
+        
+        # Recalculate metric month to ensure MTD, Outlook, and variances are correct
+        try:
+            recalculate_metric_month(department, payload.metric_name, year, month, session)
+            session.commit()
+        except Exception as e:
+            print(f"Error recalculating metric month after cascade: {e}")
+            
         return {"updated_count": count}
 
     except Exception as e:

@@ -26,7 +26,12 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY}
       - RESEND_FROM=${RESEND_FROM}
       - SEED_DB=${SEED_DB}
+      - SMS_ONLINE_GH_API_KEY=${SMS_ONLINE_GH_API_KEY}
+      - SMS_ONLINE_GH_SENDER_ID=${SMS_ONLINE_GH_SENDER_ID}
+      - SMS_ONLINE_GH_RECIPIENT=${SMS_ONLINE_GH_RECIPIENT}
+      - SIMULATE_NOTIFICATIONS=${SIMULATE_NOTIFICATIONS}
     depends_on:
+
       db:
         condition: service_healthy
     networks:
