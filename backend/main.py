@@ -415,7 +415,7 @@ class ResetPasswordRequest(BaseModel):
 DEPARTMENT_METRICS = {
     "Milling_CIL": ["Fixed Inputs", "Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"],
     "Geology": ["Fixed Inputs", "Exploration Drilling", "Grade Control Drilling", "Toll"],
-    "Mining": ["Fixed Inputs", "Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Total Material Moved", "Blast Hole Drilling"],
+    "Mining": ["Fixed Inputs", "Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Rehandle", "Total Material Moved", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
     "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
     "Engineering": ["Fixed Inputs", "Light Vehicles", "Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Pumps", "Drill Rigs"]
@@ -1062,7 +1062,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             mtd_actual = running_act
             
         # Outlook
-        if department == "Mining" and metric_name == "Grade Rehandle":
+        if department == "Mining" and metric_name in ("Grade Rehandle", "Rehandle"):
             outlook = None
         elif department == "Geology":
             if metric_name == "Toll":
@@ -1088,11 +1088,16 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             outlook = mtd_actual
             
         # Variances
-        if department == "Mining" and metric_name == "Grade Rehandle":
-            daily_act_grade = parse_float(d.get('daily_act_grade'))
-            var1 = calc_var(daily_act_grade, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
-            var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
-            var3 = "-"
+        if department == "Mining" and metric_name in ("Grade Rehandle", "Rehandle"):
+            if metric_name == "Grade Rehandle":
+                daily_act_grade = parse_float(d.get('daily_act_grade'))
+                var1 = calc_var(daily_act_grade, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
+                var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
+                var3 = "-"
+            else:
+                var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
+                var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
+                var3 = "-"
         else:
             var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
             var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -1107,7 +1112,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
         d["mtd_var"] = var2
         d["var3"] = var3
         d["budget_var"] = var3
-        if metric_name == "Grade Rehandle":
+        if metric_name in ("Grade Rehandle", "Rehandle"):
             d["mtd_actual"] = round(mtd_actual, 2)
             d["mtd_forecast"] = round(mtd_forecast, 2)
         else:
@@ -1119,7 +1124,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             d["full_forecast"] = "-" if full_fcst is None else (round(full_fcst, 2) if full_fcst % 1 else int(full_fcst))
             d["full_budget"] = "-" if full_budg is None else (round(full_budg, 2) if full_budg % 1 else int(full_budg))
             d["annual_target"] = d["full_budget"]
-        elif department == "Mining" and metric_name == "Grade Rehandle":
+        elif department == "Mining" and metric_name in ("Grade Rehandle", "Rehandle"):
             d["full_forecast"] = "-"
             d["full_budget"] = "-"
         else:
@@ -1291,7 +1296,7 @@ def get_summary_dashboard(
                 mtd_actual = sum(parse_float(r.data.get('daily_actual')) for r in daily_records)
 
             # Calculate Outlook
-            if dept == "Mining" and metric_name == "Grade Rehandle":
+            if dept == "Mining" and metric_name in ("Grade Rehandle", "Rehandle"):
                 outlook = None
             elif dept == "Geology":
                 if metric_name == "Toll":
@@ -1316,11 +1321,16 @@ def get_summary_dashboard(
                 outlook = mtd_actual
 
             # Variances
-            if dept == "Mining" and metric_name == "Grade Rehandle":
-                daily_act_grade = parse_float(target_rec.data.get('daily_act_grade')) if target_rec else 0.0
-                var1 = calc_var(daily_act_grade, parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
-                var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
-                var3 = "-"
+            if dept == "Mining" and metric_name in ("Grade Rehandle", "Rehandle"):
+                if metric_name == "Grade Rehandle":
+                    daily_act_grade = parse_float(target_rec.data.get('daily_act_grade')) if target_rec else 0.0
+                    var1 = calc_var(daily_act_grade, parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
+                    var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
+                    var3 = "-"
+                else:
+                    var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
+                    var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
+                    var3 = "-"
             else:
                 var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -1334,13 +1344,13 @@ def get_summary_dashboard(
                 "daily_forecast": daily_forecast if daily_forecast is not None else 0,
                 "var1": var1,
                 "daily_var": var1,
-                "mtd_actual": round(mtd_actual, 2) if (mtd_actual % 1 or metric_name == "Grade Rehandle") else int(mtd_actual),
-                "mtd_forecast": round(mtd_forecast, 2) if (mtd_forecast % 1 or metric_name == "Grade Rehandle") else int(mtd_forecast),
+                "mtd_actual": round(mtd_actual, 2) if (mtd_actual % 1 or metric_name in ("Grade Rehandle", "Rehandle")) else int(mtd_actual),
+                "mtd_forecast": round(mtd_forecast, 2) if (mtd_forecast % 1 or metric_name in ("Grade Rehandle", "Rehandle")) else int(mtd_forecast),
                 "var2": var2,
                 "mtd_var": var2,
                 "outlook": "-" if outlook is None else (round(outlook, 2) if outlook % 1 else int(outlook)),
-                "full_forecast": "-" if (full_fcst is None or metric_name == "Grade Rehandle") else (round(full_fcst, 2) if full_fcst % 1 else int(full_fcst)),
-                "full_budget": "-" if (full_budg is None or metric_name == "Grade Rehandle") else (round(full_budg, 2) if full_budg % 1 else int(full_budg)),
+                "full_forecast": "-" if (full_fcst is None or metric_name in ("Grade Rehandle", "Rehandle")) else (round(full_fcst, 2) if full_fcst % 1 else int(full_fcst)),
+                "full_budget": "-" if (full_budg is None or metric_name in ("Grade Rehandle", "Rehandle")) else (round(full_budg, 2) if full_budg % 1 else int(full_budg)),
                 "var3": var3,
                 "budget_var": var3,
             }

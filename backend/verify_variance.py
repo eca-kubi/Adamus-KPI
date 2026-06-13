@@ -152,6 +152,55 @@ def verify_variance_logic():
         # 6.25% rounds to 6% in python
         assert r_rehandle_2.data.get('var2') == "6%"
 
+        # Setup Data for Rehandle (tonnes only)
+        metric_tonnes_rehandle = "Rehandle"
+        r_tonnes_rehandle_1 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_tonnes_rehandle,
+            date=date(2026, 1, 1),
+            subtype="daily_input",
+            data={"daily_actual": 1000, "daily_forecast": 1200}
+        )
+        r_tonnes_rehandle_2 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_tonnes_rehandle,
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 2000, "daily_forecast": 1500}
+        )
+        session.add(r_tonnes_rehandle_1)
+        session.add(r_tonnes_rehandle_2)
+        session.commit()
+
+        recalculate_metric_month(dept_std, metric_tonnes_rehandle, 2026, 1, session)
+        session.commit()
+
+        session.refresh(r_tonnes_rehandle_1)
+        session.refresh(r_tonnes_rehandle_2)
+
+        print("\n--- Verifying Rehandle (Tonnes only, cumulative forecast/actual) ---")
+        print(f"Day 1 Var1 (Expected -17%): {r_tonnes_rehandle_1.data.get('var1')}")
+        print(f"Day 1 MTD Actual (Expected 1000): {r_tonnes_rehandle_1.data.get('mtd_actual')}")
+        print(f"Day 1 MTD Forecast (Expected 1200): {r_tonnes_rehandle_1.data.get('mtd_forecast')}")
+        print(f"Day 1 Var2 (Expected -17%): {r_tonnes_rehandle_1.data.get('var2')}")
+        print(f"Day 1 Outlook (Expected '-'): {r_tonnes_rehandle_1.data.get('outlook')}")
+
+        print(f"Day 2 Var1 (Expected 33%): {r_tonnes_rehandle_2.data.get('var1')}")
+        print(f"Day 2 MTD Actual (Expected 3000): {r_tonnes_rehandle_2.data.get('mtd_actual')}")
+        print(f"Day 2 MTD Forecast (Expected 2700): {r_tonnes_rehandle_2.data.get('mtd_forecast')}")
+        print(f"Day 2 Var2 (Expected 11%): {r_tonnes_rehandle_2.data.get('var2')}")
+
+        assert r_tonnes_rehandle_1.data.get('var1') == "-17%"
+        assert r_tonnes_rehandle_1.data.get('mtd_actual') == 1000
+        assert r_tonnes_rehandle_1.data.get('mtd_forecast') == 1200
+        assert r_tonnes_rehandle_1.data.get('var2') == "-17%"
+        assert r_tonnes_rehandle_1.data.get('outlook') == "-"
+
+        assert r_tonnes_rehandle_2.data.get('var1') == "33%"
+        assert r_tonnes_rehandle_2.data.get('mtd_actual') == 3000
+        assert r_tonnes_rehandle_2.data.get('mtd_forecast') == 2700
+        assert r_tonnes_rehandle_2.data.get('var2') == "11%"
+
         print("\nSUCCESS: All variance logic verified!")
 
 if __name__ == "__main__":

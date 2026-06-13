@@ -24,7 +24,7 @@ DEPARTMENTS = {
         "Ore Crushed", "Grade - Ore Crushed"
     ],
     "Mining": [
-        "Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Total Material Moved", "Blast Hole Drilling"
+        "Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Rehandle", "Total Material Moved", "Blast Hole Drilling"
     ],
     "Geology": [
         "Grade Control Drilling", "Toll", "Exploration Drilling"
@@ -47,7 +47,7 @@ def generate_random_val(metric):
         return round(random.uniform(0.5, 2.0), 2)
     elif "drilling" in m:
         return random.randint(100, 800)
-    elif "tonne" in m or "crushed" in m or "mined" in m:
+    elif "tonne" in m or "crushed" in m or "mined" in m or "rehandle" in m:
         return random.randint(3000, 6000)
     elif "moved" in m:
         return random.randint(10000, 20000)
@@ -162,6 +162,19 @@ def seed_data():
                             "annual_target": str(annual_target),
                             "var3": f"{var3_pct}%" if var3_pct != 0 else "0%",
                         }
+                    elif dept == "Mining" and metric in ("Grade Rehandle", "Rehandle"):
+                        data = {
+                            "daily_actual": actual_str,
+                            "daily_forecast": forecast_str,
+                            "var1": f"{var_pct}%" if var_pct != 0 else "0%",
+                            "mtd_actual": format_val(round(mtd_a, 2) if mtd_a % 1 else int(mtd_a), metric),
+                            "mtd_forecast": format_val(round(mtd_f, 2) if mtd_f % 1 else int(mtd_f), metric),
+                            "var2": f"{mtd_var_pct}%" if mtd_var_pct != 0 else "0%",
+                            "outlook": "-",
+                            "full_forecast": "-",
+                            "full_budget": "-",
+                            "var3": "-",
+                        }
                     else:
                         data = {
                             "daily_actual": actual_str,
@@ -199,6 +212,8 @@ def seed_data():
             first_day = date(2026, month, 1)
             for dept, metrics in DEPARTMENTS.items():
                 for metric in metrics:
+                    if dept == "Mining" and metric in ("Grade Rehandle", "Rehandle"):
+                        continue
                     if dept == "OHS":
                         annual_target = 0 if metric == "Environmental Incidents" else 24
                         forecast_str = str(annual_target / 12)
