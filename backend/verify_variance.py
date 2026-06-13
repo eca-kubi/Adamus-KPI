@@ -201,6 +201,158 @@ def verify_variance_logic():
         assert r_tonnes_rehandle_2.data.get('mtd_forecast') == 2700
         assert r_tonnes_rehandle_2.data.get('var2') == "11%"
 
+        # Setup Data for Stockpile (Stock Pile Near Pit)
+        metric_stockpile = "Stock Pile Near Pit"
+        r_stockpile_1 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_stockpile,
+            date=date(2026, 1, 1),
+            subtype="daily_input",
+            data={"daily_actual": 4500.5, "daily_forecast": 0.0}
+        )
+        r_stockpile_2 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_stockpile,
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 5100.0, "daily_forecast": 100.0} # daily forecast should get forced to 0
+        )
+        r_stockpile_3 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_stockpile,
+            date=date(2026, 1, 3),
+            subtype="daily_input",
+            data={"daily_actual": 0.0, "daily_forecast": 0.0}
+        )
+        session.add(r_stockpile_1)
+        session.add(r_stockpile_2)
+        session.add(r_stockpile_3)
+        session.commit()
+
+        recalculate_metric_month(dept_std, metric_stockpile, 2026, 1, session)
+        session.commit()
+
+        session.refresh(r_stockpile_1)
+        session.refresh(r_stockpile_2)
+        session.refresh(r_stockpile_3)
+
+        print("\n--- Verifying Stock Pile Near Pit (Forecast forced 0, MTD Actual = Daily Actual, Outlook = Daily Actual) ---")
+        print(f"Day 1 Var1 (Expected '-'): {r_stockpile_1.data.get('var1')}")
+        print(f"Day 1 MTD Actual (Expected 4500.5): {r_stockpile_1.data.get('mtd_actual')}")
+        print(f"Day 1 MTD Forecast (Expected 0): {r_stockpile_1.data.get('mtd_forecast')}")
+        print(f"Day 1 Var2 (Expected '-'): {r_stockpile_1.data.get('var2')}")
+        print(f"Day 1 Outlook (Expected 4500.5): {r_stockpile_1.data.get('outlook')}")
+
+        print(f"Day 2 Var1 (Expected '-'): {r_stockpile_2.data.get('var1')}")
+        print(f"Day 2 MTD Actual (Expected 5100.0): {r_stockpile_2.data.get('mtd_actual')}")
+        print(f"Day 2 MTD Forecast (Expected 0): {r_stockpile_2.data.get('mtd_forecast')}")
+        print(f"Day 2 Var2 (Expected '-'): {r_stockpile_2.data.get('var2')}")
+        print(f"Day 2 Outlook (Expected 5100.0): {r_stockpile_2.data.get('outlook')}")
+        
+        print(f"Day 3 Var1 (Expected '0%'): {r_stockpile_3.data.get('var1')}")
+
+        assert r_stockpile_1.data.get('var1') == "-"
+        assert r_stockpile_1.data.get('mtd_actual') == 4500.5
+        assert r_stockpile_1.data.get('mtd_forecast') == 0.0
+        assert r_stockpile_1.data.get('var2') == "-"
+        assert r_stockpile_1.data.get('outlook') == 4500.5
+
+        assert r_stockpile_2.data.get('var1') == "-"
+        assert r_stockpile_2.data.get('mtd_actual') == 5100.0
+        assert r_stockpile_2.data.get('mtd_forecast') == 0.0
+        assert r_stockpile_2.data.get('var2') == "-"
+        assert r_stockpile_2.data.get('outlook') == 5100.0
+
+        assert r_stockpile_3.data.get('var1') == "0%"
+
+        # Setup Data for Grade Stockpile (Grade Stockpile Near Pit)
+        metric_grade_stockpile = "Grade Stockpile Near Pit"
+        r_gstockpile_1 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_grade_stockpile,
+            date=date(2026, 1, 1),
+            subtype="daily_input",
+            data={"daily_actual": 4500.5, "daily_act_grade": 1.5, "daily_forecast": 0.0}
+        )
+        r_gstockpile_2 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_grade_stockpile,
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 5100.0, "daily_act_grade": 0.0, "daily_forecast": 1.0} # daily forecast should get forced to 0
+        )
+        session.add(r_gstockpile_1)
+        session.add(r_gstockpile_2)
+        session.commit()
+
+        recalculate_metric_month(dept_std, metric_grade_stockpile, 2026, 1, session)
+        session.commit()
+
+        session.refresh(r_gstockpile_1)
+        session.refresh(r_gstockpile_2)
+
+        print("\n--- Verifying Grade Stockpile Near Pit (Forecast forced 0, MTD Actual = Daily Actual Grade, Outlook = Daily Actual Grade) ---")
+        print(f"Day 1 Var1 (Expected '-'): {r_gstockpile_1.data.get('var1')}")
+        print(f"Day 1 MTD Actual (Expected 1.5): {r_gstockpile_1.data.get('mtd_actual')}")
+        print(f"Day 1 MTD Forecast (Expected 0): {r_gstockpile_1.data.get('mtd_forecast')}")
+        print(f"Day 1 Var2 (Expected '-'): {r_gstockpile_1.data.get('var2')}")
+        print(f"Day 1 Outlook (Expected 1.5): {r_gstockpile_1.data.get('outlook')}")
+
+        print(f"Day 2 Var1 (Expected '0%'): {r_gstockpile_2.data.get('var1')}")
+        print(f"Day 2 MTD Actual (Expected 0.0): {r_gstockpile_2.data.get('mtd_actual')}")
+        print(f"Day 2 MTD Forecast (Expected 0): {r_gstockpile_2.data.get('mtd_forecast')}")
+        print(f"Day 2 Var2 (Expected '0%'): {r_gstockpile_2.data.get('var2')}")
+        print(f"Day 2 Outlook (Expected 0.0): {r_gstockpile_2.data.get('outlook')}")
+
+        assert r_gstockpile_1.data.get('var1') == "-"
+        assert r_gstockpile_1.data.get('mtd_actual') == 1.5
+        assert r_gstockpile_1.data.get('mtd_forecast') == 0.0
+        assert r_gstockpile_1.data.get('var2') == "-"
+        assert r_gstockpile_1.data.get('outlook') == 1.5
+
+        assert r_gstockpile_2.data.get('var1') == "0%"
+        assert r_gstockpile_2.data.get('mtd_actual') == 0.0
+        assert r_gstockpile_2.data.get('mtd_forecast') == 0.0
+        assert r_gstockpile_2.data.get('var2') == "0%"
+        assert r_gstockpile_2.data.get('outlook') == 0.0
+
+        # Setup Data for Pct Metric (Availability - Dump Truck) under Mining
+        metric_avail = "Availability - Dump Truck"
+        r_avail_1 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_avail,
+            date=date(2026, 1, 1),
+            subtype="daily_input",
+            data={"daily_actual": 85, "daily_forecast": 80}
+        )
+        r_avail_2 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_avail,
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 75, "daily_forecast": 80}
+        )
+        session.add(r_avail_1)
+        session.add(r_avail_2)
+        session.commit()
+
+        recalculate_metric_month(dept_std, metric_avail, 2026, 1, session)
+        session.commit()
+
+        session.refresh(r_avail_1)
+        session.refresh(r_avail_2)
+
+        print("\n--- Verifying Availability - Dump Truck (Var1 = Actual - Forecast, MTD/Outlook forced to '-') ---")
+        print(f"Day 1 Var1 (Expected '5%'): {r_avail_1.data.get('var1')}")
+        print(f"Day 1 MTD Actual (Expected '-'): {r_avail_1.data.get('mtd_actual')}")
+        print(f"Day 1 Outlook (Expected '-'): {r_avail_1.data.get('outlook')}")
+        print(f"Day 2 Var1 (Expected '-5%'): {r_avail_2.data.get('var1')}")
+
+        assert r_avail_1.data.get('var1') == "5%"
+        assert r_avail_1.data.get('mtd_actual') == "-"
+        assert r_avail_1.data.get('outlook') == "-"
+        assert r_avail_2.data.get('var1') == "-5%"
+
         print("\nSUCCESS: All variance logic verified!")
 
 if __name__ == "__main__":

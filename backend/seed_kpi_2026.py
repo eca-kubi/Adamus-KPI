@@ -24,7 +24,7 @@ DEPARTMENTS = {
         "Ore Crushed", "Grade - Ore Crushed"
     ],
     "Mining": [
-        "Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Rehandle", "Total Material Moved", "Blast Hole Drilling"
+        "Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad", "Availability - Dump Truck", "Utilization - Dump Truck", "Availability - Excavator", "Utilization - Excavator", "Total Material Moved", "Blast Hole Drilling"
     ],
     "Geology": [
         "Grade Control Drilling", "Toll", "Exploration Drilling"
@@ -43,11 +43,13 @@ def generate_random_val(metric):
         return random.choices([0, 1], weights=[0.95, 0.05])[0]
     elif "recovery" in m:
         return round(random.uniform(75.0, 95.0), 1)
+    elif "availability" in m or "utilization" in m:
+        return round(random.uniform(70.0, 95.0), 1)
     elif "grade" in m:
         return round(random.uniform(0.5, 2.0), 2)
     elif "drilling" in m:
         return random.randint(100, 800)
-    elif "tonne" in m or "crushed" in m or "mined" in m or "rehandle" in m:
+    elif "tonne" in m or "crushed" in m or "mined" in m or "rehandle" in m or "stock pile" in m:
         return random.randint(3000, 6000)
     elif "moved" in m:
         return random.randint(10000, 20000)
@@ -96,14 +98,18 @@ def seed_data():
                 
                 for metric in metrics:
                     actual_val = generate_random_val(metric)
-                    if dept == "OHS":
+                    if dept == "OHS" or metric in ("Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
                         forecast_val = 0
                     else:
                         forecast_val = generate_random_val(metric)
                     
                     # Accumulate for MTD
-                    mtd_state[metric]["actual"] += actual_val
-                    mtd_state[metric]["forecast"] += forecast_val
+                    if metric in ("Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
+                        mtd_state[metric]["actual"] = actual_val
+                        mtd_state[metric]["forecast"] = 0
+                    else:
+                        mtd_state[metric]["actual"] += actual_val
+                        mtd_state[metric]["forecast"] += forecast_val
                     
                     actual_str = format_val(actual_val, metric)
                     forecast_str = format_val(forecast_val, metric)
@@ -175,6 +181,56 @@ def seed_data():
                             "full_budget": "-",
                             "var3": "-",
                         }
+                    elif dept == "Mining" and metric in ("Stock Pile Near Pit", "Stock Pile Main Rompad"):
+                        var1_str = "0%" if actual_val == 0 else "-"
+                        var2_str = "0%" if mtd_a == 0 else "-"
+                        data = {
+                            "daily_actual": actual_str,
+                            "daily_forecast": "0",
+                            "var1": var1_str,
+                            "mtd_actual": format_val(round(mtd_a, 2) if mtd_a % 1 else int(mtd_a), metric),
+                            "mtd_forecast": "0",
+                            "var2": var2_str,
+                            "outlook": format_val(round(actual_val, 2) if actual_val % 1 else int(actual_val), metric),
+                            "full_forecast": "-",
+                            "full_budget": "-",
+                            "var3": "-",
+                        }
+                    elif dept == "Mining" and metric in ("Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
+                        tonnes_val = random.randint(3000, 6000)
+                        var1_str = "0%" if actual_val == 0 else "-"
+                        var2_str = "0%" if mtd_a == 0 else "-"
+                        data = {
+                            "daily_actual": str(tonnes_val),
+                            "daily_act_grade": actual_val,
+                            "daily_forecast": 0,
+                            "var1": var1_str,
+                            "mtd_actual": actual_val,
+                            "mtd_forecast": 0,
+                            "var2": var2_str,
+                            "outlook": actual_val,
+                            "full_forecast": "-",
+                            "full_budget": "-",
+                            "var3": "-",
+                        }
+                    elif dept == "Mining" and metric in (
+                        "Availability - Dump Truck",
+                        "Utilization - Dump Truck",
+                        "Availability - Excavator",
+                        "Utilization - Excavator"
+                    ):
+                        data = {
+                            "daily_actual": f"{round(actual_val)}%",
+                            "daily_forecast": f"{round(forecast_val)}%",
+                            "var1": f"{round(actual_val - forecast_val)}%",
+                            "mtd_actual": "-",
+                            "mtd_forecast": "-",
+                            "var2": "-",
+                            "outlook": "-",
+                            "full_forecast": "-",
+                            "full_budget": "-",
+                            "var3": "-",
+                        }
                     else:
                         data = {
                             "daily_actual": actual_str,
@@ -212,7 +268,7 @@ def seed_data():
             first_day = date(2026, month, 1)
             for dept, metrics in DEPARTMENTS.items():
                 for metric in metrics:
-                    if dept == "Mining" and metric in ("Grade Rehandle", "Rehandle"):
+                    if dept == "Mining" and metric in ("Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad", "Availability - Dump Truck", "Utilization - Dump Truck", "Availability - Excavator", "Utilization - Excavator"):
                         continue
                     if dept == "OHS":
                         annual_target = 0 if metric == "Environmental Incidents" else 24
