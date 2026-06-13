@@ -24,7 +24,7 @@ DEPARTMENTS = {
         "Ore Crushed", "Grade - Ore Crushed"
     ],
     "Mining": [
-        "Ore Mined", "Grade - Ore Mined", "Total Material Moved", "Blast Hole Drilling"
+        "Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Total Material Moved", "Blast Hole Drilling"
     ],
     "Geology": [
         "Grade Control Drilling", "Toll", "Exploration Drilling"

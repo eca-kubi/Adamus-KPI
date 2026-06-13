@@ -99,6 +99,59 @@ def verify_variance_logic():
         print(f"Standard (Act 100, Fcst 120) -> Var1 Expected '-17%': {r_std.data.get('var1')}")
         assert r_std.data.get('var1') == "-17%"
 
+        # Setup Data for Grade Rehandle
+        metric_rehandle = "Grade Rehandle"
+        r_rehandle_1 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_rehandle,
+            date=date(2026, 1, 1),
+            subtype="daily_input",
+            data={"daily_actual": 1000, "daily_act_grade": 1.50, "daily_forecast": 1.60}
+        )
+        r_rehandle_2 = KPIRecord(
+            department=dept_std,
+            metric_name=metric_rehandle,
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 2000, "daily_act_grade": 1.80, "daily_forecast": 1.60}
+        )
+        session.add(r_rehandle_1)
+        session.add(r_rehandle_2)
+        session.commit()
+        
+        # We need to trigger recalculation for Grade Rehandle
+        from backend.main import recalculate_metric_month
+        recalculate_metric_month(dept_std, metric_rehandle, 2026, 1, session)
+        session.commit()
+        
+        session.refresh(r_rehandle_1)
+        session.refresh(r_rehandle_2)
+        
+        print("\n--- Verifying Grade Rehandle (Weighted average, forecast mirrors daily) ---")
+        print(f"Day 1 Var1 (Expected -6%): {r_rehandle_1.data.get('var1')}")
+        print(f"Day 1 MTD Actual (Expected 1.5): {r_rehandle_1.data.get('mtd_actual')}")
+        print(f"Day 1 MTD Forecast (Expected 1.6): {r_rehandle_1.data.get('mtd_forecast')}")
+        print(f"Day 1 Var2 (Expected -6%): {r_rehandle_1.data.get('var2')}")
+        print(f"Day 1 Outlook (Expected '-'): {r_rehandle_1.data.get('outlook')}")
+        
+        print(f"Day 2 Var1 (Expected 12%): {r_rehandle_2.data.get('var1')}")
+        print(f"Day 2 MTD Actual (Expected 1.7): {r_rehandle_2.data.get('mtd_actual')}")
+        print(f"Day 2 MTD Forecast (Expected 1.6): {r_rehandle_2.data.get('mtd_forecast')}")
+        print(f"Day 2 Var2 (Expected 6%): {r_rehandle_2.data.get('var2')}")
+        
+        assert r_rehandle_1.data.get('var1') == "-6%"
+        assert r_rehandle_1.data.get('mtd_actual') == 1.5
+        assert r_rehandle_1.data.get('mtd_forecast') == 1.6
+        assert r_rehandle_1.data.get('var2') == "-6%"
+        assert r_rehandle_1.data.get('outlook') == "-"
+        
+        # 12.5% rounds to 12% in python (round-to-even)
+        assert r_rehandle_2.data.get('var1') == "12%"
+        assert r_rehandle_2.data.get('mtd_actual') == 1.7
+        assert r_rehandle_2.data.get('mtd_forecast') == 1.6
+        # 6.25% rounds to 6% in python
+        assert r_rehandle_2.data.get('var2') == "6%"
+
         print("\nSUCCESS: All variance logic verified!")
 
 if __name__ == "__main__":

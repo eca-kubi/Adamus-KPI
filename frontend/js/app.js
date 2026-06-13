@@ -46,6 +46,7 @@ const DEPT_METRICS = {
         "Fixed Inputs",
         "Ore Mined",
         "Grade - Ore Mined",
+        "Grade Rehandle",
         "Total Material Moved",
         "Blast Hole Drilling"
     ],
@@ -103,6 +104,10 @@ const IMPORT_CONFIGS = {
     'Grade - Ore Mined': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Actual(g/t)', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'daily_actual', 'daily_act_grade', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Grade Rehandle': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Actual (g/t)', 'Daily Forecast (g/t)'],
+        keys: ['date', 'daily_actual', 'daily_act_grade', 'daily_forecast']
     },
     'Total Material Moved': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual(bcm)', 'Daily Forecast(bcm)', 'Outlook', 'Full Forecast', 'Full Budget'],
@@ -1405,6 +1410,8 @@ function renderKPIForm(dept, metricName) {
         renderMiningOreForm(dept, metricName, card);
     } else if (dept === "Mining" && metricName === "Grade - Ore Mined") {
         renderMiningGradeForm(dept, metricName, card);
+    } else if (dept === "Mining" && metricName === "Grade Rehandle") {
+        renderMiningGradeRehandleForm(dept, metricName, card);
     } else if (dept === "Mining" && metricName === "Total Material Moved") {
         renderMiningMaterialForm(dept, metricName, card);
     } else if (dept === "Mining" && metricName === "Blast Hole Drilling") {
@@ -2954,6 +2961,164 @@ function renderMiningGradeForm(dept, metricName, card) {
             budgVar.input.value = '';
             // Date is usually kept or reset? Usually kept in other forms but let's clear for fresh entry or keep. 
             // Others clear it.
+            date.input.value = '';
+        } catch (e) {
+            console.error("Save failed", e);
+            DOM.showToast("Failed to save record", "error");
+        }
+    });
+    btnContainer.appendChild(saveBtn);
+    card.appendChild(btnContainer);
+}
+
+function renderMiningGradeRehandleForm(dept, metricName, card) {
+    const grid = document.createElement('div');
+    grid.className = 'kpi-form-grid';
+
+    // Helper to add to grid
+    const add = (group) => grid.appendChild(group.container);
+
+    // Row 1
+    const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
+    kpi.input.value = metricName;
+    kpi.input.readOnly = true;
+
+    const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
+
+    // Row 2
+    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number");
+    const dActGrade = DOM.createInputGroup("Daily Actual (g/t)", `input-${dept}-daily-act-gt`, "number");
+    const dFcst = DOM.createInputGroup("Daily Forecast (g/t)", `input-${dept}-daily-fcst`, "number");
+    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dActGrade.input, dFcst.input, dVar.input);
+
+    // Row 3
+    const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
+    const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
+    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    mVar.input.readOnly = true;
+    attachVarianceListener(mAct.input, mFcst.input, mVar.input);
+
+    // Auto-Calculate MTD Actual (Weighted Average Formula using daily tonnes & daily grade)
+    const calculateMTD = async () => {
+        const dateVal = date.input.value;
+        const currentDailyAct = parseFloat(dAct.input.value) || 0;
+        const currentDailyActGrade = parseFloat(dActGrade.input.value) || 0;
+        const currentDailyForecast = parseFloat(dFcst.input.value) || 0;
+
+        if (!dateVal) {
+            mAct.input.value = currentDailyActGrade.toFixed(2);
+            mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+            mFcst.input.value = currentDailyForecast.toFixed(2);
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            return;
+        }
+
+        const d = new Date(dateVal);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1; // 1-based
+        const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        try {
+            const records = await fetchKPIRecords(dept, startDate, endDate);
+
+            // Filter: Same KPI, same Month, exclude current day and fixed inputs
+            const relevantRecords = records.filter(r =>
+                r.metric_name === metricName &&
+                r.date < dateVal &&
+                r.subtype !== 'fixed_input'
+            );
+
+            // Numerator: SumProduct = Σ (DailyActualTonnes * DailyActualGrade)
+            let sumProduct = relevantRecords.reduce((sum, r) => {
+                const rTonnes = parseFloat(r.data.daily_actual) || 0;
+                const rGrade = parseFloat(r.data.daily_act_grade) || 0;
+                return sum + (rTonnes * rGrade);
+            }, 0);
+
+            // Add Current Day Product
+            sumProduct += (currentDailyAct * currentDailyActGrade);
+
+            // Denominator: Sum = Σ (DailyActualTonnes)
+            let sumWeights = relevantRecords.reduce((sum, r) => {
+                return sum + (parseFloat(r.data.daily_actual) || 0);
+            }, 0);
+
+            // Add Current Day Weight
+            sumWeights += currentDailyAct;
+
+            // Result
+            if (sumWeights !== 0) {
+                const weightedAvg = sumProduct / sumWeights;
+                mAct.input.value = weightedAvg.toFixed(2);
+            } else {
+                mAct.input.value = (0).toFixed(2);
+            }
+            mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // MTD Forecast is simply the daily forecast for the day (e.g. current day's daily forecast)
+            mFcst.input.value = currentDailyForecast.toFixed(2);
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+        } catch (e) {
+            console.warn("Auto-calc MTD failed", e);
+        }
+    };
+
+    dAct.input.addEventListener('input', calculateMTD);
+    dActGrade.input.addEventListener('input', calculateMTD);
+    dFcst.input.addEventListener('input', calculateMTD);
+    date.input.addEventListener('change', calculateMTD);
+
+    // Add to Grid
+    add(kpi); add(date); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Spacers
+    add(dAct); add(dActGrade); add(dFcst); add(dVar);
+    add(mAct); add(mFcst); add(mVar);
+
+    card.appendChild(grid);
+
+    // Save Button
+    const btnContainer = document.createElement('div');
+    const saveBtn = DOM.createButton("Save Record", async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
+
+        const record = {
+            subtype: 'daily_input',
+            date: dateVal,
+            department: dept,
+            metric_name: metricName,
+            data: {
+                daily_actual: parseFloat(dAct.input.value) || 0,
+                daily_act_grade: parseFloat(dActGrade.input.value) || 0,
+                daily_forecast: parseFloat(dFcst.input.value) || 0,
+                var1: dVar.input.value,
+                mtd_actual: parseFloat(mAct.input.value) || 0,
+                mtd_forecast: parseFloat(mFcst.input.value) || 0,
+                var2: mVar.input.value,
+                outlook: "-",
+                full_forecast: "-",
+                full_budget: "-",
+                var3: "-"
+            }
+        };
+
+        try {
+            await saveKPIRecord(dept, record);
+            DOM.showToast("Record saved successfully!");
+            loadRecentRecords(dept);
+
+            // Clear inputs
+            dAct.input.value = '';
+            dActGrade.input.value = '';
+            dFcst.input.value = '';
+            dVar.input.value = '';
+            mAct.input.value = '';
+            mFcst.input.value = '';
+            mVar.input.value = '';
             date.input.value = '';
         } catch (e) {
             console.error("Save failed", e);
@@ -8984,6 +9149,71 @@ async function loadRecentRecords(dept) {
             return;
         }
 
+        // Handling for Grade Rehandle
+        if (STATE.currentMetric === 'Grade Rehandle') {
+            filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
+
+            // Date | Daily Act (t) | Daily Act (g/t) | Daily Fcst (g/t) | Var % | Status | MTD Act | MTD Fcst | Var % | Status | Outlook | Full Forecast | Full Budget | Var % | Status | Action
+            thead.innerHTML = `
+                <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
+                <th style="padding: 12px; text-align: left;">D.Act(t)</th>
+                <th style="padding: 12px; text-align: left;">D.Act(g/t)</th>
+                <th style="padding: 12px; text-align: left;">D.Fcst(g/t)</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">MTD.Act</th>
+                <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Outlook</th>
+                <th style="padding: 12px; text-align: left;">F.Fcst</th>
+                <th style="padding: 12px; text-align: left;">F.Budg</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Action</th>
+            `;
+
+            if (filteredRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                return;
+            }
+
+            filteredRecords.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.style.borderTop = '1px solid #e5e7eb';
+
+                let dateDisplay = r.date;
+                if (r.date && r.date.includes('-')) {
+                    const [y, m, d] = r.date.split('-');
+                    dateDisplay = `${d}-${m}-${y}`;
+                }
+
+                tr.innerHTML = `
+                    <td style="padding: 12px;">${dateDisplay}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_act_grade)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px; text-align: center;">-</td>
+                    <td style="padding: 12px;">
+                        <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
+                        <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            return;
+        }
+
         // Handling for Grade - Ore Crushed
         if (STATE.currentMetric === 'Grade - Ore Crushed') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
@@ -10690,7 +10920,7 @@ const SUMMARY_METRIC_ORDER = {
     "OHS": ["Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
     "Milling_CIL": ["Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"],
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
-    "Mining": ["Ore Mined", "Grade - Ore Mined", "Total Material Moved", "Blast Hole Drilling"],
+    "Mining": ["Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Total Material Moved", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
     "Engineering": ["Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Pumps", "Drill Rigs"]
 };
@@ -11166,9 +11396,16 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
     };
 
     // a. Daily Variance
-    if (d.daily_actual !== undefined && d.daily_forecast !== undefined) {
-        d.var1 = calcVar(d.daily_actual, d.daily_forecast);
-        d.daily_var = d.var1;
+    if (metric === 'Grade Rehandle') {
+        if (d.daily_act_grade !== undefined && d.daily_forecast !== undefined) {
+            d.var1 = calcVar(d.daily_act_grade, d.daily_forecast);
+            d.daily_var = d.var1;
+        }
+    } else {
+        if (d.daily_actual !== undefined && d.daily_forecast !== undefined) {
+            d.var1 = calcVar(d.daily_actual, d.daily_forecast);
+            d.daily_var = d.var1;
+        }
     }
 
     // b. MTD calculations
@@ -11180,15 +11417,59 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
             const prevMtd = pd ? (parseFloat(pd.mtd_actual) || 0) : 0;
             d.mtd_actual = prevMtd + parseFloat(d.wet_tonnes);
         }
+    } else if (metric === "Grade Rehandle") {
+        let cumTonnes = 0;
+        let cumSumProd = 0;
+        
+        if (pd && pd._cum_tonnes !== undefined && pd._cum_sumproduct !== undefined) {
+            cumTonnes = pd._cum_tonnes;
+            cumSumProd = pd._cum_sumproduct;
+        } else if (pd) {
+            // pd is from history, let's fetch all records for the month up to pd.date
+            const dateObj = new Date(record.date);
+            const year = dateObj.getFullYear();
+            const month = dateObj.getMonth() + 1;
+            const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            
+            try {
+                const history = await fetchKPIRecords(dept, startDate, pd.date);
+                const relevant = history.filter(r => r.metric_name === metric && r.subtype !== 'fixed_input');
+                relevant.forEach(r => {
+                    const tonnes = parseFloat(r.data.daily_actual) || 0;
+                    const grade = parseFloat(r.data.daily_act_grade) || 0;
+                    cumTonnes += tonnes;
+                    cumSumProd += (tonnes * grade);
+                });
+            } catch (err) {
+                console.error("Failed to fetch history for MTD Grade Rehandle calculation:", err);
+            }
+        }
+        
+        const curTonnes = parseFloat(d.daily_actual) || 0;
+        const curGrade = parseFloat(d.daily_act_grade) || 0;
+        
+        d._cum_tonnes = cumTonnes + curTonnes;
+        d._cum_sumproduct = cumSumProd + (curTonnes * curGrade);
+        
+        if (d._cum_tonnes !== 0) {
+            d.mtd_actual = parseFloat((d._cum_sumproduct / d._cum_tonnes).toFixed(2));
+        } else {
+            d.mtd_actual = 0;
+        }
+        
+        d.mtd_forecast = parseFloat((parseFloat(d.daily_forecast) || 0).toFixed(2));
     } else {
         if (d.daily_actual !== undefined) {
             const prevMtd = pd ? (parseFloat(pd.mtd_actual) || 0) : 0;
             d.mtd_actual = prevMtd + parseFloat(d.daily_actual);
         }
     }
-    if (d.daily_forecast !== undefined) {
-        const prevMtdFcst = pd ? (parseFloat(pd.mtd_forecast) || 0) : 0;
-        d.mtd_forecast = prevMtdFcst + parseFloat(d.daily_forecast);
+
+    if (metric !== "Grade Rehandle") {
+        if (d.daily_forecast !== undefined) {
+            const prevMtdFcst = pd ? (parseFloat(pd.mtd_forecast) || 0) : 0;
+            d.mtd_forecast = prevMtdFcst + parseFloat(d.daily_forecast);
+        }
     }
 
     if (d.mtd_actual !== undefined && d.mtd_forecast !== undefined) {
@@ -11207,33 +11488,41 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         const fullFcst = monthFixed ? (parseFloat(monthFixed.data.full_forecast) || 0) : (parseFloat(d.full_forecast) || 0);
         const fullBudg = monthFixed ? (parseFloat(monthFixed.data.full_budget) || 0) : (parseFloat(d.full_budget) || 0);
 
-        // Copy fixed values to record if missing or unspecified
-        if (dept === 'Geology') {
-            if (d.full_forecast === undefined || d.full_forecast === null || d.full_forecast === '' || d.full_forecast === 0) {
-                d.full_forecast = fullFcst;
-            }
-            if (d.full_budget === undefined || d.full_budget === null || d.full_budget === '' || d.full_budget === 0) {
-                d.full_budget = fullBudg;
-            }
+        if (metric === 'Grade Rehandle') {
+            d.full_forecast = "-";
+            d.full_budget = "-";
+            d.outlook = "-";
+            d.var3 = "-";
+            d.budget_var = "-";
         } else {
-            if (d.full_forecast === undefined) d.full_forecast = fullFcst;
-            if (d.full_budget === undefined) d.full_budget = fullBudg;
-        }
+            // Copy fixed values to record if missing or unspecified
+            if (dept === 'Geology') {
+                if (d.full_forecast === undefined || d.full_forecast === null || d.full_forecast === '' || d.full_forecast === 0) {
+                    d.full_forecast = fullFcst;
+                }
+                if (d.full_budget === undefined || d.full_budget === null || d.full_budget === '' || d.full_budget === 0) {
+                    d.full_budget = fullBudg;
+                }
+            } else {
+                if (d.full_forecast === undefined) d.full_forecast = fullFcst;
+                if (d.full_budget === undefined) d.full_budget = fullBudg;
+            }
 
-        const dailyAct = parseFloat(d.daily_actual) || 0;
-        const dailyFcst = parseFloat(d.daily_forecast) || 0;
+            const dailyAct = parseFloat(d.daily_actual) || 0;
+            const dailyFcst = parseFloat(d.daily_forecast) || 0;
 
-        if (day === 1) {
-            d.outlook = (dailyAct - dailyFcst) + fullFcst;
-        } else {
-            const prevOutlook = pd ? (parseFloat(pd.outlook) || 0) : 0;
-            d.outlook = (dailyAct - dailyFcst) + prevOutlook;
-        }
+            if (day === 1) {
+                d.outlook = (dailyAct - dailyFcst) + fullFcst;
+            } else {
+                const prevOutlook = pd ? (parseFloat(pd.outlook) || 0) : 0;
+                d.outlook = (dailyAct - dailyFcst) + prevOutlook;
+            }
 
-        // Outlook Variance
-        if (d.outlook !== undefined && fullBudg) {
-            d.var3 = calcVar(d.outlook, fullBudg);
-            d.budget_var = d.var3;
+            // Outlook Variance
+            if (d.outlook !== undefined && fullBudg) {
+                d.var3 = calcVar(d.outlook, fullBudg);
+                d.budget_var = d.var3;
+            }
         }
     }
 
