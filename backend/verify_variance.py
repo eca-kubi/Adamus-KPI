@@ -72,7 +72,7 @@ def verify_variance_logic():
         print(f"Good -> Budget Variance var3 Expected '0%': {r_ohs_good.data.get('var3')}")
         print(f"Bad -> MTD Forecast Expected '0.5': {r_ohs_bad.data.get('mtd_forecast')}")
         print(f"Bad -> Outlook Expected '1.25': {r_ohs_bad.data.get('outlook')}")
-        print(f"Bad -> Budget Variance var3 Expected '-50%': {r_ohs_bad.data.get('var3')}")
+        print(f"Bad -> Budget Variance var3 Expected '-100%': {r_ohs_bad.data.get('var3')}")
         
         assert r_ohs_good.data.get('var1') == "0%"
         assert r_ohs_bad.data.get('var1') == "-100%"
@@ -81,7 +81,7 @@ def verify_variance_logic():
         assert r_ohs_good.data.get('var3') == "0%"
         assert r_ohs_bad.data.get('mtd_forecast') == 0.5
         assert r_ohs_bad.data.get('outlook') == 1.25
-        assert r_ohs_bad.data.get('var3') == "-50%"
+        assert r_ohs_bad.data.get('var3') == "-100%"
         
         # 4. Run Cascade for Standard
         payload_std = CascadeFixedRequest(

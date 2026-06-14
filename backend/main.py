@@ -967,10 +967,9 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             return "-"
             
         if is_ohs:
-            # Round both inputs up to the nearest whole number first
-            import math
-            act_f = float(math.ceil(act_f))
-            fcst_f = float(math.ceil(fcst_f))
+            # Round both inputs to the nearest whole number first
+            act_f = float(round(act_f))
+            fcst_f = float(round(fcst_f))
             if use_act_denom:
                 if act_f == 0:
                     return "0%"
@@ -1224,10 +1223,9 @@ def get_summary_dashboard(
             return "-"
             
         if is_ohs:
-            # Round both inputs up to the nearest whole number first
-            import math
-            act_f = float(math.ceil(act_f))
-            fcst_f = float(math.ceil(fcst_f))
+            # Round both inputs to the nearest whole number first
+            act_f = float(round(act_f))
+            fcst_f = float(round(fcst_f))
             if use_act_denom:
                 if act_f == 0:
                     return "0%"
@@ -1294,7 +1292,10 @@ def get_summary_dashboard(
 
             # Parse daily values
             if target_rec:
-                daily_actual = target_rec.data.get('daily_actual')
+                if metric_name in ("Grade - Ore Mined", "Grade Rehandle", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
+                    daily_actual = target_rec.data.get('daily_act_grade')
+                else:
+                    daily_actual = target_rec.data.get('daily_actual')
                 daily_forecast = target_rec.data.get('daily_forecast')
                 qty_available = target_rec.data.get('qty_available')
                 day2 = target_rec.data.get('day_2') or target_rec.data.get('day2')
@@ -1469,7 +1470,10 @@ def get_summary_dashboard(
                 check_d = trend_start + timedelta(days=d)
                 match = next((r for r in dept_records if r.metric_name == metric_name and r.subtype != 'fixed_input' and r.date == check_d), None)
                 if match:
-                    raw = match.data.get("daily_actual")
+                    if metric_name in ("Grade - Ore Mined", "Grade Rehandle", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
+                        raw = match.data.get("daily_act_grade")
+                    else:
+                        raw = match.data.get("daily_actual")
                     try:
                         cleaned = str(raw).replace("%", "").replace(",", "").strip() if raw is not None else None
                         trend.append(float(cleaned) if cleaned else None)
@@ -1746,10 +1750,9 @@ def cascade_fixed_input(
                     fcst = float(fcst_val)
                     
                     if is_ohs:
-                        # Round both inputs up to the nearest whole number first
-                        import math
-                        act = float(math.ceil(act))
-                        fcst = float(math.ceil(fcst))
+                        # Round both inputs to the nearest whole number first
+                        act = float(round(act))
+                        fcst = float(round(fcst))
                         if use_act_denom:
                             if act == 0:
                                 return "0%"

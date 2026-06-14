@@ -5833,8 +5833,8 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
             return;
         }
 
-        act = Math.ceil(act);
-        fcst = Math.ceil(fcst);
+        act = Math.round(act);
+        fcst = Math.round(fcst);
 
         if (useActDenom) {
             if (act === 0) {
@@ -6151,8 +6151,8 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
             return;
         }
 
-        act = Math.ceil(act);
-        fcst = Math.ceil(fcst);
+        act = Math.round(act);
+        fcst = Math.round(fcst);
 
         if (useActDenom) {
             if (act === 0) {
@@ -6444,8 +6444,8 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
             return;
         }
 
-        act = Math.ceil(act);
-        fcst = Math.ceil(fcst);
+        act = Math.round(act);
+        fcst = Math.round(fcst);
 
         if (useActDenom) {
             if (act === 0) {
@@ -10913,6 +10913,8 @@ async function loadRecentRecords(dept) {
 
 function formatDailyTableVal(v) {
     if (v === undefined || v === null || v === '' || v === '-') return '-';
+    const isOHS = STATE.currentDept === 'OHS' || 
+                  ['Safety Incidents', 'Environmental Incidents', 'Property Damage', 'Near Miss'].includes(STATE.currentMetric);
     if (typeof v === 'string') {
         const trimmed = v.trim();
         if (trimmed.endsWith('%')) {
@@ -10926,6 +10928,9 @@ function formatDailyTableVal(v) {
     }
     const parsed = parseFloat(v);
     if (!isNaN(parsed)) {
+        if (isOHS) {
+            return Math.round(parsed).toLocaleString();
+        }
         if (parsed % 1 !== 0 && parsed < 10) {
             return parseFloat(parsed.toFixed(2)).toLocaleString();
         }
@@ -11740,13 +11745,17 @@ function sstatusHtml(varStr) {
     return n >= 0 ? '🙂' : '😟';
 }
 
-function fmtVal(v) {
+function fmtVal(v, isOHS = false) {
     if (v === null || v === undefined || v === '') return '';
     const s = String(v);
     const n = parseFloat(s.replace(/,/g, ''));
     if (isNaN(n)) return s;
     if (s.includes('%')) return s;
     
+    if (isOHS) {
+        return Math.round(n).toLocaleString();
+    }
+
     // Format float values to hide decimals for integers while keeping them for grades
     if (!Number.isInteger(n)) {
         if (n < 10) {
@@ -12045,19 +12054,19 @@ function renderSummaryTable(departments) {
             }
 
             html += `<td style="font-weight:500;">${m.metric_name}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.daily_actual)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.daily_forecast)}</td>`;
-            html += `<td class="${svarClass(v1)}">${fmtVal(v1)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
+            html += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.mtd_actual)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.mtd_forecast)}</td>`;
-            html += `<td class="${svarClass(v2)}">${fmtVal(v2)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.mtd_actual, isOHS)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.mtd_forecast, isOHS)}</td>`;
+            html += `<td class="${svarClass(v2)}">${fmtVal(v2, isOHS)}</td>`;
             html += `<td style="text-align:center;">${sstatusHtml(v2)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.outlook ?? '')}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.full_forecast ?? '')}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.full_budget ?? '')}</td>`;
-            html += `<td class="${svarClass(v3)}">${fmtVal(v3)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.outlook ?? '', isOHS)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.full_forecast ?? '', isOHS)}</td>`;
+            html += `<td class="num-cell">${fmtVal(d.full_budget ?? '', isOHS)}</td>`;
+            html += `<td class="${svarClass(v3)}">${fmtVal(v3, isOHS)}</td>`;
             html += `<td style="text-align:center;">${sstatusHtml(v3)}</td>`;
             html += `<td class="trend-cell">${summarySparkline(m.trend, isOHS)}</td>`;
 
