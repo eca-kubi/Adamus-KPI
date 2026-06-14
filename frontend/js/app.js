@@ -1074,19 +1074,27 @@ window.loadDepartmentView = async function (dept) {
         
         <!-- Submenu Navigation -->
         <div id="submenu-nav" class="d-flex gap-2 mb-4 flex-wrap">
-            ${availableMetrics.map(metric => `
-                <button class="metric-btn ${STATE.currentMetric === metric ? 'active' : ''}" 
-                    onclick="loadMetricView('${metric}')">
-                    ${metric}
-                </button>
-            `).join('')}
+            ${availableMetrics.map(metric => {
+                let displayName = metric;
+                if (metric === "Safety Incidents") {
+                    displayName = "Safety Incidents (Injuries)";
+                } else if (metric === "Near Miss") {
+                    displayName = "Near Miss / Dangerous Occurance";
+                }
+                return `
+                    <button class="metric-btn ${STATE.currentMetric === metric ? 'active' : ''}" 
+                        onclick="loadMetricView('${metric}')">
+                        ${displayName}
+                    </button>
+                `;
+            }).join('')}
         </div>
 
         <div id="kpi-forms-container" class="mb-4"></div>
         <div id="records-table-container">
             <div class="card p-4">
                 <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
-                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Records: <span id="table-metric-title" class="text-primary">${STATE.currentMetric}</span></h5>
+                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Records: <span id="table-metric-title" class="text-primary">${(STATE.currentMetric === 'Safety Incidents' ? 'Safety Incidents (Injuries)' : (STATE.currentMetric === 'Near Miss' ? 'Near Miss / Dangerous Occurance' : STATE.currentMetric))}</span></h5>
                     <div class="d-flex align-items-center gap-2">
                         <label class="form-label mb-0 fw-bold text-nowrap" style="font-size: 0.9rem;">Date Range:</label>
                         <input type="date" id="record-start-date" class="form-control form-control-sm" style="max-width: 130px; border-radius: 0.5rem;" onchange="loadRecentRecords('${dept}')">
@@ -1427,7 +1435,13 @@ window.loadMetricView = function (metric) {
 
     syncRouteHashFromState();
 
-    document.getElementById('table-metric-title').textContent = metric;
+    let displayName = metric;
+    if (displayName === "Safety Incidents") {
+        displayName = "Safety Incidents (Injuries)";
+    } else if (displayName === "Near Miss") {
+        displayName = "Near Miss / Dangerous Occurance";
+    }
+    document.getElementById('table-metric-title').textContent = displayName;
     document.getElementById('kpi-forms-container').innerHTML = ''; // Clear previous form
 
     renderKPIForm(STATE.currentDept, metric);
@@ -1441,7 +1455,13 @@ function renderKPIForm(dept, metricName) {
     card.className = 'card p-4';
 
     const title = document.createElement('h3');
-    title.textContent = metricName;
+    let displayTitleName = metricName;
+    if (displayTitleName === "Safety Incidents") {
+        displayTitleName = "Safety Incidents (Injuries)";
+    } else if (displayTitleName === "Near Miss") {
+        displayTitleName = "Near Miss / Dangerous Occurance";
+    }
+    title.textContent = displayTitleName;
     card.appendChild(title);
 
     // Differentiate form based on metric if needed
@@ -12053,7 +12073,13 @@ function renderSummaryTable(departments) {
                 html += `<td class="summary-area-cell area-${deptKey}" rowspan="${sorted.length}">${deptLabel}</td>`;
             }
 
-            html += `<td style="font-weight:500;">${m.metric_name}</td>`;
+            let displayName = m.metric_name;
+            if (displayName === "Safety Incidents") {
+                displayName = "Safety Incidents (Injuries)";
+            } else if (displayName === "Near Miss") {
+                displayName = "Near Miss / Dangerous Occurance";
+            }
+            html += `<td style="font-weight:500;">${displayName}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
