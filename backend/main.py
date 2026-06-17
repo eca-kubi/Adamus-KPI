@@ -1121,6 +1121,27 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
                 var3 = "-"
+        elif department == "Milling_CIL":
+            # Auto-populate day2/day2_forecast from the previous day's record if not already set
+            day2 = d.get('day2')
+            day2_forecast = d.get('day2_forecast')
+            if (day2 is None or day2 == 0 or day2 == "") and idx > 0:
+                prev_r = daily_records[idx - 1]
+                # Only use previous day if it's the immediately preceding calendar day
+                if (r.date - prev_r.date).days == 1:
+                    prev_day2 = prev_r.data.get('daily_actual')
+                    prev_day2_fcst = prev_r.data.get('daily_forecast')
+                    if prev_day2 is not None:
+                        day2 = prev_day2
+                        d['day2'] = day2
+                        d['day_2'] = day2
+                    if prev_day2_fcst is not None:
+                        day2_forecast = prev_day2_fcst
+                        d['day2_forecast'] = day2_forecast
+                        d['day_2_forecast'] = day2_forecast
+            var1 = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
+            var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
+            var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
         else:
             var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
             var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -1317,6 +1338,15 @@ def get_summary_dashboard(
                 day2 = None
                 day2_forecast = None
 
+            # For Milling_CIL: auto-populate day2/day2_forecast from previous day's record if not set
+            if dept == "Milling_CIL" and (day2 is None or day2 == 0 or day2 == ""):
+                prev_date = target_date - timedelta(days=1)
+                prev_rec = next((r for r in daily_records if r.metric_name == metric_name and r.subtype != 'fixed_input' and r.date == prev_date), None)
+                if prev_rec and prev_rec.data:
+                    day2 = prev_rec.data.get('daily_actual')
+                    day2_forecast = prev_rec.data.get('daily_forecast')
+
+
             if dept == "Mining" and metric_name in ("Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
                 daily_forecast = 0.0
 
@@ -1411,6 +1441,10 @@ def get_summary_dashboard(
                     var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
                     var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
                     var3 = "-"
+            elif dept == "Milling_CIL":
+                var1 = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
+                var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
+                var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
             else:
                 var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -1839,8 +1873,10 @@ def cascade_fixed_input(
 
             # Recalculate Daily Variance (var1)
             # Logic: ((Actual - Forecast) / Forecast) * 100
-            if 'daily_actual' in new_data and 'daily_forecast' in new_data:
-                 new_data['var1'] = calc_var(new_data['daily_actual'], new_data['daily_forecast'], is_ohs_dept, use_act_denom=is_ohs_dept)
+            if department == "Milling_CIL":
+                new_data['var1'] = calc_var(new_data.get('day2'), new_data.get('day2_forecast'), is_ohs_dept, use_act_denom=is_ohs_dept)
+            elif 'daily_actual' in new_data and 'daily_forecast' in new_data:
+                new_data['var1'] = calc_var(new_data['daily_actual'], new_data['daily_forecast'], is_ohs_dept, use_act_denom=is_ohs_dept)
 
             # Recalculate MTD Variance (var2)
             # Logic: ((MTD Actual - MTD Forecast) / MTD Forecast) * 100

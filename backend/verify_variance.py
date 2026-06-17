@@ -353,6 +353,70 @@ def verify_variance_logic():
         assert r_avail_1.data.get('outlook') == "-"
         assert r_avail_2.data.get('var1') == "-5%"
 
+        # Setup Data for Milling_CIL (day2 auto-population and var1 formula)
+        dept_mill = "Milling_CIL"
+        metric_mill = "Gold Contained"
+
+        # Day 1: no day2/day2_forecast provided — should not compute var1 (idx==0, no prev)
+        r_mill_1 = KPIRecord(
+            department=dept_mill,
+            metric_name=metric_mill,
+            date=date(2026, 1, 1),
+            subtype="daily_input",
+            data={"daily_actual": 100, "daily_forecast": 90}
+        )
+        # Day 2: day2 is absent — should be auto-populated from Day 1's daily_actual (100) / daily_forecast (90)
+        r_mill_2 = KPIRecord(
+            department=dept_mill,
+            metric_name=metric_mill,
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 110, "daily_forecast": 95}
+        )
+        # Day 3: day2/day2_forecast explicitly provided — should use those values
+        r_mill_3 = KPIRecord(
+            department=dept_mill,
+            metric_name=metric_mill,
+            date=date(2026, 1, 3),
+            subtype="daily_input",
+            data={"daily_actual": 120, "daily_forecast": 100, "day2": 50, "day2_forecast": 100}
+        )
+
+        session.add(r_mill_1)
+        session.add(r_mill_2)
+        session.add(r_mill_3)
+        session.commit()
+
+        recalculate_metric_month(dept_mill, metric_mill, 2026, 1, session)
+        session.commit()
+
+        session.refresh(r_mill_1)
+        session.refresh(r_mill_2)
+        session.refresh(r_mill_3)
+
+        print("\n--- Verifying Milling_CIL (day2 auto-population and var1 formula) ---")
+
+        # Day 1: idx=0, no previous record → var1 should be "-" (no day2 value available)
+        print(f"Day 1 var1 (Expected '-'): {r_mill_1.data.get('var1')}")
+        assert r_mill_1.data.get('var1') == "-", f"Expected '-' but got {r_mill_1.data.get('var1')}"
+
+        # Day 2: day2 auto-populated from Day 1 daily_actual=100, day2_forecast from Day 1 daily_forecast=90
+        # var1 = (100 - 90) / 90 * 100 = 11.11... → 11%
+        print(f"Day 2 day2 (Expected 100): {r_mill_2.data.get('day2')}")
+        print(f"Day 2 day2_forecast (Expected 90): {r_mill_2.data.get('day2_forecast')}")
+        print(f"Day 2 var1 (Expected '11%'): {r_mill_2.data.get('var1')}")
+        assert str(r_mill_2.data.get('day2')) == str(100), f"Expected day2=100 but got {r_mill_2.data.get('day2')}"
+        assert str(r_mill_2.data.get('day2_forecast')) == str(90), f"Expected day2_forecast=90 but got {r_mill_2.data.get('day2_forecast')}"
+        assert r_mill_2.data.get('var1') == "11%", f"Expected '11%' but got {r_mill_2.data.get('var1')}"
+
+        # Day 3: explicit day2=50, day2_forecast=100 → var1 = (50-100)/100*100 = -50%
+        print(f"Day 3 day2 (Expected 50): {r_mill_3.data.get('day2')}")
+        print(f"Day 3 day2_forecast (Expected 100): {r_mill_3.data.get('day2_forecast')}")
+        print(f"Day 3 var1 (Expected '-50%'): {r_mill_3.data.get('var1')}")
+        assert str(r_mill_3.data.get('day2')) == str(50), f"Expected day2=50 but got {r_mill_3.data.get('day2')}"
+        assert str(r_mill_3.data.get('day2_forecast')) == str(100), f"Expected day2_forecast=100 but got {r_mill_3.data.get('day2_forecast')}"
+        assert r_mill_3.data.get('var1') == "-50%", f"Expected '-50%' but got {r_mill_3.data.get('var1')}"
+
         print("\nSUCCESS: All variance logic verified!")
 
 if __name__ == "__main__":

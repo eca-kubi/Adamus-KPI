@@ -1172,7 +1172,9 @@ window.getStatusEmoji = function (varianceStr) {
     return num >= 0 ? '🙂' : '😟';
 };
 
-window.loadMetricView = function (metric) {
+window.loadMetricView = async function (metric) {
+    const sessionValid = await checkSession();
+    if (!sessionValid) return;
     STATE.currentView = 'dept';
     STATE.currentMetric = metric;
 
@@ -4624,9 +4626,11 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
-    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
@@ -4644,9 +4648,6 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
-
-    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
-    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Logic Variables
     let priorMtdAct = 0;
@@ -4728,6 +4729,7 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
             // 3. Calculate Day-2 Value
             if (d.getDate() === 1) {
                 day2.input.value = 0;
+                day2Forecast.input.value = 0;
             } else {
                 // Find previous date logic
                 const prevDate = new Date(d);
@@ -4752,6 +4754,8 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
                     day2Forecast.input.value = 0;
                 }
             }
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
 
             // Run calculations
             updateCalculations();
@@ -4855,9 +4859,11 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
-    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
@@ -4875,9 +4881,6 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     // attachVarianceListener(outlook.input, fullBudg.input, budgVar.input); // Custom logic implemented in updateCalculations
-
-    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
-    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Logic State
     let priorMtdAct = 0;
@@ -4968,6 +4971,7 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
             // 3. Calculate Day-2 Value
             if (d.getDate() === 1) {
                 day2.input.value = 0;
+                day2Forecast.input.value = 0;
             } else {
                 // Find previous date logic
                 const prevDate = new Date(d);
@@ -4992,6 +4996,8 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
                     day2Forecast.input.value = 0;
                 }
             }
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
 
             updateCalculations();
 
@@ -5094,9 +5100,11 @@ function renderMillingRecoveryForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
-    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
@@ -5114,9 +5122,6 @@ function renderMillingRecoveryForm(dept, metricName, card) {
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
-
-    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
-    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
@@ -5218,6 +5223,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
             // 3. Calculate Day-2 Value (Metric: Recovery)
             if (d.getDate() === 1) {
                 day2.input.value = 0;
+                day2Forecast.input.value = 0;
             } else {
                 // Find previous date logic
                 const prevDate = new Date(d);
@@ -5243,6 +5249,8 @@ function renderMillingRecoveryForm(dept, metricName, card) {
                     day2Forecast.input.value = 0;
                 }
             }
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         } catch (e) {
             console.error("Error fetching dependencies for Recovery:", e);
@@ -5329,9 +5337,11 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     const dActT = DOM.createInputGroup("Daily Actual(t)", `input-${dept}-daily-act-t`, "number");
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
-    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
@@ -5347,9 +5357,6 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
-
-    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
-    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Spacers
@@ -5494,6 +5501,8 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
         if (d.getDate() === 1) {
             day2.input.value = 0;
             day2Forecast.input.value = 0;
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
             return;
         }
 
@@ -5520,6 +5529,8 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
                 day2.input.value = 0;
                 day2Forecast.input.value = 0;
             }
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         } catch (e) {
             console.error("Day-2 Calc Error:", e);
@@ -5604,9 +5615,11 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
-    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
@@ -5624,9 +5637,6 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
-
-    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
-    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
@@ -5801,6 +5811,8 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
         if (d.getDate() === 1) {
             day2.input.value = 0;
             day2Forecast.input.value = 0;
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
             return;
         }
 
@@ -5827,6 +5839,8 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
                 day2.input.value = 0;
                 day2Forecast.input.value = 0;
             }
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         } catch (e) {
             console.error("Day-2 Calc Error:", e);
@@ -5908,13 +5922,11 @@ function renderMillingRuntimeForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
-    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
-    dVar.input.readOnly = true;
-    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
-
-    // Row 3
     const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
     const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
+    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
 
     // Fetch and auto-fill Daily Forecast from Fixed Inputs, if any, and Day-2 values
     date.input.addEventListener('change', async () => {
@@ -5976,6 +5988,8 @@ function renderMillingRuntimeForm(dept, metricName, card) {
                     day2Forecast.input.value = 0;
                 }
             }
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         } catch (err) {
             console.error("Error fetching context for Runtime/Throughput:", err);
@@ -5988,6 +6002,9 @@ function renderMillingRuntimeForm(dept, metricName, card) {
             dFcst.input.value = '';
             day2.input.value = '';
             day2Forecast.input.value = '';
+            dVar.input.value = '';
+            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
         }
     });
 
@@ -11982,9 +11999,13 @@ window.submitChangeMyPassword = async function () {
     }
 };
 
-// Update loadDepartmentView to reset currentView
+// Update loadDepartmentView to reset currentView, and guard with a session check
 const _originalLoadDeptView = window.loadDepartmentView;
 window.loadDepartmentView = async function(dept) {
+    // Validate session before loading a department section
+    const sessionValid = await checkSession();
+    if (!sessionValid) return;
+
     STATE.currentView = 'dept';
     await _originalLoadDeptView(dept);
     syncRouteHashFromState();
@@ -12559,7 +12580,19 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
     };
 
     // a. Daily Variance
-    if (metric === 'Grade Rehandle') {
+    if (dept === 'Milling_CIL') {
+        // Auto-populate day2/day2_forecast from previous record if not provided
+        if ((d.day2 === undefined || d.day2 === null || d.day2 === '' || d.day2 === 0) && pd) {
+            d.day2 = pd.daily_actual !== undefined ? pd.daily_actual : 0;
+        }
+        if ((d.day2_forecast === undefined || d.day2_forecast === null || d.day2_forecast === '' || d.day2_forecast === 0) && pd) {
+            d.day2_forecast = pd.daily_forecast !== undefined ? pd.daily_forecast : 0;
+        }
+        if (d.day2 !== undefined && d.day2_forecast !== undefined) {
+            d.var1 = calcVar(d.day2, d.day2_forecast);
+            d.daily_var = d.var1;
+        }
+    } else if (metric === 'Grade Rehandle') {
         if (d.daily_act_grade !== undefined && d.daily_forecast !== undefined) {
             d.var1 = calcVar(d.daily_act_grade, d.daily_forecast);
             d.daily_var = d.var1;

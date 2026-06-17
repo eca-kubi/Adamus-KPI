@@ -64,6 +64,50 @@ async function handleResponse(response, isLogin = false) {
 }
 
 // ---------------------------------------------------------------------------
+// Session Guard
+// ---------------------------------------------------------------------------
+
+/**
+ * Proactively validates the current JWT session by calling /api/me.
+ * Returns true if the session is valid.
+ * If the token is missing or the server returns 401/403, shows a toast,
+ * clears credentials, and redirects to the login screen.
+ * Callers should `return` immediately when this resolves to false.
+ */
+async function checkSession() {
+    const token = getToken();
+    if (!token) {
+        if (typeof DOM !== 'undefined' && DOM.showToast) {
+            DOM.showToast('Your session has expired. Please log in again.', 'error');
+        }
+        setTimeout(() => {
+            if (typeof logout === 'function') logout();
+        }, 1500);
+        return false;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/me`, {
+            headers: { ...authHeaders() }
+        });
+        if (response.status === 401 || response.status === 403) {
+            if (typeof DOM !== 'undefined' && DOM.showToast) {
+                DOM.showToast('Your session has expired. Please log in again.', 'error');
+            }
+            setTimeout(() => {
+                if (typeof logout === 'function') logout();
+            }, 1500);
+            return false;
+        }
+        return true;
+    } catch (e) {
+        // Network failure — allow the UI to proceed; the next API write will catch it
+        console.warn('checkSession: network error, proceeding optimistically', e);
+        return true;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
 
