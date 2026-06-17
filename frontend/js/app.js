@@ -34,7 +34,11 @@ const DEPT_METRICS = {
         "Gold Recovery",
         "Recovery",
         "Plant Feed Grade",
-        "Tonnes Treated"
+        "Tonnes Treated",
+        "Runtime",
+        "Throughput",
+        "Toll Tonnes",
+        "Toll Grade"
     ],
     "Geology": [
         "Fixed Inputs",
@@ -189,6 +193,22 @@ const IMPORT_CONFIGS = {
     'Tonnes Treated': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
+    },
+    'Toll Tonnes': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
+    },
+    'Toll Grade': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
+    },
+    'Runtime': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'day2', 'day2_forecast']
+    },
+    'Throughput': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'day2', 'day2_forecast']
     },
     'Safety Incidents': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
@@ -1409,7 +1429,7 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if ((metric === "Gold Contained" || metric === "Gold Recovery" || metric === "Recovery" || metric === "Tonnes Treated") && STATE.currentDept === "Milling_CIL") {
+        } else if ((metric === "Gold Contained" || metric === "Gold Recovery" || metric === "Recovery" || metric === "Plant Feed Grade" || metric === "Tonnes Treated" || metric === "Toll Tonnes" || metric === "Toll Grade") && STATE.currentDept === "Milling_CIL") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -1427,6 +1447,17 @@ window.loadMetricView = function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
+            `;
+        } else if ((metric === "Runtime" || metric === "Throughput") && STATE.currentDept === "Milling_CIL") {
+            tableHead.innerHTML = `
+                <th style="padding: 12px; text-align: left;">KPI</th>
+                <th style="padding: 12px; text-align: left;">Date</th>
+                <th style="padding: 12px; text-align: left;">Daily Actual</th>
+                <th style="padding: 12px; text-align: left;">Daily Forecast</th>
+                <th style="padding: 12px; text-align: left;">Daily Var %</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Act</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
             `;
         } else {
             tableHead.innerHTML = `
@@ -1505,8 +1536,10 @@ function renderKPIForm(dept, metricName) {
         renderCrushingGradeForm(dept, metricName, card);
     } else if (dept === "Crushing" && metricName === "Ore Crushed") {
         renderCrushingOreForm(dept, metricName, card);
-    } else if (dept === "Milling_CIL" && metricName === "Gold Contained") {
+    } else if (dept === "Milling_CIL" && (metricName === "Gold Contained" || metricName === "Toll Tonnes" || metricName === "Toll Grade")) {
         renderMillingGoldContainedForm(dept, metricName, card);
+    } else if (dept === "Milling_CIL" && (metricName === "Runtime" || metricName === "Throughput")) {
+        renderMillingRuntimeForm(dept, metricName, card);
     } else if (dept === "Milling_CIL" && metricName === "Gold Recovery") {
         renderMillingGoldRecoveryForm(dept, metricName, card);
     } else if (dept === "Milling_CIL" && metricName === "Recovery") {
@@ -5846,6 +5879,162 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
             fullFcst.input.value = '';
             fullBudg.input.value = '';
             budgVar.input.value = '';
+            day2.input.value = '';
+            day2Forecast.input.value = '';
+
+        } catch (e) {
+            DOM.showToast("Error: " + e.message, "error");
+        }
+    });
+    btnContainer.appendChild(saveBtn);
+    card.appendChild(btnContainer);
+}
+
+function renderMillingRuntimeForm(dept, metricName, card) {
+    const grid = document.createElement('div');
+    grid.className = 'kpi-form-grid-3';
+
+    // Helper to add to grid
+    const add = (group) => grid.appendChild(group.container);
+
+    // Row 1
+    const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
+    kpi.input.value = metricName;
+    kpi.input.readOnly = true;
+
+    const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
+    date.input.value = '';
+
+    // Row 2
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+
+    // Row 3
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
+
+    // Fetch and auto-fill Daily Forecast from Fixed Inputs, if any, and Day-2 values
+    date.input.addEventListener('change', async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) return;
+
+        const d = new Date(dateVal);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const targetMonthStr = `${y}-${m}-01`;
+
+        try {
+            const records = await fetchKPIRecords(dept);
+
+            // 1. Fetch Fixed Inputs for calculated Daily Forecast (if fixed exists)
+            const fixedRecord = records.find(r =>
+                r.subtype === 'fixed_input' &&
+                r.metric_name === metricName &&
+                r.date === targetMonthStr
+            );
+
+            if (fixedRecord && fixedRecord.data) {
+                const ff = fixedRecord.data.full_forecast;
+                const days = fixedRecord.data.num_days;
+                if (ff && days && days > 0) {
+                    const calculatedDailyFcst = Math.round(ff / days);
+                    dFcst.input.value = calculatedDailyFcst;
+                    dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+                } else {
+                    dFcst.input.value = '';
+                }
+            } else {
+                dFcst.input.value = '';
+            }
+
+            // 2. Calculate Day-2 values
+            if (d.getDate() === 1) {
+                day2.input.value = 0;
+                day2Forecast.input.value = 0;
+            } else {
+                const prev = new Date(d);
+                prev.setDate(d.getDate() - 1);
+                const prevY = prev.getFullYear();
+                const prevM = String(prev.getMonth() + 1).padStart(2, '0');
+                const prevD = String(prev.getDate()).padStart(2, '0');
+                const prevDateStr = `${prevY}-${prevM}-${prevD}`;
+
+                const prevRecord = records.find(r =>
+                    r.metric_name === metricName &&
+                    r.subtype !== 'fixed_input' &&
+                    r.date === prevDateStr
+                );
+
+                if (prevRecord && prevRecord.data) {
+                    day2.input.value = prevRecord.data.daily_actual || 0;
+                    day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
+                } else {
+                    day2.input.value = 0;
+                    day2Forecast.input.value = 0;
+                }
+            }
+
+        } catch (err) {
+            console.error("Error fetching context for Runtime/Throughput:", err);
+        }
+    });
+
+    // Clear on date clear
+    date.input.addEventListener('input', () => {
+        if (!date.input.value) {
+            dFcst.input.value = '';
+            day2.input.value = '';
+            day2Forecast.input.value = '';
+        }
+    });
+
+    // Add to Grid
+    add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
+    add(dAct); add(dFcst); add(dVar);
+    add(day2); add(day2Forecast); grid.appendChild(document.createElement('div')); // Spacer
+
+    card.appendChild(grid);
+
+    // Save Button
+    const btnContainer = document.createElement('div');
+    const saveBtn = DOM.createButton("Save Record", async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
+
+        const record = {
+            subtype: 'daily_input',
+            date: dateVal,
+            department: dept,
+            metric_name: metricName,
+            data: {
+                daily_actual: parseFloat(dAct.input.value),
+                daily_forecast: parseFloat(dFcst.input.value),
+                var1: dVar.input.value,
+                mtd_actual: "-",
+                mtd_forecast: "-",
+                var2: "-",
+                outlook: "-",
+                full_forecast: "-",
+                full_budget: "-",
+                var3: "-",
+                day2: parseFloat(day2.input.value),
+                day2_forecast: parseFloat(day2Forecast.input.value)
+            }
+        };
+
+        try {
+            await saveKPIRecord(dept, record);
+            DOM.showToast("Record saved successfully!");
+            loadRecentRecords(dept);
+
+            // Clear form
+            date.input.value = '';
+            dAct.input.value = '';
+            dFcst.input.value = '';
+            dVar.input.value = '';
             day2.input.value = '';
             day2Forecast.input.value = '';
 
@@ -10502,8 +10691,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Gold Contained
-        if (STATE.currentMetric === 'Gold Contained') {
+        // Handling for Gold Contained, Toll Tonnes, Toll Grade
+        if (STATE.currentMetric === 'Gold Contained' || STATE.currentMetric === 'Toll Tonnes' || STATE.currentMetric === 'Toll Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
@@ -10557,6 +10746,55 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
+                    <td style="padding: 12px;">
+                        <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
+                        <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            return;
+        }
+
+        // Handling for Runtime and Throughput
+        if (STATE.currentMetric === 'Runtime' || STATE.currentMetric === 'Throughput') {
+            filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
+
+            // Date | D.Act | D.Fcst | Var% | Day-2 Act | Day-2 Fcst | Action
+            thead.innerHTML = `
+                <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
+                <th style="padding: 12px; text-align: left;">D.Act</th>
+                <th style="padding: 12px; text-align: left;">D.Fcst</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Act</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
+                <th style="padding: 12px; text-align: left;">Action</th>
+            `;
+
+            if (filteredRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                return;
+            }
+
+            filteredRecords.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.style.borderTop = '1px solid #e5e7eb';
+
+                let dateDisplay = r.date;
+                if (r.date && r.date.includes('-')) {
+                    const [y, m, d] = r.date.split('-');
+                    dateDisplay = `${d}-${m}-${y}`;
+                }
+
+                tr.innerHTML = `
+                    <td style="padding: 12px;">${dateDisplay}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">
@@ -11756,9 +11994,63 @@ window.loadDepartmentView = async function(dept) {
 // Summary Dashboard Page
 // ---------------------------------------------------------------------------
 
+const METRIC_UNITS = {
+    // OHS
+    "Safety Incidents": "(Injuries)",
+    "Environmental Incidents": "(Incidents)",
+    "Property Damage": "(Incidents)",
+    "Near Miss": "(Incidents)",
+    // Milling_CIL
+    "Gold Contained": "(Oz)",
+    "Gold Recovery": "(Oz)",
+    "Recovery": "(%)",
+    "Plant Feed Grade": "(g/t)",
+    "Tonnes Treated": "(t)",
+    "Runtime": "(hr)",
+    "Throughput": "(t/hr)",
+    "Toll Tonnes": "(t)",
+    "Toll Grade": "(g/t)",
+    // Crushing
+    "Ore Crushed": "(t)",
+    "Grade - Ore Crushed": "(g/t)",
+    // Mining
+    "Ore Mined": "(t)",
+    "Grade - Ore Mined": "(g/t)",
+    "Grade Rehandle": "(g/t)",
+    "Rehandle": "(t)",
+    "Stock Pile Near Pit": "(t)",
+    "Stock Pile Main Rompad": "(t)",
+    "Grade Stockpile Near Pit": "(g/t)",
+    "Grade Stockpile Main Rompad": "(g/t)",
+    "Availability - Dump Truck": "(%)",
+    "Utilization - Dump Truck": "(%)",
+    "Availability - Excavator": "(%)",
+    "Utilization - Excavator": "(%)",
+    "Total Material Moved": "(bcm)",
+    "Blast Hole Drilling": "(m)",
+    // Geology
+    "Grade Control Drilling": "(m)",
+    "Toll": "(t)",
+    "Exploration Drilling": "(m)",
+    // Engineering
+    "Tipper Trucks": "(%)",
+    "Prime Excavators": "(%)",
+    "Anx Excavators": "(%)",
+    "Dump Trucks": "(%)",
+    "ART Dump Trucks": "(%)",
+    "Wheel Loaders": "(%)",
+    "Graders": "(%)",
+    "Dozers": "(%)",
+    "Crusher": "(%)",
+    "Mill": "(%)",
+    "Light Vehicles": "(%)",
+    "Pumps": "(%)",
+    "Drill Rigs": "(%)"
+};
+
 const SUMMARY_METRIC_ORDER = {
     "OHS": ["Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
-    "Milling_CIL": ["Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"],
+    "Milling_CIL": ["Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad", "Availability - Dump Truck", "Utilization - Dump Truck", "Availability - Excavator", "Utilization - Excavator", "Total Material Moved", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
@@ -11771,8 +12063,13 @@ const DEPT_DISPLAY = {
 };
 
 const DEPT_SECONDARY_LABEL = {
-    "OHS": "", "Milling_CIL": "Day-2 Fcst", "Crushing": "",
+    "OHS": "", "Milling_CIL": "Day-2 Act", "Crushing": "",
     "Mining": "", "Geology": "", "Engineering": "Qty Available"
+};
+
+const DEPT_SECONDARY_LABEL2 = {
+    "OHS": "", "Milling_CIL": "Day-2 Fcst", "Crushing": "",
+    "Mining": "", "Geology": "", "Engineering": ""
 };
 
 function summarySparkline(vals, isOHS) {
@@ -11837,8 +12134,13 @@ function fmtVal(v, isOHS = false) {
 }
 
 function getSecondaryVal(dept, data) {
-    if (dept === 'Milling_CIL') return fmtVal(data.day2_forecast ?? data.day_2 ?? '');
+    if (dept === 'Milling_CIL') return fmtVal(data.day2 ?? data.day_2 ?? '');
     if (dept === 'Engineering') return fmtVal(data.qty_available ?? '');
+    return '';
+}
+
+function getSecondaryVal2(dept, data) {
+    if (dept === 'Milling_CIL') return fmtVal(data.day2_forecast ?? data.day_2_forecast ?? '');
     return '';
 }
 
@@ -12084,6 +12386,7 @@ function renderSummaryTable(departments) {
         const deptKey = dept.toLowerCase();
         const deptLabel = DEPT_DISPLAY[dept] || dept;
         const secLabel = DEPT_SECONDARY_LABEL[dept] || '';
+        const secLabel2 = DEPT_SECONDARY_LABEL2[dept] || '';
         const isOHS = dept === 'OHS';
 
         // Build all metrics in defined order, showing empty rows when no data exists
@@ -12101,7 +12404,7 @@ function renderSummaryTable(departments) {
         // Department section header row
         html += `<tr class="summary-dept-hdr dept-hdr-${deptKey}">
             <td>Area</td><td>KPI</td><td>Daily Actual</td><td>${secLabel}</td>
-            <td>Daily Forecast</td><td>Variance</td><td>Status</td>
+            <td>Daily Forecast</td><td>${secLabel2}</td><td>Variance</td><td>Status</td>
             <td>MTD Actual</td><td>MTD Forecast</td><td>Variance</td><td>Status</td>
             <td>Outlook (a)</td><td>Forecast (b)</td><td>Budget (c)</td><td>Variance (a-b)</td><td>Status</td>
             <td>Last 7 Days Trend</td>
@@ -12127,10 +12430,16 @@ function renderSummaryTable(departments) {
             } else if (displayName === "Near Miss") {
                 displayName = "Near Miss / Dangerous Occurance";
             }
+            
+            const unit = METRIC_UNITS[m.metric_name];
+            if (unit && !displayName.includes(unit)) {
+                displayName = `${displayName} ${unit}`;
+            }
             html += `<td style="font-weight:500;">${displayName}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
+            html += `<td class="num-cell">${getSecondaryVal2(dept, d)}</td>`;
             html += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
             html += `<td class="num-cell">${fmtVal(d.mtd_actual, isOHS)}</td>`;
@@ -12149,7 +12458,7 @@ function renderSummaryTable(departments) {
 
         // Empty state row if no data
         if (sorted.length === 0) {
-            html += `<tr><td class="summary-area-cell area-${deptKey}">${deptLabel}</td><td colspan="16" class="text-muted" style="text-align:center;">No data for this date</td></tr>`;
+            html += `<tr><td class="summary-area-cell area-${deptKey}">${deptLabel}</td><td colspan="17" class="text-muted" style="text-align:center;">No data for this date</td></tr>`;
         }
     }
 
@@ -12429,6 +12738,18 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
                 d.budget_var = d.var3;
             }
         }
+    }
+
+    if (metric === 'Runtime' || metric === 'Throughput') {
+        d.mtd_actual = "-";
+        d.mtd_forecast = "-";
+        d.var2 = "-";
+        d.mtd_var = "-";
+        d.outlook = "-";
+        d.full_forecast = "-";
+        d.full_budget = "-";
+        d.var3 = "-";
+        d.budget_var = "-";
     }
 
     return record;

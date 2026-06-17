@@ -413,7 +413,7 @@ class ResetPasswordRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 DEPARTMENT_METRICS = {
-    "Milling_CIL": ["Fixed Inputs", "Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"],
+    "Milling_CIL": ["Fixed Inputs", "Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Geology": ["Fixed Inputs", "Exploration Drilling", "Grade Control Drilling", "Toll"],
     "Mining": ["Fixed Inputs", "Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad", "Availability - Dump Truck", "Utilization - Dump Truck", "Availability - Excavator", "Utilization - Excavator", "Total Material Moved", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
@@ -1164,7 +1164,17 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 if d.get("full_budget") is None:
                     d["full_budget"] = round(full_budg, 2) if full_budg % 1 else int(full_budg)
             
-        if department == "Mining" and metric_name in (
+        if metric_name in ("Runtime", "Throughput"):
+            d["mtd_actual"] = "-"
+            d["mtd_forecast"] = "-"
+            d["outlook"] = "-"
+            d["full_forecast"] = "-"
+            d["full_budget"] = "-"
+            d["var2"] = "-"
+            d["mtd_var"] = "-"
+            d["var3"] = "-"
+            d["budget_var"] = "-"
+        elif department == "Mining" and metric_name in (
             "Availability - Dump Truck",
             "Utilization - Dump Truck",
             "Availability - Excavator",
@@ -1409,7 +1419,23 @@ def get_summary_dashboard(
                 else:
                     var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
 
-            if dept == "Mining" and metric_name in (
+            if metric_name in ("Runtime", "Throughput"):
+                data = {
+                    "daily_actual": daily_actual if daily_actual is not None else 0,
+                    "daily_forecast": daily_forecast if daily_forecast is not None else 0,
+                    "var1": var1,
+                    "daily_var": var1,
+                    "mtd_actual": "-",
+                    "mtd_forecast": "-",
+                    "var2": "-",
+                    "mtd_var": "-",
+                    "outlook": "-",
+                    "full_forecast": "-",
+                    "full_budget": "-",
+                    "var3": "-",
+                    "budget_var": "-",
+                }
+            elif dept == "Mining" and metric_name in (
                 "Availability - Dump Truck",
                 "Utilization - Dump Truck",
                 "Availability - Excavator",
