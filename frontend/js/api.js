@@ -250,6 +250,13 @@ async function saveKPIRecord(department, record) {
     if (commentInput) {
         commentInput.value = '';
     }
+    if (typeof window.afterKPIChange === 'function') {
+        try {
+            await window.afterKPIChange(department, record ? record.date : null);
+        } catch (e) {
+            console.warn('afterKPIChange hook failed', e);
+        }
+    }
     return result;
 }
 
@@ -291,7 +298,15 @@ async function importKPIRecords(department, records) {
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(records)
     });
-    return handleResponse(response);
+    const result = await handleResponse(response);
+    if (typeof window.afterKPIChange === 'function') {
+        try {
+            await window.afterKPIChange(department, null);
+        } catch (e) {
+            console.warn('afterKPIChange hook failed', e);
+        }
+    }
+    return result;
 }
 
 async function forgotPassword(identity) {

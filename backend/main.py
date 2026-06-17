@@ -1526,8 +1526,16 @@ def get_summary_dashboard(
                 data["daily_act_grade"] = target_rec.data["daily_act_grade"]
             if target_rec and 'daily_act_tonnes' in target_rec.data:
                 data["daily_act_tonnes"] = target_rec.data["daily_act_tonnes"]
-            if target_rec and 'comment' in target_rec.data:
-                data["comment"] = target_rec.data["comment"]
+            # Aggregate comments from any daily record for the target date.
+            # This handles legacy duplicate rows where the comment may live on a
+            # different row than the one selected as target_rec.
+            target_day_comment = next(
+                (r.data["comment"] for r in daily_records
+                 if r.date == target_date and r.data.get("comment")),
+                None
+            )
+            if target_day_comment:
+                data["comment"] = target_day_comment
 
             # Build 7-day trend of daily_actual
             trend = []
@@ -1571,6 +1579,48 @@ def get_kpi_records(
         query = query.where(KPIRecord.date <= end_date)
     return session.exec(query).all()
 
+
+def _find_existing_record_for_upsert(session: Session, department: str, record: KPIRecord) -> Optional[KPIRecord]:
+    """Return the existing record that should be updated by an upsert.
+
+    Fixed-input records are matched exactly. Daily records are matched by
+    ``subtype == 'daily_input'`` *or* ``subtype IS NULL`` so that legacy rows
+    created before the subtype column was populated are updated rather than
+    duplicated.
+    """
+    stmt = select(KPIRecord).where(
+        KPIRecord.department == department,
+        KPIRecord.date == record.date,
+        KPIRecord.metric_name == record.metric_name,
+    )
+    if record.subtype == 'fixed_input':
+        stmt = stmt.where(KPIRecord.subtype == 'fixed_input')
+    else:
+        stmt = stmt.where(or_(KPIRecord.subtype == 'daily_input', KPIRecord.subtype.is_(None)))
+    return session.exec(stmt).first()
+
+
+def _deduplicate_daily_records(session: Session, department: str, record_date: date, metric_name: str, keep_id: int) -> None:
+    """Remove duplicate daily rows for the same department/date/metric.
+
+    This cleans up legacy duplicate rows that were created when the upsert
+    logic did not treat ``NULL`` and ``'daily_input'`` as equivalent.
+    """
+    dupes = session.exec(
+        select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.date == record_date,
+            KPIRecord.metric_name == metric_name,
+            KPIRecord.id != keep_id,
+            or_(KPIRecord.subtype == 'daily_input', KPIRecord.subtype.is_(None)),
+        )
+    ).all()
+    for d in dupes:
+        session.delete(d)
+    if dupes:
+        session.commit()
+
+
 @app.post("/api/kpi/{department}", response_model=KPIRecord)
 def create_kpi_record(department: str, record: KPIRecord, session: Session = Depends(get_session), _user: User = Depends(get_current_active_user)):
     if (_user.role or "").lower() != "admin":
@@ -1582,15 +1632,11 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
         if isinstance(record.date, str):
             record.date = datetime.strptime(record.date, "%Y-%m-%d").date()
 
-        # Check for existing record to prevent duplicates (Upsert logic)
-        existing_stmt = select(KPIRecord).where(
-            KPIRecord.department == department,
-            KPIRecord.date == record.date,
-            KPIRecord.metric_name == record.metric_name,
-            KPIRecord.subtype == record.subtype
-        )
-        existing = session.exec(existing_stmt).first()
-        
+        # Check for existing record to prevent duplicates (Upsert logic).
+        # Daily records created before the subtype column was fully populated
+        # have subtype=NULL, so treat NULL and 'daily_input' as equivalent.
+        existing = _find_existing_record_for_upsert(session, department, record)
+
         if existing:
             # Update existing
             existing.data = record.data
@@ -1599,9 +1645,15 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 "by_user_id": _user.id,
                 "username": _user.username
             }
+            # Normalize subtype so legacy NULL-subtype daily rows become 'daily_input'
+            existing.subtype = record.subtype
             session.add(existing)
             session.commit()
             session.refresh(existing)
+
+            # Remove duplicate daily rows created by the old upsert logic
+            if record.subtype != 'fixed_input':
+                _deduplicate_daily_records(session, department, record.date, record.metric_name, existing.id)
             
             # Recalculate metric month
             rec_date = existing.date
@@ -1658,15 +1710,10 @@ def import_kpi_records(
     
     for i, rec in enumerate(records):
         try:
-            # Upsert logic
-            existing_stmt = select(KPIRecord).where(
-                KPIRecord.department == department,
-                KPIRecord.date == rec.date,
-                KPIRecord.metric_name == rec.metric_name,
-                KPIRecord.subtype == rec.subtype
-            )
-            existing = session.exec(existing_stmt).first()
-            
+            # Upsert logic. Treat NULL subtype and 'daily_input' as equivalent
+            # for daily records so legacy rows are updated, not duplicated.
+            existing = _find_existing_record_for_upsert(session, department, rec)
+
             # Track mutated key
             rec_date = rec.date
             if isinstance(rec_date, str):
@@ -1676,6 +1723,7 @@ def import_kpi_records(
             
             if existing:
                 existing.data = rec.data
+                existing.subtype = rec.subtype
                 existing.last_modification = {
                     "at": datetime.now(timezone.utc).isoformat(),
                     "by_user_id": _user.id,

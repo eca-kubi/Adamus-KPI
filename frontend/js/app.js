@@ -12323,7 +12323,7 @@ window.renderSummaryDashboardPage = async function () {
             container.appendChild(headerHtml);
             container.appendChild(contentHtml);
 
-            // Hide the container from user view
+            // Hide the container from user view before appending to body
             Object.assign(container.style, {
                 position: 'absolute',
                 top: '0',
@@ -12331,12 +12331,47 @@ window.renderSummaryDashboardPage = async function () {
                 zIndex: '-1000',
                 pointerEvents: 'none'
             });
+
+            // Append to body so dimensions can be measured before adding comments.
             document.body.appendChild(container);
+
+            // Capture summary-only height before appending comments.
+            const summaryHeight = container.scrollHeight;
+
+            // Append any recorded comments below the summary for both PDF and PNG exports.
+            let commentsPage = null;
+            const commentsSource = document.getElementById('comments-table-container');
+            const commentsTable = commentsSource ? commentsSource.querySelector('table.summary-table') : null;
+            if (commentsTable && commentsTable.querySelector('tbody tr')) {
+                const commentsClone = commentsTable.cloneNode(true);
+                commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+
+                commentsPage = document.createElement('div');
+                commentsPage.className = 'comments-page';
+                commentsPage.style.pageBreakBefore = 'always';
+                commentsPage.style.paddingTop = '40px';
+                commentsPage.style.width = '100%';
+
+                const commentsTitle = document.createElement('h2');
+                commentsTitle.textContent = 'Comments';
+                commentsTitle.style.textAlign = 'center';
+                commentsTitle.style.marginBottom = '20px';
+                commentsTitle.style.fontSize = '24px';
+                commentsTitle.style.fontWeight = 'bold';
+                commentsTitle.style.color = '#1a1a2e';
+
+                commentsPage.appendChild(commentsTitle);
+                commentsPage.appendChild(commentsClone);
+                container.appendChild(commentsPage);
+            }
 
             // Logic to perform export (wrapped to wait for images)
             const performExport = () => {
                 const pxWidth = container.scrollWidth;
                 const pxHeight = container.scrollHeight;
+
+                const pageHeight = (commentsPage && format === 'pdf') ? summaryHeight : pxHeight;
 
                 const opt = {
                     margin:       0,
@@ -12355,11 +12390,14 @@ window.renderSummaryDashboardPage = async function () {
                     },
                     jsPDF: {
                         unit: 'px',
-                        format: [pxWidth, pxHeight],
-                        orientation: (pxWidth > pxHeight) ? 'landscape' : 'portrait',
+                        format: [pxWidth, pageHeight],
+                        orientation: (pxWidth > pageHeight) ? 'landscape' : 'portrait',
                         hotfixes: ['px_scaling']
                     }
                 };
+                if (commentsPage && format === 'pdf') {
+                    opt.pagebreak = { mode: 'css', before: '.comments-page' };
+                }
 
                 const cleanup = () => {
                     if (container.parentNode) document.body.removeChild(container);
@@ -12433,6 +12471,24 @@ async function loadSummaryData(dateStr) {
         if (commentsContainer) commentsContainer.innerHTML = errHtml;
     }
 }
+
+// Refresh the summary dashboard after any KPI save/import so that the
+// Comments tab (and KPI dashboard) reflect the latest data without requiring
+// a manual date change or page reload.
+window.afterKPIChange = async function(department, recordDate) {
+    const summaryContainer = document.getElementById('summary-table-container');
+    if (!summaryContainer) return;
+
+    const dateInput = document.getElementById('summary-date-input');
+    const summaryDate = dateInput ? dateInput.value : STATE.summaryDate;
+    if (!summaryDate) return;
+
+    // For single-record saves, only refresh when the changed date matches the
+    // currently viewed summary date. Bulk imports always refresh.
+    if (recordDate && recordDate !== summaryDate) return;
+
+    await loadSummaryData(summaryDate);
+};
 
 function renderSummaryTable(departments) {
     const container = document.getElementById('summary-table-container');
