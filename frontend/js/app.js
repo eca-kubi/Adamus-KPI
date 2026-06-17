@@ -171,24 +171,24 @@ const IMPORT_CONFIGS = {
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
     },
     'Plant Feed Grade': {
-        headers: ['Date (YYYY-MM-DD)', 'Daily Actual(t)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
-        keys: ['date', 'daily_act_tonnes', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual(t)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_act_tonnes', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
     },
     'Gold Contained': {
-        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
-        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
     },
     'Gold Recovery': {
-        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
-        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
     },
     'Recovery': {
-        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
-        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
     },
     'Tonnes Treated': {
-        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2'],
-        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2']
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
     },
     'Safety Incidents': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
@@ -955,6 +955,13 @@ function sidebarNavigate(callback) {
     if (callback) callback();
 }
 
+window.expandSidebarExplicit = function() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.remove('collapsed');
+    }
+};
+
 function renderSidebar() {
     const nav = document.getElementById('sidebar');
     const userDisplay = STATE.currentUser ? STATE.currentUser.username : 'User';
@@ -1670,6 +1677,9 @@ function renderFixedInputForm(dept, card) {
     // 3. Num Days
     const inputDays = document.createElement('input');
     inputDays.type = 'number';
+    if (dept === 'Crushing') {
+        inputDays.step = 'any';
+    }
     inputDays.id = `input-${dept}-num-days`;
     tr.appendChild(createCell(inputDays));
 
@@ -1834,7 +1844,7 @@ function renderFixedInputForm(dept, card) {
         }
 
         const dataPayload = {
-            num_days: parseInt(daysVal) || 0,
+            num_days: dept === 'Crushing' ? (parseFloat(daysVal) || 0) : (parseInt(daysVal) || 0),
             full_forecast: parseFloat(fcstVal.toString().replace(/,/g, '')) || 0,
             full_budget: parseFloat(budgVal.toString().replace(/,/g, '')) || 0
         };
@@ -4602,7 +4612,8 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
 
-    const day2 = DOM.createInputGroup("Day-2", `input-${dept}-day2`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Logic Variables
     let priorMtdAct = 0;
@@ -4702,8 +4713,10 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
 
                 if (prevRecord && prevRecord.data) {
                     day2.input.value = prevRecord.data.daily_actual || 0;
+                    day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
                 } else {
                     day2.input.value = 0;
+                    day2Forecast.input.value = 0;
                 }
             }
 
@@ -4724,7 +4737,7 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     add(dAct); add(dFcst); add(dVar);
     add(mAct); add(mFcst); add(mVar);
     add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar); add(day2);
+    add(budgVar); add(day2); add(day2Forecast);
 
     card.appendChild(grid);
 
@@ -4753,7 +4766,8 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
                 full_forecast: parseFloat(fullFcst.input.value),
                 full_budget: parseFloat(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value)
+                day2: parseFloat(day2.input.value),
+                day2_forecast: parseFloat(day2Forecast.input.value)
             }
         };
 
@@ -4775,6 +4789,7 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
             fullBudg.input.value = '';
             budgVar.input.value = '';
             day2.input.value = '';
+            day2Forecast.input.value = '';
 
             // Reset logic variables
             priorMtdAct = 0;
@@ -4828,7 +4843,8 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
     // attachVarianceListener(outlook.input, fullBudg.input, budgVar.input); // Custom logic implemented in updateCalculations
 
-    const day2 = DOM.createInputGroup("Day-2", `input-${dept}-day2`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Logic State
     let priorMtdAct = 0;
@@ -4937,8 +4953,10 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
 
                 if (prevRecord && prevRecord.data) {
                     day2.input.value = prevRecord.data.daily_actual || 0;
+                    day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
                 } else {
                     day2.input.value = 0;
+                    day2Forecast.input.value = 0;
                 }
             }
 
@@ -4959,7 +4977,7 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
     add(dAct); add(dFcst); add(dVar);
     add(mAct); add(mFcst); add(mVar);
     add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar); add(day2);
+    add(budgVar); add(day2); add(day2Forecast);
 
     card.appendChild(grid);
 
@@ -4988,7 +5006,8 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
                 full_forecast: parseFloat(fullFcst.input.value),
                 full_budget: parseFloat(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value)
+                day2: parseFloat(day2.input.value),
+                day2_forecast: parseFloat(day2Forecast.input.value)
             }
         };
 
@@ -5010,6 +5029,7 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
             fullBudg.input.value = '';
             budgVar.input.value = '';
             day2.input.value = '';
+            day2Forecast.input.value = '';
 
             // Reset Logic
             priorMtdAct = 0;
@@ -5062,14 +5082,15 @@ function renderMillingRecoveryForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
-    const day2 = DOM.createInputGroup("Day-2", `input-${dept}-day2`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
     add(dAct); add(dFcst); add(dVar);
     add(mAct); add(mFcst); add(mVar);
     add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar); add(day2);
+    add(budgVar); add(day2); add(day2Forecast);
 
     // Logic: Calculate Outlook from Gold Recovery & Gold Contained
     // Also mirror Daily Forecast to MTD Forecast
@@ -5183,8 +5204,10 @@ function renderMillingRecoveryForm(dept, metricName, card) {
 
                 if (prevRecord && prevRecord.data) {
                     day2.input.value = prevRecord.data.daily_actual || 0;
+                    day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
                 } else {
                     day2.input.value = 0;
+                    day2Forecast.input.value = 0;
                 }
             }
 
@@ -5221,7 +5244,8 @@ function renderMillingRecoveryForm(dept, metricName, card) {
                 full_forecast: parseFloat(fullFcst.input.value),
                 full_budget: parseFloat(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value)
+                day2: parseFloat(day2.input.value),
+                day2_forecast: parseFloat(day2Forecast.input.value)
             }
         };
 
@@ -5243,6 +5267,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
             fullBudg.input.value = '';
             budgVar.input.value = '';
             day2.input.value = '';
+            day2Forecast.input.value = '';
 
         } catch (e) {
             DOM.showToast("Error: " + e.message, "error");
@@ -5290,14 +5315,15 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
-    const day2 = DOM.createInputGroup("Day-2", `input-${dept}-day2`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Spacers
     add(dActT); add(dAct); add(dFcst); add(dVar);
     add(mAct); add(mFcst); add(mVar); grid.appendChild(document.createElement('div')); // Spacer
     add(outlook); add(fullFcst); add(fullBudg); add(budgVar);
-    add(day2);
+    add(day2); add(day2Forecast);
 
     card.appendChild(grid);
 
@@ -5434,6 +5460,7 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
 
         if (d.getDate() === 1) {
             day2.input.value = 0;
+            day2Forecast.input.value = 0;
             return;
         }
 
@@ -5455,8 +5482,10 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
 
             if (prevRecord && prevRecord.data) {
                 day2.input.value = prevRecord.data.daily_actual || 0;
+                day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
             } else {
                 day2.input.value = 0;
+                day2Forecast.input.value = 0;
             }
 
         } catch (e) {
@@ -5489,7 +5518,8 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
                 full_forecast: parseFloat(fullFcst.input.value),
                 full_budget: parseFloat(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value)
+                day2: parseFloat(day2.input.value),
+                day2_forecast: parseFloat(day2Forecast.input.value)
             }
         };
 
@@ -5513,6 +5543,7 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             fullBudg.input.value = '';
             budgVar.input.value = '';
             day2.input.value = '';
+            day2Forecast.input.value = '';
 
         } catch (e) {
             DOM.showToast("Error: " + e.message, "error");
@@ -5561,14 +5592,15 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
-    const day2 = DOM.createInputGroup("Day-2", `input-${dept}-day2`, "number");
+    const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
+    const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
     add(dAct); add(dFcst); add(dVar);
     add(mAct); add(mFcst); add(mVar);
     add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar); add(day2);
+    add(budgVar); add(day2); add(day2Forecast);
 
     card.appendChild(grid);
 
@@ -5735,6 +5767,7 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
 
         if (d.getDate() === 1) {
             day2.input.value = 0;
+            day2Forecast.input.value = 0;
             return;
         }
 
@@ -5756,8 +5789,10 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
 
             if (prevRecord && prevRecord.data) {
                 day2.input.value = prevRecord.data.daily_actual || 0;
+                day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
             } else {
                 day2.input.value = 0;
+                day2Forecast.input.value = 0;
             }
 
         } catch (e) {
@@ -5789,7 +5824,8 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
                 full_forecast: parseFloat(fullFcst.input.value),
                 full_budget: parseFloat(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value)
+                day2: parseFloat(day2.input.value),
+                day2_forecast: parseFloat(day2Forecast.input.value)
             }
         };
 
@@ -5811,6 +5847,7 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
             fullBudg.input.value = '';
             budgVar.input.value = '';
             day2.input.value = '';
+            day2Forecast.input.value = '';
 
         } catch (e) {
             DOM.showToast("Error: " + e.message, "error");
@@ -9198,6 +9235,7 @@ window.editRecord = (id) => {
             full_budget: [`input-${dept}-full-budg`, `input-${dept}-full-budget`],
             var3: [`input-${dept}-budg-var`, `input-${dept}-full-var`],
             day2: [`input-${dept}-day2`],
+            day2_forecast: [`input-${dept}-day2-forecast`],
             qty_available: [`input-${dept}-qty-avail`],
             num_rigs: [`input-${dept}-rigs`],
             wet_tonnes: [`input-${dept}-wet-tonnes`],
@@ -10196,7 +10234,7 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Recovery') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Action
+            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
@@ -10213,11 +10251,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10247,6 +10286,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10261,7 +10301,7 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Plant Feed Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act(t) | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Action
+            // Date | D.Act(t) | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act(t)</th>
@@ -10279,11 +10319,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="18" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10314,6 +10355,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10328,7 +10370,7 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Tonnes Treated') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Action
+            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
@@ -10345,11 +10387,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10381,6 +10424,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatNum(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatNum(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10395,7 +10439,7 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Gold Recovery') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Action
+            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
@@ -10412,11 +10456,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10446,6 +10491,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10460,7 +10506,7 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Gold Contained') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Action
+            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
@@ -10477,11 +10523,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10511,6 +10558,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11723,7 +11771,7 @@ const DEPT_DISPLAY = {
 };
 
 const DEPT_SECONDARY_LABEL = {
-    "OHS": "", "Milling_CIL": "Day-2", "Crushing": "",
+    "OHS": "", "Milling_CIL": "Day-2 Fcst", "Crushing": "",
     "Mining": "", "Geology": "", "Engineering": "Qty Available"
 };
 
@@ -11789,7 +11837,7 @@ function fmtVal(v, isOHS = false) {
 }
 
 function getSecondaryVal(dept, data) {
-    if (dept === 'Milling_CIL') return fmtVal(data.day_2 ?? '');
+    if (dept === 'Milling_CIL') return fmtVal(data.day2_forecast ?? data.day_2 ?? '');
     if (dept === 'Engineering') return fmtVal(data.qty_available ?? '');
     return '';
 }
@@ -12038,14 +12086,14 @@ function renderSummaryTable(departments) {
         const secLabel = DEPT_SECONDARY_LABEL[dept] || '';
         const isOHS = dept === 'OHS';
 
-        // Sort by defined order
+        // Build all metrics in defined order, showing empty rows when no data exists
         const order = SUMMARY_METRIC_ORDER[dept] || [];
         const sorted = [];
         for (const name of order) {
             const found = rawMetrics.find(m => m.metric_name === name);
-            if (found) sorted.push(found);
+            sorted.push(found || { metric_name: name, data: {}, trend: [] });
         }
-        // Add any remaining
+        // Add any remaining metrics not in defined order
         for (const m of rawMetrics) {
             if (!sorted.find(s => s.metric_name === m.metric_name)) sorted.push(m);
         }

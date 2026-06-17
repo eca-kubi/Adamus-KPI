@@ -250,6 +250,7 @@ def seed_data():
                         data["qty_available"] = random.randint(0, 10)
                     if dept == "Milling_CIL":
                         data["day_2"] = format_val(generate_random_val(metric), metric)
+                        data["day_2_forecast"] = format_val(generate_random_val(metric), metric)
                         
                     record = KPIRecord(
                         department=dept,

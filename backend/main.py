@@ -1299,11 +1299,13 @@ def get_summary_dashboard(
                 daily_forecast = target_rec.data.get('daily_forecast')
                 qty_available = target_rec.data.get('qty_available')
                 day2 = target_rec.data.get('day_2') or target_rec.data.get('day2')
+                day2_forecast = target_rec.data.get('day_2_forecast') or target_rec.data.get('day2_forecast')
             else:
                 daily_actual = None
                 daily_forecast = None
                 qty_available = None
                 day2 = None
+                day2_forecast = None
 
             if dept == "Mining" and metric_name in ("Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
                 daily_forecast = 0.0
@@ -1455,6 +1457,9 @@ def get_summary_dashboard(
             if day2 is not None:
                 data["day_2"] = day2
                 data["day2"] = day2
+            if day2_forecast is not None:
+                data["day_2_forecast"] = day2_forecast
+                data["day2_forecast"] = day2_forecast
             if target_rec and 'wet_tonnes' in target_rec.data:
                 data["wet_tonnes"] = target_rec.data["wet_tonnes"]
             if target_rec and 'daily_act_grade' in target_rec.data:
