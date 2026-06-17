@@ -1110,6 +1110,7 @@ window.loadDepartmentView = async function (dept) {
                 }
                 return `
                     <button class="metric-btn ${STATE.currentMetric === metric ? 'active' : ''}" 
+                        data-metric="${metric}"
                         onclick="loadMetricView('${metric}')">
                         ${displayName}
                     </button>
@@ -1178,14 +1179,11 @@ window.loadMetricView = async function (metric) {
     STATE.currentView = 'dept';
     STATE.currentMetric = metric;
 
-    // Update active button state with Bootstrap-friendly approach
+    // Update active button state — compare by canonical metric name (data-metric),
+    // not textContent, because some buttons display a different label (e.g. "Near Miss / Dangerous Occurance").
     const buttons = document.querySelectorAll('#submenu-nav .metric-btn');
     buttons.forEach(btn => {
-        if (btn.textContent.trim() === metric) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
+        btn.classList.toggle('active', btn.dataset.metric === metric);
     });
 
     // Dynamic Table Headers
