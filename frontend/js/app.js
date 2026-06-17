@@ -12198,10 +12198,44 @@ window.renderSummaryDashboardPage = async function () {
                 </div>
             </div>
         </div>
-        <div class="summary-table-wrap" id="summary-export-content">
-            <div id="summary-table-container" class="text-center py-4">
-                <div class="spinner-border text-primary" role="status"></div>
-                <span class="ms-2 text-muted">Loading summary…</span>
+
+        <!-- Tab navigation -->
+        <ul class="nav nav-tabs summary-view-tabs" id="summaryTabs" data-html2canvas-ignore>
+            <li class="nav-item">
+                <button class="nav-link active" id="tab-kpi" data-bs-toggle="tab" data-bs-target="#pane-kpi" type="button" role="tab">
+                    <i class="bi bi-speedometer2 me-1"></i> KPI Dashboard
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="tab-comments" data-bs-toggle="tab" data-bs-target="#pane-comments" type="button" role="tab">
+                    <i class="bi bi-chat-left-text me-1"></i> Comments
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- KPI Dashboard pane -->
+            <div class="tab-pane fade show active" id="pane-kpi" role="tabpanel">
+                <div class="summary-table-wrap" id="summary-export-content">
+                    <div id="summary-table-container" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <span class="ms-2 text-muted">Loading summary…</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Comments pane -->
+            <div class="tab-pane fade" id="pane-comments" role="tabpanel">
+                <div class="summary-table-wrap">
+                    <div class="d-flex justify-content-end align-items-center px-2 py-2" data-html2canvas-ignore>
+                        <button class="btn btn-sm btn-outline-success" id="btn-export-comments-csv">
+                            <i class="bi bi-filetype-csv me-1"></i> Export CSV
+                        </button>
+                    </div>
+                    <div id="comments-table-container" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <span class="ms-2 text-muted">Loading comments…</span>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -12381,15 +12415,22 @@ window.renderSummaryDashboardPage = async function () {
 
 async function loadSummaryData(dateStr) {
     const container = document.getElementById('summary-table-container');
+    const commentsContainer = document.getElementById('comments-table-container');
     if (!container) return;
-    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div><span class="ms-2 text-muted">Loading…</span></div>';
+
+    const spinner = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div><span class="ms-2 text-muted">Loading…</span></div>';
+    container.innerHTML = spinner;
+    if (commentsContainer) commentsContainer.innerHTML = spinner;
 
     try {
         const resp = await fetchSummaryDashboard(dateStr);
         const depts = resp.departments || {};
         renderSummaryTable(depts);
+        if (commentsContainer) renderCommentsTable(depts, dateStr);
     } catch (e) {
-        container.innerHTML = `<div class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</div>`;
+        const errHtml = `<div class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</div>`;
+        container.innerHTML = errHtml;
+        if (commentsContainer) commentsContainer.innerHTML = errHtml;
     }
 }
 
@@ -12483,6 +12524,150 @@ function renderSummaryTable(departments) {
 
     html += '</tbody></table>';
     container.innerHTML = html;
+}
+
+/**
+ * Renders the Comments tab table.
+ * Shows the same columns as the KPI table up to var1/Status,
+ * then appends a Comments column. Only rows that have a comment are included.
+ * Also wires up the CSV export button.
+ */
+function renderCommentsTable(departments, dateStr) {
+    const container = document.getElementById('comments-table-container');
+    if (!container) return;
+
+    const DEPT_ORDER = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"];
+
+    // Collect all rows that have a comment
+    const rows = [];
+    for (const dept of DEPT_ORDER) {
+        const rawMetrics = departments[dept] || [];
+        const deptLabel = DEPT_DISPLAY[dept] || dept;
+        const secLabel = DEPT_SECONDARY_LABEL[dept] || '';
+        const secLabel2 = DEPT_SECONDARY_LABEL2[dept] || '';
+        const isOHS = dept === 'OHS';
+
+        const order = SUMMARY_METRIC_ORDER[dept] || [];
+        const sorted = [];
+        for (const name of order) {
+            const found = rawMetrics.find(m => m.metric_name === name);
+            if (found) sorted.push(found);
+        }
+        for (const m of rawMetrics) {
+            if (!sorted.find(s => s.metric_name === m.metric_name)) sorted.push(m);
+        }
+
+        for (const m of sorted) {
+            const d = m.data || {};
+            const comment = (d.comment || '').trim();
+            if (!comment) continue; // Skip rows without a comment
+
+            let displayName = m.metric_name;
+            if (displayName === 'Safety Incidents') displayName = 'Safety Incidents (Injuries)';
+            else if (displayName === 'Near Miss') displayName = 'Near Miss / Dangerous Occurance';
+            const unit = METRIC_UNITS[m.metric_name];
+            if (unit && !displayName.includes(unit)) displayName = `${displayName} ${unit}`;
+
+            const v1 = d.var1 ?? '';
+            rows.push({ dept, deptLabel, secLabel, secLabel2, isOHS, displayName, d, v1, comment });
+        }
+    }
+
+    if (rows.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-chat-left-text" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0">No comments recorded for this date.</p>
+            </div>`;
+        // Disable CSV button when empty
+        const csvBtn = document.getElementById('btn-export-comments-csv');
+        if (csvBtn) csvBtn.disabled = true;
+        return;
+    }
+
+    // Enable CSV button
+    const csvBtn = document.getElementById('btn-export-comments-csv');
+    if (csvBtn) {
+        csvBtn.disabled = false;
+        csvBtn.onclick = () => exportCommentsCSV(rows, dateStr);
+    }
+
+    // Build table — columns: Area | KPI | Daily Actual | Sec | Daily Forecast | Sec2 | Variance | Status | Comments
+    let html = `
+        <table class="summary-table">
+        <thead>
+            <tr class="summary-dept-hdr">
+                <th>Area</th><th>KPI</th>
+                <th>Daily Actual</th><th></th>
+                <th>Daily Forecast</th><th></th>
+                <th>Variance</th><th>Status</th>
+                <th style="min-width:200px;">Comments</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    let lastDept = null;
+    let deptRowCount = {};
+    // Pre-count dept rows for rowspan
+    for (const r of rows) {
+        deptRowCount[r.dept] = (deptRowCount[r.dept] || 0) + 1;
+    }
+
+    for (const r of rows) {
+        const { dept, deptLabel, isOHS, displayName, d, v1, comment } = r;
+        html += '<tr>';
+        if (dept !== lastDept) {
+            const deptKey = dept.toLowerCase();
+            html += `<td class="summary-area-cell area-${deptKey}" rowspan="${deptRowCount[dept]}">${deptLabel}</td>`;
+            lastDept = dept;
+        }
+        html += `<td style="font-weight:500;">${displayName}</td>`;
+        html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
+        html += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
+        html += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
+        html += `<td class="num-cell">${getSecondaryVal2(dept, d)}</td>`;
+        html += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
+        html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
+        html += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
+        html += '</tr>';
+    }
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+/**
+ * Exports the comments table data as a CSV file.
+ */
+function exportCommentsCSV(rows, dateStr) {
+    const headers = ['Date', 'Area', 'KPI', 'Daily Actual', 'Daily Forecast', 'Variance', 'Comment'];
+    const escape = (v) => {
+        const s = String(v ?? '').replace(/"/g, '""');
+        return `"${s}"`;
+    };
+    const lines = [headers.map(escape).join(',')];
+    for (const r of rows) {
+        const { deptLabel, displayName, d, v1, comment, isOHS } = r;
+        lines.push([
+            escape(dateStr),
+            escape(deptLabel),
+            escape(displayName),
+            escape(fmtVal(d.daily_actual, isOHS)),
+            escape(fmtVal(d.daily_forecast, isOHS)),
+            escape(fmtVal(v1, isOHS)),
+            escape(comment)
+        ].join(','));
+    }
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Adamus_KPI_Comments_${dateStr}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
 
 /**
