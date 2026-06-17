@@ -12261,53 +12261,45 @@ window.renderSummaryDashboardPage = async function () {
             toggleBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Exporting...';
             toggleBtn.disabled = true;
 
-            // Create a temporary container for capturing
+            // --- Build summary container ---
             const container = document.createElement('div');
             container.className = 'export-temp-container';
             container.style.padding = '40px';
             container.style.backgroundColor = '#ffffff';
             container.style.color = '#000000';
-            container.style.width = 'max-content'; // Dynamic width to fit full table
-            container.style.display = 'inline-block'; // Allow expansion beyond viewport
+            container.style.width = 'max-content';
+            container.style.display = 'inline-block';
 
-            // Clone header and content
             const headerHtml = document.getElementById('summary-export-header').cloneNode(true);
             const contentHtml = document.getElementById('summary-export-content').cloneNode(true);
 
-            // Clean up IDs in the clones to avoid DOM conflicts
             [headerHtml, contentHtml].forEach(root => {
                 root.removeAttribute('id');
                 root.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
             });
 
-            // Remove ignored elements from the clone
             headerHtml.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
             contentHtml.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
 
-            // Adjust the header style for the export (remove dark background)
             headerHtml.style.background = 'none';
             headerHtml.style.backgroundColor = 'transparent';
             headerHtml.style.boxShadow = 'none';
             headerHtml.style.paddingTop = '10px';
             headerHtml.style.paddingBottom = '30px';
 
-            // Center the title in the snapshot and include full date
             const titleEl = headerHtml.querySelector('.summary-header-title');
             if (titleEl) {
-                // Formatting activeDate (YYYY-MM-DD) into a more readable format for the document title
                 const d = new Date(activeDate);
                 const options = { day: 'numeric', month: 'short', year: 'numeric' };
                 const formattedDate = d.toLocaleDateString(undefined, options);
-                
                 titleEl.textContent = `Adamus Resources Limited KPI – ${formattedDate}`;
                 titleEl.style.textAlign = 'center';
                 titleEl.style.width = '100%';
                 titleEl.style.fontSize = '28px';
                 titleEl.style.fontWeight = 'bold';
-                titleEl.style.color = '#1a1a2e'; // Use a dark color for better contrast on white background
+                titleEl.style.color = '#1a1a2e';
             }
 
-            // Create and position the Adamus Logo at the top left of the header
             const logoImg = document.createElement('img');
             logoImg.src = 'images/adamus_logo.png';
             Object.assign(logoImg.style, {
@@ -12317,13 +12309,12 @@ window.renderSummaryDashboardPage = async function () {
                 height: '65px',
                 width: 'auto'
             });
-            headerHtml.style.position = 'relative'; // Anchor for the logo absolute positioning
+            headerHtml.style.position = 'relative';
             headerHtml.prepend(logoImg);
 
             container.appendChild(headerHtml);
             container.appendChild(contentHtml);
 
-            // Hide the container from user view before appending to body
             Object.assign(container.style, {
                 position: 'absolute',
                 top: '0',
@@ -12331,82 +12322,95 @@ window.renderSummaryDashboardPage = async function () {
                 zIndex: '-1000',
                 pointerEvents: 'none'
             });
-
-            // Append to body so dimensions can be measured before adding comments.
             document.body.appendChild(container);
 
-            // Capture summary-only height before appending comments.
-            const summaryHeight = container.scrollHeight;
+            // --- Check for comments ---
+            const commentsSource = document.getElementById('comments-export-source');
+            const hasComments = commentsSource && commentsSource.querySelector('table.summary-table tbody tr');
 
-            // Append any recorded comments below the summary for both PDF and PNG exports.
-            let commentsPage = null;
-            const commentsSource = document.getElementById('comments-table-container');
-            const commentsTable = commentsSource ? commentsSource.querySelector('table.summary-table') : null;
-            if (commentsTable && commentsTable.querySelector('tbody tr')) {
-                const commentsClone = commentsTable.cloneNode(true);
-                commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-                commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+            // --- Helpers ---
+            const cleanup = () => {
+                if (container.parentNode) document.body.removeChild(container);
+                toggleBtn.innerHTML = originalHtml;
+                toggleBtn.disabled = false;
+            };
 
-                commentsPage = document.createElement('div');
-                commentsPage.className = 'comments-page';
-                commentsPage.style.pageBreakBefore = 'always';
-                commentsPage.style.paddingTop = '40px';
-                commentsPage.style.width = '100%';
+            const renderImage = (sourceContainer, imageOpt) => {
+                return html2pdf().set(imageOpt).from(sourceContainer).outputImg('img');
+            };
 
-                const commentsTitle = document.createElement('h2');
-                commentsTitle.textContent = 'Comments';
-                commentsTitle.style.textAlign = 'center';
-                commentsTitle.style.marginBottom = '20px';
-                commentsTitle.style.fontSize = '24px';
-                commentsTitle.style.fontWeight = 'bold';
-                commentsTitle.style.color = '#1a1a2e';
+            const downloadImage = (dataUrl, filename) => {
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
 
-                commentsPage.appendChild(commentsTitle);
-                commentsPage.appendChild(commentsClone);
-                container.appendChild(commentsPage);
-            }
+            const baseOpt = {
+                margin: 0,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    scrollX: 0,
+                    scrollY: 0
+                }
+            };
 
-            // Logic to perform export (wrapped to wait for images)
             const performExport = () => {
                 const pxWidth = container.scrollWidth;
                 const pxHeight = container.scrollHeight;
 
-                const pageHeight = (commentsPage && format === 'pdf') ? summaryHeight : pxHeight;
-
-                const opt = {
-                    margin:       0,
-                    filename:     `Adamus_KPI_Summary_${activeDate}.${format}`,
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  {
-                        scale: 2,
-                        useCORS: true,
-                        letterRendering: true,
-                        backgroundColor: '#ffffff',
-                        width: pxWidth,
-                        height: pxHeight,
-                        logging: false,
-                        scrollX: 0,
-                        scrollY: 0
-                    },
-                    jsPDF: {
-                        unit: 'px',
-                        format: [pxWidth, pageHeight],
-                        orientation: (pxWidth > pageHeight) ? 'landscape' : 'portrait',
-                        hotfixes: ['px_scaling']
-                    }
-                };
-                if (commentsPage && format === 'pdf') {
-                    opt.pagebreak = { mode: 'css', before: '.comments-page' };
-                }
-
-                const cleanup = () => {
-                    if (container.parentNode) document.body.removeChild(container);
-                    toggleBtn.innerHTML = originalHtml;
-                    toggleBtn.disabled = false;
-                };
-
                 if (format === 'pdf') {
-                    html2pdf().set(opt).from(container).save().then(() => {
+                    const pdfContainer = container;
+                    let commentsPage = null;
+
+                    if (hasComments) {
+                        const commentsClone = commentsSource.cloneNode(true);
+                        commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                        commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+                        // Remove the off-screen positioning styles so it flows normally
+                        commentsClone.style.position = 'static';
+                        commentsClone.style.left = 'auto';
+                        commentsClone.style.top = 'auto';
+                        commentsClone.style.zIndex = 'auto';
+                        commentsClone.style.pointerEvents = 'auto';
+
+                        commentsPage = document.createElement('div');
+                        commentsPage.className = 'comments-page';
+                        commentsPage.style.pageBreakBefore = 'always';
+                        commentsPage.style.paddingTop = '40px';
+                        commentsPage.style.width = '100%';
+                        commentsPage.appendChild(commentsClone);
+                        pdfContainer.appendChild(commentsPage);
+                    }
+
+                    const pdfHeight = hasComments ? container.scrollHeight : pxHeight;
+                    const opt = {
+                        ...baseOpt,
+                        filename: `Adamus_KPI_Summary_${activeDate}.pdf`,
+                        html2canvas: {
+                            ...baseOpt.html2canvas,
+                            width: pxWidth,
+                            height: pdfHeight
+                        },
+                        jsPDF: {
+                            unit: 'px',
+                            format: [pxWidth, pdfHeight],
+                            orientation: (pxWidth > pdfHeight) ? 'landscape' : 'portrait',
+                            hotfixes: ['px_scaling']
+                        }
+                    };
+                    if (hasComments) {
+                        opt.pagebreak = { mode: 'css', before: '.comments-page' };
+                    }
+
+                    html2pdf().set(opt).from(pdfContainer).save().then(() => {
                         cleanup();
                         DOM.showToast("PDF Exported successfully!");
                     }).catch(err => {
@@ -12414,25 +12418,90 @@ window.renderSummaryDashboardPage = async function () {
                         console.error("PDF Export Error:", err);
                         DOM.showToast("Failed to export PDF", "error");
                     });
+
                 } else if (format === 'png') {
-                    html2pdf().set(opt).from(container).outputImg('img').then((imgEl) => {
-                        const link = document.createElement('a');
-                        link.href = imgEl.src;
-                        link.download = opt.filename;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        cleanup();
-                        DOM.showToast("PNG Exported successfully!");
-                    }).catch(err => {
-                        cleanup();
-                        console.error("PNG Export Error:", err);
-                        DOM.showToast("Failed to export PNG", "error");
-                    });
+                    const summaryOpt = {
+                        ...baseOpt,
+                        filename: `Adamus_KPI_Summary_${activeDate}.png`,
+                        html2canvas: {
+                            ...baseOpt.html2canvas,
+                            width: pxWidth,
+                            height: pxHeight
+                        }
+                    };
+
+                    if (!hasComments) {
+                        renderImage(container, summaryOpt).then((imgEl) => {
+                            downloadImage(imgEl.src, summaryOpt.filename);
+                            cleanup();
+                            DOM.showToast("PNG Exported successfully!");
+                        }).catch(err => {
+                            cleanup();
+                            console.error("PNG Export Error:", err);
+                            DOM.showToast("Failed to export PNG", "error");
+                        });
+                    } else {
+                        // Render summary PNG
+                        renderImage(container, summaryOpt).then((summaryImg) => {
+                            downloadImage(summaryImg.src, summaryOpt.filename);
+
+                            // Build separate off-screen comments container for PNG
+                            const commentsContainer = document.createElement('div');
+                            commentsContainer.className = 'export-temp-container';
+                            commentsContainer.style.padding = '40px';
+                            commentsContainer.style.backgroundColor = '#ffffff';
+                            commentsContainer.style.color = '#000000';
+                            commentsContainer.style.width = 'max-content';
+                            commentsContainer.style.display = 'inline-block';
+                            commentsContainer.style.position = 'absolute';
+                            commentsContainer.style.top = '0';
+                            commentsContainer.style.left = '0';
+                            commentsContainer.style.zIndex = '-1000';
+                            commentsContainer.style.pointerEvents = 'none';
+
+                            const commentsClone = commentsSource.cloneNode(true);
+                            commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                            commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+                            // Reset positioning so it renders normally inside the temp container
+                            commentsClone.style.position = 'static';
+                            commentsClone.style.left = 'auto';
+                            commentsClone.style.top = 'auto';
+                            commentsClone.style.zIndex = 'auto';
+                            commentsClone.style.pointerEvents = 'auto';
+
+                            commentsContainer.appendChild(commentsClone);
+                            document.body.appendChild(commentsContainer);
+
+                            const cWidth = commentsContainer.scrollWidth;
+                            const cHeight = commentsContainer.scrollHeight;
+                            const commentsOpt = {
+                                ...baseOpt,
+                                filename: `Adamus_KPI_Comments_${activeDate}.png`,
+                                html2canvas: {
+                                    ...baseOpt.html2canvas,
+                                    width: cWidth,
+                                    height: cHeight
+                                }
+                            };
+
+                            return renderImage(commentsContainer, commentsOpt).then((commentsImg) => {
+                                downloadImage(commentsImg.src, commentsOpt.filename);
+                                if (commentsContainer.parentNode) document.body.removeChild(commentsContainer);
+                                cleanup();
+                                DOM.showToast("PNG Exported successfully!");
+                            }).catch(err => {
+                                if (commentsContainer.parentNode) document.body.removeChild(commentsContainer);
+                                throw err;
+                            });
+                        }).catch(err => {
+                            cleanup();
+                            console.error("PNG Export Error:", err);
+                            DOM.showToast("Failed to export PNG", "error");
+                        });
+                    }
                 }
             };
 
-            // Ensure logo is loaded before capturing
             if (logoImg.complete) {
                 performExport();
             } else {
@@ -12578,7 +12647,24 @@ function renderSummaryTable(departments) {
         }
     }
 
-    html += '</tbody></table>';
+    // Also build an off-screen export source so html2canvas can capture comments
+    // even when the Comments tab is hidden (display:none).
+    let exportSourceHtml = `
+        <div id="comments-export-source" style="position:absolute; left:-9999px; top:0; padding:40px; background:#ffffff; color:#000000; width:max-content; display:inline-block;">
+            <h2 style="text-align:center; margin-bottom:20px; font-size:24px; font-weight:bold; color:#1a1a2e;">Comments</h2>
+            ${html}
+        </div>`;
+    // Remove the existing export source if any, then append the new one
+    const oldSource = document.getElementById('comments-export-source');
+    if (oldSource) oldSource.remove();
+    // We can't just set innerHTML on body because it would replace everything,
+    // so insertAdjacentHTML is safer, but we need to strip the wrapper div
+    // and append it as a real element.
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = exportSourceHtml;
+    const exportSource = tempDiv.firstElementChild;
+    document.body.appendChild(exportSource);
+
     container.innerHTML = html;
 }
 
@@ -12689,6 +12775,54 @@ function renderCommentsTable(departments, dateStr) {
     }
 
     html += '</tbody></table>';
+
+    // Build a separate flat export table (no rowspan) so html2canvas captures
+    // all rows reliably when the source is positioned off-screen.
+    let exportRowsHtml = '';
+    for (const r of rows) {
+        const { dept, deptLabel, isOHS, displayName, d, v1, comment } = r;
+        const deptKey = dept.toLowerCase();
+        exportRowsHtml += '<tr>';
+        exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
+        exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
+        exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${getSecondaryVal2(dept, d)}</td>`;
+        exportRowsHtml += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
+        exportRowsHtml += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
+        exportRowsHtml += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
+        exportRowsHtml += '</tr>';
+    }
+    const exportTableHtml = `
+        <table class="summary-table">
+        <thead>
+            <tr class="summary-dept-hdr">
+                <th>Area</th><th>KPI</th>
+                <th>Daily Actual</th><th></th>
+                <th>Daily Forecast</th><th></th>
+                <th>Variance</th><th>Status</th>
+                <th style="min-width:200px;">Comments</th>
+            </tr>
+        </thead>
+        <tbody>${exportRowsHtml}</tbody>
+        </table>`;
+
+    // Also build an off-screen export source so html2canvas can capture comments
+    // even when the Comments tab is hidden (display:none).
+    let exportSourceHtml = `
+        <div id="comments-export-source" style="position:absolute; top:0; left:0; z-index:-1000; pointer-events:none; padding:40px; background:#ffffff; color:#000000; width:max-content; display:inline-block;">
+            <h2 style="text-align:center; margin-bottom:20px; font-size:24px; font-weight:bold; color:#1a1a2e;">Comments</h2>
+            ${exportTableHtml}
+        </div>`;
+    // Remove the existing export source if any, then append the new one
+    const oldSource = document.getElementById('comments-export-source');
+    if (oldSource) oldSource.remove();
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = exportSourceHtml;
+    const exportSource = tempDiv.firstElementChild;
+    document.body.appendChild(exportSource);
+
     container.innerHTML = html;
 }
 
