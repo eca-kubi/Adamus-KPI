@@ -12328,6 +12328,30 @@ window.renderSummaryDashboardPage = async function () {
             const commentsSource = document.getElementById('comments-export-source');
             const hasComments = commentsSource && commentsSource.querySelector('table.summary-table tbody tr');
 
+            // Capture summary-only height before any comments are appended.
+            const summaryHeight = container.scrollHeight;
+
+            // Pre-build the comments page so PDF can append it and PNG can use it later.
+            let commentsPage = null;
+            if (hasComments) {
+                const commentsClone = commentsSource.cloneNode(true);
+                commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+                // Remove the off-screen positioning styles so it flows normally
+                commentsClone.style.position = 'static';
+                commentsClone.style.left = 'auto';
+                commentsClone.style.top = 'auto';
+                commentsClone.style.zIndex = 'auto';
+                commentsClone.style.pointerEvents = 'auto';
+
+                commentsPage = document.createElement('div');
+                commentsPage.className = 'comments-page';
+                commentsPage.style.pageBreakBefore = 'always';
+                commentsPage.style.paddingTop = '40px';
+                commentsPage.style.width = '100%';
+                commentsPage.appendChild(commentsClone);
+            }
+
             // --- Helpers ---
             const cleanup = () => {
                 if (container.parentNode) document.body.removeChild(container);
@@ -12368,36 +12392,19 @@ window.renderSummaryDashboardPage = async function () {
 
                 if (format === 'pdf') {
                     const pdfContainer = container;
-                    let commentsPage = null;
 
-                    if (hasComments) {
-                        const commentsClone = commentsSource.cloneNode(true);
-                        commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-                        commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
-                        // Remove the off-screen positioning styles so it flows normally
-                        commentsClone.style.position = 'static';
-                        commentsClone.style.left = 'auto';
-                        commentsClone.style.top = 'auto';
-                        commentsClone.style.zIndex = 'auto';
-                        commentsClone.style.pointerEvents = 'auto';
-
-                        commentsPage = document.createElement('div');
-                        commentsPage.className = 'comments-page';
-                        commentsPage.style.pageBreakBefore = 'always';
-                        commentsPage.style.paddingTop = '40px';
-                        commentsPage.style.width = '100%';
-                        commentsPage.appendChild(commentsClone);
+                    if (commentsPage) {
                         pdfContainer.appendChild(commentsPage);
                     }
 
-                    const pdfHeight = hasComments ? container.scrollHeight : pxHeight;
+                    const pdfHeight = commentsPage ? summaryHeight : pxHeight;
                     const opt = {
                         ...baseOpt,
                         filename: `Adamus_KPI_Summary_${activeDate}.pdf`,
                         html2canvas: {
                             ...baseOpt.html2canvas,
                             width: pxWidth,
-                            height: pdfHeight
+                            height: pxHeight
                         },
                         jsPDF: {
                             unit: 'px',
@@ -12445,53 +12452,119 @@ window.renderSummaryDashboardPage = async function () {
                         renderImage(container, summaryOpt).then((summaryImg) => {
                             downloadImage(summaryImg.src, summaryOpt.filename);
 
-                            // Build separate off-screen comments container for PNG
-                            const commentsContainer = document.createElement('div');
-                            commentsContainer.className = 'export-temp-container';
-                            commentsContainer.style.padding = '40px';
-                            commentsContainer.style.backgroundColor = '#ffffff';
-                            commentsContainer.style.color = '#000000';
-                            commentsContainer.style.width = 'max-content';
-                            commentsContainer.style.display = 'inline-block';
-                            commentsContainer.style.position = 'absolute';
-                            commentsContainer.style.top = '0';
-                            commentsContainer.style.left = '0';
-                            commentsContainer.style.zIndex = '-1000';
-                            commentsContainer.style.pointerEvents = 'none';
+                            // For the comments PNG we need the table actually rendered in a
+                            // visible pane. Briefly switch to the Comments tab, capture, then
+                            // restore the previously active tab.
+                            return new Promise((resolve, reject) => {
+                                const commentsTabEl = document.getElementById('tab-comments');
+                                const activeTabEl = document.querySelector('#summaryTabs .nav-link.active');
+                                const commentsPane = document.getElementById('pane-comments');
+                                const hadFade = commentsPane && commentsPane.classList.contains('fade');
 
-                            const commentsClone = commentsSource.cloneNode(true);
-                            commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-                            commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
-                            // Reset positioning so it renders normally inside the temp container
-                            commentsClone.style.position = 'static';
-                            commentsClone.style.left = 'auto';
-                            commentsClone.style.top = 'auto';
-                            commentsClone.style.zIndex = 'auto';
-                            commentsClone.style.pointerEvents = 'auto';
+                                const restoreTab = () => {
+                                    if (hadFade) commentsPane.classList.add('fade');
+                                    if (activeTabEl && activeTabEl.id !== 'tab-comments') {
+                                        try {
+                                            const tab = bootstrap.Tab.getOrCreateInstance(activeTabEl);
+                                            tab.show();
+                                        } catch (e) {
+                                            activeTabEl.click();
+                                        }
+                                    }
+                                };
 
-                            commentsContainer.appendChild(commentsClone);
-                            document.body.appendChild(commentsContainer);
+                                const captureComments = () => {
+                                    try {
+                                        // Build a temporary container from the now-visible comments table
+                                        const commentsContainer = document.createElement('div');
+                                        commentsContainer.className = 'export-temp-container';
+                                        Object.assign(commentsContainer.style, {
+                                            padding: '40px',
+                                            backgroundColor: '#ffffff',
+                                            color: '#000000',
+                                            width: 'max-content',
+                                            display: 'inline-block',
+                                            position: 'absolute',
+                                            top: '0',
+                                            left: '0',
+                                            zIndex: '-1000',
+                                            pointerEvents: 'none'
+                                        });
 
-                            const cWidth = commentsContainer.scrollWidth;
-                            const cHeight = commentsContainer.scrollHeight;
-                            const commentsOpt = {
-                                ...baseOpt,
-                                filename: `Adamus_KPI_Comments_${activeDate}.png`,
-                                html2canvas: {
-                                    ...baseOpt.html2canvas,
-                                    width: cWidth,
-                                    height: cHeight
+                                        const commentsTable = document.querySelector('#comments-table-container table.summary-table');
+                                        if (!commentsTable) throw new Error('Comments table not found');
+
+                                        const commentsClone = commentsTable.cloneNode(true);
+                                        commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                                        commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+
+                                        // Add the same branded header used for the summary PNG.
+                                        const commentsHeader = headerHtml.cloneNode(true);
+                                        commentsHeader.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                                        commentsContainer.appendChild(commentsHeader);
+
+                                        // Small comments subtitle below the header.
+                                        const commentsSubtitle = document.createElement('h2');
+                                        commentsSubtitle.textContent = 'Comments';
+                                        Object.assign(commentsSubtitle.style, {
+                                            textAlign: 'center',
+                                            marginBottom: '20px',
+                                            marginTop: '10px',
+                                            fontSize: '24px',
+                                            fontWeight: 'bold',
+                                            color: '#1a1a2e'
+                                        });
+                                        commentsContainer.appendChild(commentsSubtitle);
+                                        commentsContainer.appendChild(commentsClone);
+                                        document.body.appendChild(commentsContainer);
+
+                                        const cWidth = commentsContainer.scrollWidth;
+                                        const cHeight = commentsContainer.scrollHeight;
+                                        const commentsOpt = {
+                                            ...baseOpt,
+                                            filename: `Adamus_KPI_Comments_${activeDate}.png`,
+                                            html2canvas: {
+                                                ...baseOpt.html2canvas,
+                                                width: cWidth,
+                                                height: cHeight
+                                            }
+                                        };
+
+                                        renderImage(commentsContainer, commentsOpt).then((commentsImg) => {
+                                            downloadImage(commentsImg.src, commentsOpt.filename);
+                                            if (commentsContainer.parentNode) document.body.removeChild(commentsContainer);
+                                            restoreTab();
+                                            cleanup();
+                                            DOM.showToast("PNG Exported successfully!");
+                                            resolve();
+                                        }).catch(err => {
+                                            if (commentsContainer.parentNode) document.body.removeChild(commentsContainer);
+                                            restoreTab();
+                                            reject(err);
+                                        });
+                                    } catch (err) {
+                                        restoreTab();
+                                        reject(err);
+                                    }
+                                };
+
+                                if (commentsTabEl && !commentsTabEl.classList.contains('active')) {
+                                    const onShown = () => {
+                                        commentsTabEl.removeEventListener('shown.bs.tab', onShown);
+                                        setTimeout(captureComments, 50);
+                                    };
+                                    commentsTabEl.addEventListener('shown.bs.tab', onShown);
+                                    if (commentsPane) commentsPane.classList.remove('fade');
+                                    try {
+                                        const tab = bootstrap.Tab.getOrCreateInstance(commentsTabEl);
+                                        tab.show();
+                                    } catch (e) {
+                                        commentsTabEl.click();
+                                        setTimeout(captureComments, 300);
+                                    }
+                                } else {
+                                    setTimeout(captureComments, 50);
                                 }
-                            };
-
-                            return renderImage(commentsContainer, commentsOpt).then((commentsImg) => {
-                                downloadImage(commentsImg.src, commentsOpt.filename);
-                                if (commentsContainer.parentNode) document.body.removeChild(commentsContainer);
-                                cleanup();
-                                DOM.showToast("PNG Exported successfully!");
-                            }).catch(err => {
-                                if (commentsContainer.parentNode) document.body.removeChild(commentsContainer);
-                                throw err;
                             });
                         }).catch(err => {
                             cleanup();
