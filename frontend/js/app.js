@@ -12292,7 +12292,7 @@ window.renderSummaryDashboardPage = async function () {
                 const d = new Date(activeDate);
                 const options = { day: 'numeric', month: 'short', year: 'numeric' };
                 const formattedDate = d.toLocaleDateString(undefined, options);
-                titleEl.textContent = `Adamus Resources Limited KPI – ${formattedDate}`;
+                titleEl.textContent = `Adamus Resources Limited KPI - ${formattedDate}`;
                 titleEl.style.textAlign = 'center';
                 titleEl.style.width = '100%';
                 titleEl.style.fontSize = '28px';
@@ -12325,32 +12325,11 @@ window.renderSummaryDashboardPage = async function () {
             document.body.appendChild(container);
 
             // --- Check for comments ---
-            const commentsSource = document.getElementById('comments-export-source');
-            const hasComments = commentsSource && commentsSource.querySelector('table.summary-table tbody tr');
+            const commentsTable = document.querySelector('#comments-table-container table.summary-table');
+            const hasComments = !!(commentsTable && commentsTable.querySelector('tbody tr'));
 
             // Capture summary-only height before any comments are appended.
             const summaryHeight = container.scrollHeight;
-
-            // Pre-build the comments page so PDF can append it and PNG can use it later.
-            let commentsPage = null;
-            if (hasComments) {
-                const commentsClone = commentsSource.cloneNode(true);
-                commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-                commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
-                // Remove the off-screen positioning styles so it flows normally
-                commentsClone.style.position = 'static';
-                commentsClone.style.left = 'auto';
-                commentsClone.style.top = 'auto';
-                commentsClone.style.zIndex = 'auto';
-                commentsClone.style.pointerEvents = 'auto';
-
-                commentsPage = document.createElement('div');
-                commentsPage.className = 'comments-page';
-                commentsPage.style.pageBreakBefore = 'always';
-                commentsPage.style.paddingTop = '40px';
-                commentsPage.style.width = '100%';
-                commentsPage.appendChild(commentsClone);
-            }
 
             // --- Helpers ---
             const cleanup = () => {
@@ -12391,41 +12370,140 @@ window.renderSummaryDashboardPage = async function () {
                 const pxHeight = container.scrollHeight;
 
                 if (format === 'pdf') {
-                    const pdfContainer = container;
+                    if (!hasComments) {
+                        const pdfOpt = {
+                            ...baseOpt,
+                            filename: `Adamus_KPI_Summary_${activeDate}.pdf`,
+                            jsPDF: {
+                                unit: 'px',
+                                format: [pxWidth, pxHeight],
+                                orientation: 'landscape',
+                                hotfixes: ['px_scaling']
+                            },
+                            html2canvas: {
+                                ...baseOpt.html2canvas,
+                                width: pxWidth,
+                                height: pxHeight
+                            }
+                        };
 
-                    if (commentsPage) {
-                        pdfContainer.appendChild(commentsPage);
-                    }
+                        html2pdf().set(pdfOpt).from(container).save()
+                            .then(() => {
+                                cleanup();
+                                DOM.showToast("PDF Exported successfully!");
+                            })
+                            .catch(err => {
+                                cleanup();
+                                console.error("PDF Export Error:", err);
+                                DOM.showToast("Failed to export PDF", "error");
+                            });
+                    } else {
+                        const commentsTabEl = document.getElementById('tab-comments');
+                        const activeTabEl = document.querySelector('#summaryTabs .nav-link.active');
+                        const commentsPane = document.getElementById('pane-comments');
+                        const hadFade = commentsPane && commentsPane.classList.contains('fade');
 
-                    const pdfHeight = commentsPage ? summaryHeight : pxHeight;
-                    const opt = {
-                        ...baseOpt,
-                        filename: `Adamus_KPI_Summary_${activeDate}.pdf`,
-                        html2canvas: {
-                            ...baseOpt.html2canvas,
-                            width: pxWidth,
-                            height: pxHeight
-                        },
-                        jsPDF: {
-                            unit: 'px',
-                            format: [pxWidth, pdfHeight],
-                            orientation: (pxWidth > pdfHeight) ? 'landscape' : 'portrait',
-                            hotfixes: ['px_scaling']
+                        const restoreTab = () => {
+                            if (hadFade) commentsPane.classList.add('fade');
+                            if (activeTabEl && activeTabEl.id !== 'tab-comments') {
+                                try {
+                                    const tab = bootstrap.Tab.getOrCreateInstance(activeTabEl);
+                                    tab.show();
+                                } catch (e) {
+                                    activeTabEl.click();
+                                }
+                            }
+                        };
+
+                        const captureAndExport = () => {
+                            try {
+                                const visibleCommentsTable = document.querySelector('#comments-table-container table.summary-table');
+                                if (!visibleCommentsTable) throw new Error('Comments table not found');
+
+                                const commentsClone = visibleCommentsTable.cloneNode(true);
+                                commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                                commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+
+                                const commentsHeader = headerHtml.cloneNode(true);
+                                commentsHeader.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+                                const commentsSubtitle = document.createElement('h2');
+                                commentsSubtitle.textContent = 'Comments';
+                                Object.assign(commentsSubtitle.style, {
+                                    textAlign: 'center',
+                                    marginBottom: '20px',
+                                    marginTop: '10px',
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    color: '#1a1a2e'
+                                });
+
+                                const commentsPage = document.createElement('div');
+                                commentsPage.className = 'comments-page';
+                                commentsPage.style.pageBreakBefore = 'always';
+                                commentsPage.style.paddingTop = '40px';
+                                commentsPage.style.width = '100%';
+                                commentsPage.appendChild(commentsHeader);
+                                commentsPage.appendChild(commentsSubtitle);
+                                commentsPage.appendChild(commentsClone);
+                                container.appendChild(commentsPage);
+
+                                const totalHeight = container.scrollHeight;
+                                const pdfOpt = {
+                                    ...baseOpt,
+                                    filename: `Adamus_KPI_Summary_${activeDate}.pdf`,
+                                    jsPDF: {
+                                        unit: 'px',
+                                        format: [pxWidth, summaryHeight],
+                                        orientation: 'landscape',
+                                        hotfixes: ['px_scaling']
+                                    },
+                                    html2canvas: {
+                                        ...baseOpt.html2canvas,
+                                        width: pxWidth,
+                                        height: totalHeight
+                                    },
+                                    pagebreak: { mode: 'css', before: '.comments-page' }
+                                };
+
+                                html2pdf().set(pdfOpt).from(container).save()
+                                    .then(() => {
+                                        restoreTab();
+                                        cleanup();
+                                        DOM.showToast("PDF Exported successfully!");
+                                    })
+                                    .catch(err => {
+                                        restoreTab();
+                                        cleanup();
+                                        console.error("PDF Export Error:", err);
+                                        DOM.showToast("Failed to export PDF", "error");
+                                    });
+                            } catch (err) {
+                                restoreTab();
+                                cleanup();
+                                console.error("PDF Export Error:", err);
+                                DOM.showToast("Failed to export PDF", "error");
+                            }
+                        };
+
+                        if (commentsTabEl && !commentsTabEl.classList.contains('active')) {
+                            const onShown = () => {
+                                commentsTabEl.removeEventListener('shown.bs.tab', onShown);
+                                setTimeout(captureAndExport, 50);
+                            };
+                            commentsTabEl.addEventListener('shown.bs.tab', onShown);
+                            if (commentsPane) commentsPane.classList.remove('fade');
+                            try {
+                                const tab = bootstrap.Tab.getOrCreateInstance(commentsTabEl);
+                                tab.show();
+                            } catch (e) {
+                                commentsTabEl.click();
+                                setTimeout(captureAndExport, 300);
+                            }
+                        } else {
+                            setTimeout(captureAndExport, 50);
                         }
-                    };
-                    if (hasComments) {
-                        opt.pagebreak = { mode: 'css', before: '.comments-page' };
                     }
-
-                    html2pdf().set(opt).from(pdfContainer).save().then(() => {
-                        cleanup();
-                        DOM.showToast("PDF Exported successfully!");
-                    }).catch(err => {
-                        cleanup();
-                        console.error("PDF Export Error:", err);
-                        DOM.showToast("Failed to export PDF", "error");
-                    });
-
                 } else if (format === 'png') {
                     const summaryOpt = {
                         ...baseOpt,
