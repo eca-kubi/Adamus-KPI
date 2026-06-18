@@ -1251,12 +1251,26 @@ def get_summary_dashboard(
     ).all()
 
     def parse_float(val):
-        if val is None:
+        if val is None or val == "" or val == "-":
             return 0.0
         try:
             return float(str(val).replace("%", "").replace(",", "").strip())
         except (ValueError, TypeError):
             return 0.0
+
+    def parse_optional_float(val):
+        if val is None or val == "" or val == "-":
+            return None
+        try:
+            return float(str(val).replace("%", "").replace(",", "").strip())
+        except (ValueError, TypeError):
+            return None
+
+    def sum_or_none(iterable):
+        vals = [v for v in iterable if v is not None]
+        if not vals:
+            return None
+        return sum(vals)
 
     def calc_var(act, fcst, is_ohs=False, use_act_denom=False):
         if act is None or fcst is None or act == "-" or fcst == "-":
@@ -1343,8 +1357,8 @@ def get_summary_dashboard(
                     daily_actual = target_rec.data.get('daily_actual')
                 daily_forecast = target_rec.data.get('daily_forecast')
                 qty_available = target_rec.data.get('qty_available')
-                day2 = target_rec.data.get('day_2') or target_rec.data.get('day2')
-                day2_forecast = target_rec.data.get('day_2_forecast') or target_rec.data.get('day2_forecast')
+                day2 = target_rec.data.get('day2') if 'day2' in target_rec.data else target_rec.data.get('day_2')
+                day2_forecast = target_rec.data.get('day2_forecast') if 'day2_forecast' in target_rec.data else target_rec.data.get('day_2_forecast')
             else:
                 daily_actual = None
                 daily_forecast = None
@@ -1368,72 +1382,75 @@ def get_summary_dashboard(
             if is_ohs_dept:
                 mtd_forecast = full_fcst
             elif dept == "Mining" and metric_name in ("Grade Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
-                mtd_forecast = parse_float(target_rec.data.get('daily_forecast')) if (target_rec and target_rec.data.get('daily_forecast') is not None) else 0.0
+                mtd_forecast = parse_optional_float(target_rec.data.get('daily_forecast')) if (target_rec and target_rec.data.get('daily_forecast') is not None) else None
             else:
-                mtd_forecast = sum(parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                mtd_forecast = sum_or_none(parse_optional_float(r.data.get('daily_forecast')) for r in daily_records)
 
             # Calculate MTD Actual
             if dept == "Geology" and metric_name == "Toll":
                 def get_dry_tonnes(r):
                     if 'wet_tonnes' in r.data:
-                        return parse_float(r.data['wet_tonnes'])
-                    da = parse_float(r.data.get('daily_actual'))
-                    return round(da * 0.85)
-                mtd_actual = sum(get_dry_tonnes(r) for r in daily_records)
+                        return parse_optional_float(r.data['wet_tonnes'])
+                    da = parse_optional_float(r.data.get('daily_actual'))
+                    return round(da * 0.85) if da is not None else None
+                mtd_actual = sum_or_none(get_dry_tonnes(r) for r in daily_records)
             elif dept == "Mining" and metric_name == "Grade - Ore Mined":
-                sum_prod = sum(parse_float(r.data.get('daily_act_grade')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
-                sum_weights = sum(parse_float(r.data.get('daily_forecast')) for r in daily_records)
-                mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+                sum_prod = sum_or_none(parse_float(r.data.get('daily_act_grade')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                sum_weights = sum_or_none(parse_optional_float(r.data.get('daily_forecast')) for r in daily_records)
+                mtd_actual = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
             elif dept == "Mining" and metric_name == "Grade Rehandle":
-                sum_prod = sum(parse_float(r.data.get('daily_act_grade')) * parse_float(r.data.get('daily_actual')) for r in daily_records)
-                sum_weights = sum(parse_float(r.data.get('daily_actual')) for r in daily_records)
-                mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+                sum_prod = sum_or_none(parse_float(r.data.get('daily_act_grade')) * parse_float(r.data.get('daily_actual')) for r in daily_records)
+                sum_weights = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in daily_records)
+                mtd_actual = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
             elif dept == "Mining" and metric_name in ("Stock Pile Near Pit", "Stock Pile Main Rompad"):
-                mtd_actual = parse_float(daily_actual)
+                mtd_actual = parse_optional_float(daily_actual)
             elif dept == "Mining" and metric_name in ("Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
-                mtd_actual = parse_float(target_rec.data.get('daily_act_grade')) if target_rec else 0.0
+                mtd_actual = parse_optional_float(target_rec.data.get('daily_act_grade')) if target_rec else None
             elif dept == "Milling_CIL" and metric_name == "Plant Feed Grade":
-                sum_prod = sum(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
-                sum_weights = sum(parse_float(r.data.get('daily_forecast')) for r in daily_records)
-                mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+                sum_prod = sum_or_none(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                sum_weights = sum_or_none(parse_optional_float(r.data.get('daily_forecast')) for r in daily_records)
+                mtd_actual = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
             elif dept == "Engineering":
-                sum_prod = sum(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
-                sum_weights = sum(parse_float(r.data.get('daily_actual')) for r in daily_records)
-                mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+                sum_prod = sum_or_none(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
+                sum_weights = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in daily_records)
+                mtd_actual = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
             else:
-                mtd_actual = sum(parse_float(r.data.get('daily_actual')) for r in daily_records)
+                mtd_actual = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in daily_records)
 
             # Calculate Outlook
             if dept == "Mining" and metric_name in ("Grade Rehandle", "Rehandle"):
                 outlook = None
             elif dept == "Mining" and metric_name in ("Stock Pile Near Pit", "Stock Pile Main Rompad"):
-                outlook = parse_float(daily_actual)
+                outlook = parse_optional_float(daily_actual)
             elif dept == "Mining" and metric_name in ("Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
-                outlook = parse_float(target_rec.data.get('daily_act_grade')) if target_rec else 0.0
+                outlook = parse_optional_float(target_rec.data.get('daily_act_grade')) if target_rec else None
             elif dept == "Geology":
                 if metric_name == "Toll":
-                    mtd_act_wet = sum(parse_float(r.data.get('daily_actual')) for r in daily_records)
-                    outlook = (mtd_act_wet - mtd_forecast) + full_fcst
+                    mtd_act_wet = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in daily_records)
+                    outlook = (mtd_act_wet - mtd_forecast) + full_fcst if (mtd_act_wet is not None and mtd_forecast is not None) else None
                 else:
-                    outlook = (mtd_actual - mtd_forecast) + full_fcst
+                    outlook = (mtd_actual - mtd_forecast) + full_fcst if (mtd_actual is not None and mtd_forecast is not None) else None
             elif dept == "OHS":
-                outlook = mtd_actual + ((full_fcst - mtd_actual) / current_day)
+                outlook = mtd_actual + ((full_fcst - mtd_actual) / current_day) if mtd_actual is not None else None
             elif dept == "Mining" and metric_name == "Ore Mined":
-                outlook = mtd_actual + (full_fcst / total_days) * remaining_days
+                outlook = mtd_actual + (full_fcst / total_days) * remaining_days if mtd_actual is not None else None
             elif dept == "Mining" and metric_name == "Total Material Moved":
                 if remaining_days <= 0:
                     outlook = mtd_actual
                 else:
-                    outlook = mtd_actual + (full_fcst - mtd_actual) / remaining_days
+                    outlook = mtd_actual + (full_fcst - mtd_actual) / remaining_days if (mtd_actual is not None) else None
             elif dept == "Milling_CIL" and metric_name in ["Gold Contained", "Gold Recovery", "Recovery", "Tonnes Treated"]:
-                outlook = (mtd_actual / current_day) * total_days if current_day > 0 else 0.0
+                outlook = (mtd_actual / current_day) * total_days if (mtd_actual is not None and current_day > 0) else None
             elif dept == "Crushing" and metric_name == "Ore Crushed":
-                outlook = (mtd_actual / current_day) * total_days if current_day > 0 else 0.0
+                outlook = (mtd_actual / current_day) * total_days if (mtd_actual is not None and current_day > 0) else None
             else:
                 outlook = mtd_actual
 
             # Variances
-            if dept == "Mining" and metric_name in (
+            if daily_actual is None:
+                var1 = "-"
+                var2 = "-"
+            elif dept == "Mining" and metric_name in (
                 "Availability - Dump Truck",
                 "Utilization - Dump Truck",
                 "Availability - Excavator",
@@ -1467,10 +1484,10 @@ def get_summary_dashboard(
                 else:
                     var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
 
-            if metric_name in ("Runtime", "Throughput"):
+            if metric_name in ("Runtime", "Throughput") or dept == "Engineering":
                 data = {
-                    "daily_actual": daily_actual if daily_actual is not None else 0,
-                    "daily_forecast": daily_forecast if daily_forecast is not None else 0,
+                    "daily_actual": daily_actual,
+                    "daily_forecast": daily_forecast,
                     "var1": var1,
                     "daily_var": var1,
                     "mtd_actual": "-",
@@ -1508,17 +1525,17 @@ def get_summary_dashboard(
                 }
             else:
                 data = {
-                    "daily_actual": daily_actual if daily_actual is not None else 0,
-                    "daily_forecast": daily_forecast if daily_forecast is not None else 0,
+                    "daily_actual": daily_actual,
+                    "daily_forecast": daily_forecast,
                     "var1": var1,
                     "daily_var": var1,
-                    "mtd_actual": round(mtd_actual, 2) if (mtd_actual % 1 or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else int(mtd_actual),
-                    "mtd_forecast": round(mtd_forecast, 2) if (mtd_forecast % 1 or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else int(mtd_forecast),
+                    "mtd_actual": (round(mtd_actual, 2) if (mtd_actual % 1 or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else int(mtd_actual)) if (mtd_actual is not None and daily_actual is not None) else "-",
+                    "mtd_forecast": (round(mtd_forecast, 2) if (mtd_forecast % 1 or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else int(mtd_forecast)) if (mtd_forecast is not None and daily_actual is not None) else "-",
                     "var2": var2,
                     "mtd_var": var2,
-                    "outlook": "-" if outlook is None else (round(outlook, 2) if outlook % 1 else int(outlook)),
-                    "full_forecast": "-" if (full_fcst is None or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else (round(full_fcst, 2) if full_fcst % 1 else int(full_fcst)),
-                    "full_budget": "-" if (full_budg is None or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else (round(full_budg, 2) if full_budg % 1 else int(full_budg)),
+                    "outlook": "-" if (outlook is None or daily_actual is None) else (round(outlook, 2) if outlook % 1 else int(outlook)),
+                    "full_forecast": "-" if (full_fcst is None or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else (round(full_fcst, 2) if full_fcst % 1 else int(full_fcst)),
+                    "full_budget": "-" if (full_budg is None or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else (round(full_budg, 2) if full_budg % 1 else int(full_budg)),
                     "var3": var3,
                     "budget_var": var3,
                 }

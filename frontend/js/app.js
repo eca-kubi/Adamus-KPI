@@ -12776,6 +12776,8 @@ function renderSummaryTable(departments) {
             if (unit && !displayName.includes(unit)) {
                 displayName = `${displayName} ${unit}`;
             }
+            const isEng = dept === 'Engineering';
+
             html += `<td style="font-weight:500;">${displayName}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
@@ -12783,15 +12785,15 @@ function renderSummaryTable(departments) {
             html += `<td class="num-cell">${getSecondaryVal2(dept, d)}</td>`;
             html += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.mtd_actual, isOHS)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.mtd_forecast, isOHS)}</td>`;
-            html += `<td class="${svarClass(v2)}">${fmtVal(v2, isOHS)}</td>`;
-            html += `<td style="text-align:center;">${sstatusHtml(v2)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.outlook ?? '', isOHS)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.full_forecast ?? '', isOHS)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.full_budget ?? '', isOHS)}</td>`;
-            html += `<td class="${svarClass(v3)}">${fmtVal(v3, isOHS)}</td>`;
-            html += `<td style="text-align:center;">${sstatusHtml(v3)}</td>`;
+            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.mtd_actual, isOHS)}</td>`;
+            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.mtd_forecast, isOHS)}</td>`;
+            html += `<td class="${svarClass(v2)}">${isEng ? '-' : fmtVal(v2, isOHS)}</td>`;
+            html += `<td style="text-align:center;">${isEng ? '' : sstatusHtml(v2)}</td>`;
+            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.outlook ?? '', isOHS)}</td>`;
+            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.full_forecast ?? '', isOHS)}</td>`;
+            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.full_budget ?? '', isOHS)}</td>`;
+            html += `<td class="${svarClass(v3)}">${isEng ? '-' : fmtVal(v3, isOHS)}</td>`;
+            html += `<td style="text-align:center;">${isEng ? '' : sstatusHtml(v3)}</td>`;
             html += `<td class="trend-cell">${summarySparkline(m.trend, isOHS)}</td>`;
 
             html += '</tr>';
