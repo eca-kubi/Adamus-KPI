@@ -11,10 +11,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env_path = BASE_DIR / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# SECRET_KEY should be loaded from environment variables in production
-SECRET_KEY = os.getenv("SECRET_KEY", "adamus-secret-key")
+# SECRET_KEY MUST be set in the environment — no fallback allowed in production.
+_secret_key = os.getenv("SECRET_KEY")
+if not _secret_key:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is not set. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\" "
+        "and set it before starting the application."
+    )
+SECRET_KEY: str = _secret_key
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 # Use argon2 for better security and no 72-byte limit
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")

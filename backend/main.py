@@ -1,6 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, Query, Request, status, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlmodel import Session, select, or_
 from typing import List, Optional, Dict, Any
 from datetime import date, timedelta, datetime, timezone
@@ -27,7 +30,13 @@ from . import security
 from .profiler import ProfilingMiddleware, monitor_memory
 import asyncio
 
+# ---------------------------------------------------------------------------
+# Rate limiting — keyed by client IP address
+# ---------------------------------------------------------------------------
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(ProfilingMiddleware)
 
 # ---------------------------------------------------------------------------
@@ -546,7 +555,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/api/login")
-def login(data: Dict[str, Any], session: Session = Depends(get_session)):
+@limiter.limit("10/minute")
+def login(request: Request, data: Dict[str, Any], session: Session = Depends(get_session)):
     # Support for JSON based login from frontend
     username = data.get("username")
     password = data.get("password")
@@ -575,7 +585,9 @@ def login(data: Dict[str, Any], session: Session = Depends(get_session)):
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.post("/api/forgot-password")
+@limiter.limit("5/minute")
 def forgot_password(
+    request: Request,
     payload: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session)
@@ -649,7 +661,9 @@ def forgot_password(
         }
 
 @app.post("/api/reset-password")
+@limiter.limit("5/minute")
 def reset_password(
+    request: Request,
     payload: ResetPasswordRequest,
     session: Session = Depends(get_session)
 ):
@@ -1685,10 +1699,8 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 
             return record
     except Exception as e:
-        print(f"ERROR creating KPI record: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
+        logger.exception("ERROR creating KPI record")
+        raise HTTPException(status_code=500, detail="An internal server error occurred. Please contact support.")
 
 @app.post("/api/kpi/{department}/import")
 def import_kpi_records(
@@ -1960,10 +1972,8 @@ def cascade_fixed_input(
         return {"updated_count": count}
 
     except Exception as e:
-        print(f"ERROR cascading fixed input: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("ERROR cascading fixed input")
+        raise HTTPException(status_code=500, detail="An internal server error occurred. Please contact support.")
 
 # Serve Frontend Static Files
 # We assume the backend is run from the project root (e.g. uvicorn backend.main:app)
