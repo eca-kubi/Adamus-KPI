@@ -1450,6 +1450,7 @@ def get_summary_dashboard(
             if daily_actual is None:
                 var1 = "-"
                 var2 = "-"
+                var3 = "-"
             elif dept == "Mining" and metric_name in (
                 "Availability - Dump Truck",
                 "Utilization - Dump Truck",
@@ -1487,7 +1488,7 @@ def get_summary_dashboard(
             if metric_name in ("Runtime", "Throughput") or dept == "Engineering":
                 data = {
                     "daily_actual": daily_actual,
-                    "daily_forecast": daily_forecast,
+                    "daily_forecast": daily_forecast if daily_actual is not None else None,
                     "var1": var1,
                     "daily_var": var1,
                     "mtd_actual": "-",
@@ -1510,7 +1511,7 @@ def get_summary_dashboard(
                 daily_fcst_clean = parse_float(daily_forecast)
                 data = {
                     "daily_actual": f"{round(daily_act_clean)}%" if daily_actual not in (None, "", "-") else "-",
-                    "daily_forecast": f"{round(daily_fcst_clean)}%" if daily_forecast not in (None, "", "-") else "-",
+                    "daily_forecast": f"{round(daily_fcst_clean)}%" if (daily_forecast not in (None, "", "-") and daily_actual is not None) else "-",
                     "var1": var1,
                     "daily_var": var1,
                     "mtd_actual": "-",
@@ -1526,7 +1527,7 @@ def get_summary_dashboard(
             else:
                 data = {
                     "daily_actual": daily_actual,
-                    "daily_forecast": daily_forecast,
+                    "daily_forecast": daily_forecast if daily_actual is not None else None,
                     "var1": var1,
                     "daily_var": var1,
                     "mtd_actual": (round(mtd_actual, 2) if (mtd_actual % 1 or metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad")) else int(mtd_actual)) if (mtd_actual is not None and daily_actual is not None) else "-",
