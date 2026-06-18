@@ -12286,6 +12286,11 @@ window.renderSummaryDashboardPage = async function () {
             headerHtml.style.boxShadow = 'none';
             headerHtml.style.paddingTop = '10px';
             headerHtml.style.paddingBottom = '30px';
+            headerHtml.style.position = 'relative';
+            headerHtml.style.display = 'flex';
+            headerHtml.style.alignItems = 'center';
+            headerHtml.style.justifyContent = 'center';
+            headerHtml.style.minHeight = '80px';
 
             const titleEl = headerHtml.querySelector('.summary-header-title');
             if (titleEl) {
@@ -12298,6 +12303,7 @@ window.renderSummaryDashboardPage = async function () {
                 titleEl.style.fontSize = '28px';
                 titleEl.style.fontWeight = 'bold';
                 titleEl.style.color = '#1a1a2e';
+                titleEl.style.padding = '0 250px'; // Space for logo and symmetry
             }
 
             const logoImg = document.createElement('img');
@@ -12309,7 +12315,6 @@ window.renderSummaryDashboardPage = async function () {
                 height: '65px',
                 width: 'auto'
             });
-            headerHtml.style.position = 'relative';
             headerHtml.prepend(logoImg);
 
             container.appendChild(headerHtml);
