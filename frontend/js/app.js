@@ -12152,13 +12152,16 @@ function fmtVal(v, isOHS = false) {
     return s;
 }
 
-function getSecondaryVal(dept, data) {
+function getSecondaryVal(dept, data, metric) {
     if (dept === 'Milling_CIL') return fmtVal(data.day2 ?? data.day_2 ?? '');
-    if (dept === 'Engineering') return fmtVal(data.qty_available ?? '');
+    if (dept === 'Engineering') {
+        if (metric === 'Crusher' || metric === 'Mill') return '-';
+        return fmtVal(data.qty_available ?? '');
+    }
     return '';
 }
 
-function getSecondaryVal2(dept, data) {
+function getSecondaryVal2(dept, data, metric) {
     if (dept === 'Milling_CIL') return fmtVal(data.day2_forecast ?? data.day_2_forecast ?? '');
     return '';
 }
@@ -12780,9 +12783,9 @@ function renderSummaryTable(departments) {
 
             html += `<td style="font-weight:500;">${displayName}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-            html += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
+            html += `<td class="num-cell">${getSecondaryVal(dept, d, m.metric_name)}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
-            html += `<td class="num-cell">${getSecondaryVal2(dept, d)}</td>`;
+            html += `<td class="num-cell">${getSecondaryVal2(dept, d, m.metric_name)}</td>`;
             html += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
             html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.mtd_actual, isOHS)}</td>`;
@@ -12869,7 +12872,7 @@ function renderCommentsTable(departments, dateStr) {
             if (unit && !displayName.includes(unit)) displayName = `${displayName} ${unit}`;
 
             const v1 = d.var1 ?? '';
-            rows.push({ dept, deptLabel, secLabel, secLabel2, isOHS, displayName, d, v1, comment });
+            rows.push({ dept, deptLabel, secLabel, secLabel2, isOHS, displayName, metricName: m.metric_name, d, v1, comment });
         }
     }
 
@@ -12914,7 +12917,7 @@ function renderCommentsTable(departments, dateStr) {
     }
 
     for (const r of rows) {
-        const { dept, deptLabel, isOHS, displayName, d, v1, comment } = r;
+        const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
         html += '<tr>';
         if (dept !== lastDept) {
             const deptKey = dept.toLowerCase();
@@ -12923,9 +12926,9 @@ function renderCommentsTable(departments, dateStr) {
         }
         html += `<td style="font-weight:500;">${displayName}</td>`;
         html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-        html += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
+        html += `<td class="num-cell">${getSecondaryVal(dept, d, metricName)}</td>`;
         html += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
-        html += `<td class="num-cell">${getSecondaryVal2(dept, d)}</td>`;
+        html += `<td class="num-cell">${getSecondaryVal2(dept, d, metricName)}</td>`;
         html += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
         html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
         html += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
@@ -12938,15 +12941,15 @@ function renderCommentsTable(departments, dateStr) {
     // all rows reliably when the source is positioned off-screen.
     let exportRowsHtml = '';
     for (const r of rows) {
-        const { dept, deptLabel, isOHS, displayName, d, v1, comment } = r;
+        const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
         const deptKey = dept.toLowerCase();
         exportRowsHtml += '<tr>';
         exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
         exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
         exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${getSecondaryVal(dept, d)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${getSecondaryVal(dept, d, metricName)}</td>`;
         exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${getSecondaryVal2(dept, d)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${getSecondaryVal2(dept, d, metricName)}</td>`;
         exportRowsHtml += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
         exportRowsHtml += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
         exportRowsHtml += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
