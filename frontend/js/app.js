@@ -522,6 +522,14 @@ function renderLoginScreen() {
     container.appendChild(subtitle);
 
     const username = DOM.createInputGroup('Username', 'login-username');
+
+    // Add username tip
+    const usernameTip = document.createElement('div');
+    usernameTip.className = 'form-text text-start mt-1 mb-0';
+    usernameTip.style.fontSize = '0.75rem';
+    usernameTip.innerHTML = '<i class="bi bi-info-circle me-1"></i>Use your Adamus email address without the "@adamusgh.com" part.';
+    username.container.appendChild(usernameTip);
+
     const password = DOM.createInputGroup('Password', 'login-password', 'password');
 
     container.appendChild(username.container);
@@ -893,6 +901,14 @@ function renderRegisterScreen() {
     container.appendChild(subtitle);
 
     const username = DOM.createInputGroup('Username', 'reg-username');
+
+    // Add username tip
+    const usernameTip = document.createElement('div');
+    usernameTip.className = 'form-text text-start mt-1 mb-0';
+    usernameTip.style.fontSize = '0.75rem';
+    usernameTip.innerHTML = '<i class="bi bi-info-circle me-1"></i>Use your Adamus email address without the "@adamusgh.com" part.';
+    username.container.appendChild(usernameTip);
+
     const password = DOM.createInputGroup('Password', 'reg-password', 'password');
     const confirm = DOM.createInputGroup('Confirm Password', 'reg-confirm', 'password');
 
@@ -11308,9 +11324,14 @@ window.renderUserManagementPage = async function () {
                 <h2 class="mb-1"><i class="bi bi-people-fill me-2 text-primary"></i>User Management</h2>
                 <p class="text-muted mb-0 small">Manage user accounts, roles, and access</p>
             </div>
-            <button class="btn btn-primary" id="btn-add-user" onclick="showAddUserModal()">
-                <i class="bi bi-person-plus-fill me-2"></i>Add User
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary" id="btn-export-users" onclick="exportUsersCSV()">
+                    <i class="bi bi-download me-2"></i>Export CSV
+                </button>
+                <button class="btn btn-primary" id="btn-add-user" onclick="showAddUserModal()">
+                    <i class="bi bi-person-plus-fill me-2"></i>Add User
+                </button>
+            </div>
         </div>
 
         <!-- Search Bar -->
@@ -11341,6 +11362,7 @@ window.renderUserManagementPage = async function () {
                                 <th style="width:40px;"></th>
                                 <th>Name / Username</th>
                                 <th>Email</th>
+                                <th>Phone</th>
                                 <th>Metric Access</th>
                                 <th>Role</th>
                                 <th>Status</th>
@@ -11348,7 +11370,7 @@ window.renderUserManagementPage = async function () {
                             </tr>
                         </thead>
                         <tbody id="users-tbody">
-                            <tr><td colspan="7" class="text-center py-4">
+                            <tr><td colspan="8" class="text-center py-4">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                                 <span class="ms-2 text-muted">Loading users…</span>
                             </td></tr>
@@ -11375,7 +11397,7 @@ async function loadUsersTable() {
         renderUserRows(users);
     } catch (e) {
         const tbody = document.getElementById('users-tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</td></tr>`;
     }
 }
 
@@ -11384,7 +11406,7 @@ function renderUserRows(users) {
     if (!tbody) return;
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No users found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No users found</td></tr>';
         return;
     }
 
@@ -11406,6 +11428,7 @@ function renderUserRows(users) {
                     <div class="text-muted small">@${user.username}${isSelf ? ' <span class="badge bg-secondary">You</span>' : ''}</div>
                 </td>
                 <td class="text-muted small">${user.email || '—'}</td>
+                <td class="text-muted small">${user.phone_number || '—'}</td>
                 <td class="text-muted small">${(user.departments || []).join(', ') || '—'}</td>
                 <td><span class="role-badge ${roleBadge}">${user.role || 'user'}</span></td>
                 <td>
@@ -11442,9 +11465,10 @@ window.filterUserTable = function () {
     const statusFilter = (document.getElementById('user-status-filter')?.value || '').toLowerCase();
 
     const filtered = (window.ALL_USERS_DATA || []).filter(u => {
-            (u.username || '').toLowerCase().includes(search) ||
+        const matchSearch = (u.username || '').toLowerCase().includes(search) ||
             (u.full_name || '').toLowerCase().includes(search) ||
             (u.email || '').toLowerCase().includes(search) ||
+            (u.phone_number || '').toLowerCase().includes(search) ||
             (u.departments || []).some(d => d.toLowerCase().includes(search));
 
         const matchRole = !roleFilter || (u.role || '').toLowerCase() === roleFilter;
@@ -11456,6 +11480,45 @@ window.filterUserTable = function () {
     });
 
     renderUserRows(filtered);
+};
+
+window.exportUsersCSV = function () {
+    const users = window.ALL_USERS_DATA || [];
+    if (users.length === 0) {
+        DOM.showToast('No users to export', 'error');
+        return;
+    }
+
+    const headers = ['ID', 'Username', 'Full Name', 'Email', 'Phone', 'Role', 'Status', 'Departments'];
+    const escape = (v) => {
+        const s = String(v ?? '').replace(/"/g, '""');
+        return `"${s}"`;
+    };
+
+    const lines = [headers.map(escape).join(',')];
+    users.forEach(u => {
+        lines.push([
+            u.id,
+            escape(u.username),
+            escape(u.full_name),
+            escape(u.email),
+            escape(u.phone_number),
+            escape(u.role),
+            u.disabled ? 'Disabled' : 'Active',
+            escape((u.departments || []).join('; '))
+        ].join(','));
+    });
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `adamus_users_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    DOM.showToast('Users exported successfully', 'success');
 };
 
 // ---- Modals ----
@@ -11485,6 +11548,7 @@ function injectUserModals() {
               <div class="col-12">
                 <label class="form-label fw-semibold small">Username <span class="text-danger">*</span></label>
                 <input type="text" class="form-control" id="add-username" placeholder="e.g. jdoe">
+                <div class="form-text" style="font-size: 0.75rem;">Username is the Adamus email without @adamusgh.com</div>
               </div>
               <div class="col-12">
                 <label class="form-label fw-semibold small">Full Name</label>
