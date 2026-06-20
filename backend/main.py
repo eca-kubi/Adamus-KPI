@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, status, BackgroundTasks
-from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from .cache_static import CacheAwareStaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -2066,6 +2066,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 frontend_path = os.path.join(current_dir, "..", "frontend")
 
 if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
+    app.mount("/", CacheAwareStaticFiles(directory=frontend_path, html=True), name="static")
 else:
     print(f"Warning: Frontend not found at {frontend_path}")
