@@ -10,6 +10,13 @@ const STATE = {
     summaryDate: null
 };
 
+// Helper for parsing float that returns null instead of NaN for empty strings
+function parseOptionalFloatFE(val) {
+    if (val === null || val === undefined || val === '') return null;
+    const n = parseFloat(val);
+    return isNaN(n) ? null : n;
+}
+
 const DEPARTMENTS = ["OHS", "Geology", "Mining", "Crushing", "Milling_CIL", "Engineering"];
 const METRIC_ACCESS_OPTIONS = ["All", ...DEPARTMENTS];
 
@@ -4742,8 +4749,8 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
 
             // 3. Calculate Day-2 Value
             if (d.getDate() === 1) {
-                day2.input.value = 0;
-                day2Forecast.input.value = 0;
+                day2.input.value = '';
+                day2Forecast.input.value = '';
             } else {
                 // Find previous date logic
                 const prevDate = new Date(d);
@@ -4761,11 +4768,11 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
                 );
 
                 if (prevRecord && prevRecord.data) {
-                    day2.input.value = prevRecord.data.daily_actual || 0;
-                    day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
+                    day2.input.value = prevRecord.data.daily_actual ?? '';
+                    day2Forecast.input.value = prevRecord.data.daily_forecast ?? '';
                 } else {
-                    day2.input.value = 0;
-                    day2Forecast.input.value = 0;
+                    day2.input.value = '';
+                    day2Forecast.input.value = '';
                 }
             }
             day2.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -4807,18 +4814,18 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
             department: dept,
             metric_name: metricName,
             data: {
-                daily_actual: parseFloat(dAct.input.value),
-                daily_forecast: parseFloat(dFcst.input.value),
+                daily_actual: parseOptionalFloatFE(dAct.input.value),
+                daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
-                mtd_actual: parseFloat(mAct.input.value),
-                mtd_forecast: parseFloat(mFcst.input.value),
+                mtd_actual: parseOptionalFloatFE(mAct.input.value),
+                mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
-                outlook: parseFloat(outlook.input.value),
-                full_forecast: parseFloat(fullFcst.input.value),
-                full_budget: parseFloat(fullBudg.input.value),
+                outlook: parseOptionalFloatFE(outlook.input.value),
+                full_forecast: parseOptionalFloatFE(fullFcst.input.value),
+                full_budget: parseOptionalFloatFE(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value),
-                day2_forecast: parseFloat(day2Forecast.input.value)
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
             }
         };
 
@@ -4984,8 +4991,8 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
 
             // 3. Calculate Day-2 Value
             if (d.getDate() === 1) {
-                day2.input.value = 0;
-                day2Forecast.input.value = 0;
+                day2.input.value = '';
+                day2Forecast.input.value = '';
             } else {
                 // Find previous date logic
                 const prevDate = new Date(d);
@@ -5003,11 +5010,11 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
                 );
 
                 if (prevRecord && prevRecord.data) {
-                    day2.input.value = prevRecord.data.daily_actual || 0;
-                    day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
+                    day2.input.value = prevRecord.data.daily_actual ?? '';
+                    day2Forecast.input.value = prevRecord.data.daily_forecast ?? '';
                 } else {
-                    day2.input.value = 0;
-                    day2Forecast.input.value = 0;
+                    day2.input.value = '';
+                    day2Forecast.input.value = '';
                 }
             }
             day2.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -5049,18 +5056,18 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
             department: dept,
             metric_name: metricName,
             data: {
-                daily_actual: parseFloat(dAct.input.value),
-                daily_forecast: parseFloat(dFcst.input.value),
+                daily_actual: parseOptionalFloatFE(dAct.input.value),
+                daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
-                mtd_actual: parseFloat(mAct.input.value),
-                mtd_forecast: parseFloat(mFcst.input.value),
+                mtd_actual: parseOptionalFloatFE(mAct.input.value),
+                mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
-                outlook: parseFloat(outlook.input.value),
-                full_forecast: parseFloat(fullFcst.input.value),
-                full_budget: parseFloat(fullBudg.input.value),
+                outlook: parseOptionalFloatFE(outlook.input.value),
+                full_forecast: parseOptionalFloatFE(fullFcst.input.value),
+                full_budget: parseOptionalFloatFE(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value),
-                day2_forecast: parseFloat(day2Forecast.input.value)
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
             }
         };
 
@@ -5236,8 +5243,8 @@ function renderMillingRecoveryForm(dept, metricName, card) {
 
             // 3. Calculate Day-2 Value (Metric: Recovery)
             if (d.getDate() === 1) {
-                day2.input.value = 0;
-                day2Forecast.input.value = 0;
+                day2.input.value = '';
+                day2Forecast.input.value = '';
             } else {
                 // Find previous date logic
                 const prevDate = new Date(d);
@@ -5256,11 +5263,11 @@ function renderMillingRecoveryForm(dept, metricName, card) {
                 );
 
                 if (prevRecord && prevRecord.data) {
-                    day2.input.value = prevRecord.data.daily_actual || 0;
-                    day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
+                    day2.input.value = prevRecord.data.daily_actual ?? '';
+                    day2Forecast.input.value = prevRecord.data.daily_forecast ?? '';
                 } else {
-                    day2.input.value = 0;
-                    day2Forecast.input.value = 0;
+                    day2.input.value = '';
+                    day2Forecast.input.value = '';
                 }
             }
             day2.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -5286,21 +5293,21 @@ function renderMillingRecoveryForm(dept, metricName, card) {
             department: dept,
             metric_name: metricName,
             data: {
-                daily_actual: parseFloat(dAct.input.value),
-                daily_forecast: parseFloat(dFcst.input.value),
+                daily_actual: parseOptionalFloatFE(dAct.input.value),
+                daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
-                mtd_actual: parseFloat(mAct.input.value),
-                mtd_forecast: parseFloat(mFcst.input.value),
+                mtd_actual: parseOptionalFloatFE(mAct.input.value),
+                mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
                 // store output as string or number? usually DB stores number/string. 
                 // Since it's a percentage display, saving strict number might be better for backend, 
                 // but front end showed %. I'll parseFloat it to store number.
-                outlook: parseFloat(outlook.input.value),
-                full_forecast: parseFloat(fullFcst.input.value),
-                full_budget: parseFloat(fullBudg.input.value),
+                outlook: parseOptionalFloatFE(outlook.input.value),
+                full_forecast: parseOptionalFloatFE(fullFcst.input.value),
+                full_budget: parseOptionalFloatFE(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value),
-                day2_forecast: parseFloat(day2Forecast.input.value)
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
             }
         };
 
@@ -5513,8 +5520,8 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
         const d = new Date(dateVal);
 
         if (d.getDate() === 1) {
-            day2.input.value = 0;
-            day2Forecast.input.value = 0;
+            day2.input.value = '';
+            day2Forecast.input.value = '';
             day2.input.dispatchEvent(new Event('input', { bubbles: true }));
             day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
             return;
@@ -5537,11 +5544,11 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             );
 
             if (prevRecord && prevRecord.data) {
-                day2.input.value = prevRecord.data.daily_actual || 0;
-                day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
+                day2.input.value = prevRecord.data.daily_actual ?? '';
+                day2Forecast.input.value = prevRecord.data.daily_forecast ?? '';
             } else {
-                day2.input.value = 0;
-                day2Forecast.input.value = 0;
+                day2.input.value = '';
+                day2Forecast.input.value = '';
             }
             day2.input.dispatchEvent(new Event('input', { bubbles: true }));
             day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -5565,19 +5572,19 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             department: dept,
             metric_name: metricName,
             data: {
-                daily_act_tonnes: parseFloat(dActT.input.value),
-                daily_actual: parseFloat(dAct.input.value),
-                daily_forecast: parseFloat(dFcst.input.value),
+                daily_act_tonnes: parseOptionalFloatFE(dActT.input.value),
+                daily_actual: parseOptionalFloatFE(dAct.input.value),
+                daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
-                mtd_actual: parseFloat(mAct.input.value),
-                mtd_forecast: parseFloat(mFcst.input.value),
+                mtd_actual: parseOptionalFloatFE(mAct.input.value),
+                mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
-                outlook: parseFloat(outlook.input.value),
-                full_forecast: parseFloat(fullFcst.input.value),
-                full_budget: parseFloat(fullBudg.input.value),
+                outlook: parseOptionalFloatFE(outlook.input.value),
+                full_forecast: parseOptionalFloatFE(fullFcst.input.value),
+                full_budget: parseOptionalFloatFE(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value),
-                day2_forecast: parseFloat(day2Forecast.input.value)
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
             }
         };
 
@@ -5823,8 +5830,8 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
         const d = new Date(dateVal);
 
         if (d.getDate() === 1) {
-            day2.input.value = 0;
-            day2Forecast.input.value = 0;
+            day2.input.value = '';
+            day2Forecast.input.value = '';
             day2.input.dispatchEvent(new Event('input', { bubbles: true }));
             day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
             return;
@@ -5847,11 +5854,11 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
             );
 
             if (prevRecord && prevRecord.data) {
-                day2.input.value = prevRecord.data.daily_actual || 0;
-                day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
+                day2.input.value = prevRecord.data.daily_actual ?? '';
+                day2Forecast.input.value = prevRecord.data.daily_forecast ?? '';
             } else {
-                day2.input.value = 0;
-                day2Forecast.input.value = 0;
+                day2.input.value = '';
+                day2Forecast.input.value = '';
             }
             day2.input.dispatchEvent(new Event('input', { bubbles: true }));
             day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -5875,18 +5882,18 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
             department: dept,
             metric_name: metricName,
             data: {
-                daily_actual: parseFloat(dAct.input.value),
-                daily_forecast: parseFloat(dFcst.input.value),
+                daily_actual: parseOptionalFloatFE(dAct.input.value),
+                daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
-                mtd_actual: parseFloat(mAct.input.value),
-                mtd_forecast: parseFloat(mFcst.input.value),
+                mtd_actual: parseOptionalFloatFE(mAct.input.value),
+                mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
-                outlook: parseFloat(outlook.input.value),
-                full_forecast: parseFloat(fullFcst.input.value),
-                full_budget: parseFloat(fullBudg.input.value),
+                outlook: parseOptionalFloatFE(outlook.input.value),
+                full_forecast: parseOptionalFloatFE(fullFcst.input.value),
+                full_budget: parseOptionalFloatFE(fullBudg.input.value),
                 var3: budgVar.input.value,
-                day2: parseFloat(day2.input.value),
-                day2_forecast: parseFloat(day2Forecast.input.value)
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
             }
         };
 
@@ -5978,8 +5985,8 @@ function renderMillingRuntimeForm(dept, metricName, card) {
 
             // 2. Calculate Day-2 values
             if (d.getDate() === 1) {
-                day2.input.value = 0;
-                day2Forecast.input.value = 0;
+                day2.input.value = '';
+                day2Forecast.input.value = '';
             } else {
                 const prev = new Date(d);
                 prev.setDate(d.getDate() - 1);
@@ -5995,11 +6002,11 @@ function renderMillingRuntimeForm(dept, metricName, card) {
                 );
 
                 if (prevRecord && prevRecord.data) {
-                    day2.input.value = prevRecord.data.daily_actual || 0;
-                    day2Forecast.input.value = prevRecord.data.daily_forecast || 0;
+                    day2.input.value = prevRecord.data.daily_actual ?? '';
+                    day2Forecast.input.value = prevRecord.data.daily_forecast ?? '';
                 } else {
-                    day2.input.value = 0;
-                    day2Forecast.input.value = 0;
+                    day2.input.value = '';
+                    day2Forecast.input.value = '';
                 }
             }
             day2.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -6041,8 +6048,8 @@ function renderMillingRuntimeForm(dept, metricName, card) {
             department: dept,
             metric_name: metricName,
             data: {
-                daily_actual: parseFloat(dAct.input.value),
-                daily_forecast: parseFloat(dFcst.input.value),
+                daily_actual: parseOptionalFloatFE(dAct.input.value),
+                daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
                 mtd_actual: "-",
                 mtd_forecast: "-",
@@ -6051,8 +6058,8 @@ function renderMillingRuntimeForm(dept, metricName, card) {
                 full_forecast: "-",
                 full_budget: "-",
                 var3: "-",
-                day2: parseFloat(day2.input.value),
-                day2_forecast: parseFloat(day2Forecast.input.value)
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
             }
         };
 
@@ -9127,6 +9134,110 @@ function renderEngineeringCrusherForm(dept, metricName, card) {
     // Note: No Outlook (a) in this form, so comparing Full Forecast vs Budget usually
     attachVarianceListener(fullFcst.input, fullBudg.input, budgVar.input);
 
+    // Auto-fill from Fixed Inputs on Date Change
+    date.input.addEventListener('change', async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) return;
+
+        try {
+            const records = await fetchKPIRecords(dept);
+            const fixedInputs = records.filter(r => r.subtype === 'fixed_input');
+
+            const selectedDate = new Date(dateVal);
+            const selectedMonth = selectedDate.getMonth();
+            const selectedYear = selectedDate.getFullYear();
+
+            const target = fixedInputs.find(r => {
+                if (r.metric_name !== metricName) return false;
+                const rDate = new Date(r.date);
+                return rDate.getMonth() === selectedMonth && rDate.getFullYear() === selectedYear;
+            });
+
+            if (target && target.data) {
+                // Set Full Forecast (b) & Daily Forecast
+                if (target.data.full_forecast != null) {
+                    dFcst.input.value = target.data.full_forecast;
+                    dFcst.input.dispatchEvent(new Event('input'));
+                    fullFcst.input.value = target.data.full_forecast;
+                    fullFcst.input.dispatchEvent(new Event('input'));
+                }
+                // Set Full Budget (c)
+                if (target.data.full_budget != null) {
+                    fullBudg.input.value = target.data.full_budget;
+                    fullBudg.input.dispatchEvent(new Event('input'));
+                }
+            }
+        } catch (e) {
+            console.error("Error fetching fixed inputs for auto-forecast", e);
+        }
+    });
+
+    // Auto-Calculate MTD Forecast (Mirror Daily Forecast)
+    const updateMTDForecast = () => {
+        mFcst.input.value = dFcst.input.value;
+        mFcst.input.dispatchEvent(new Event('input'));
+    };
+    dFcst.input.addEventListener('input', updateMTDForecast);
+
+    // Auto-Calculate MTD Actual (Average of all daily actuals in month)
+    const updateMTDActual = async () => {
+        const dateVal = date.input.value;
+        const currentDailyValStr = dAct.input.value;
+        if (!dateVal) return;
+
+        let currentDailyVal = 0;
+        if (currentDailyValStr) {
+            currentDailyVal = parseFloat(currentDailyValStr);
+        }
+        if (isNaN(currentDailyVal)) currentDailyVal = 0;
+
+        const d = new Date(dateVal);
+        const day = d.getDate();
+
+        if (day === 1) {
+            mAct.input.value = currentDailyVal;
+            mAct.input.dispatchEvent(new Event('input'));
+            return;
+        }
+
+        try {
+            const records = await fetchKPIRecords(dept);
+            const selectedMonth = d.getMonth();
+            const selectedYear = d.getFullYear();
+            const selectedDateTimestamp = d.getTime();
+
+            const matchedRecords = records.filter(r => {
+                if (r.metric_name !== metricName) return false;
+                if (!r.data || r.data.daily_actual == null) return false;
+                const rDate = new Date(r.date);
+                if (rDate.getMonth() !== selectedMonth || rDate.getFullYear() !== selectedYear) return false;
+                if (rDate.getTime() >= selectedDateTimestamp) return false;
+                return true;
+            });
+
+            let sum = 0;
+            let count = 0;
+            matchedRecords.forEach(r => {
+                let val = parseFloat(r.data.daily_actual);
+                if (!isNaN(val)) {
+                    sum += val;
+                    count++;
+                }
+            });
+
+            sum += currentDailyVal;
+            count += 1;
+
+            const average = count > 0 ? (sum / count) : 0;
+            mAct.input.value = Math.round(average * 100) / 100;
+            mAct.input.dispatchEvent(new Event('input'));
+        } catch (e) {
+            console.error("Error calculating MTD Actual", e);
+        }
+    };
+
+    dAct.input.addEventListener('input', updateMTDActual);
+    date.input.addEventListener('change', updateMTDActual);
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
@@ -9231,6 +9342,110 @@ function renderEngineeringMillForm(dept, metricName, card) {
     // Note: No Outlook (a) in this form, so comparing Full Forecast vs Budget usually
     attachVarianceListener(fullFcst.input, fullBudg.input, budgVar.input);
 
+    // Auto-fill from Fixed Inputs on Date Change
+    date.input.addEventListener('change', async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) return;
+
+        try {
+            const records = await fetchKPIRecords(dept);
+            const fixedInputs = records.filter(r => r.subtype === 'fixed_input');
+
+            const selectedDate = new Date(dateVal);
+            const selectedMonth = selectedDate.getMonth();
+            const selectedYear = selectedDate.getFullYear();
+
+            const target = fixedInputs.find(r => {
+                if (r.metric_name !== metricName) return false;
+                const rDate = new Date(r.date);
+                return rDate.getMonth() === selectedMonth && rDate.getFullYear() === selectedYear;
+            });
+
+            if (target && target.data) {
+                // Set Full Forecast (b) & Daily Forecast
+                if (target.data.full_forecast != null) {
+                    dFcst.input.value = target.data.full_forecast;
+                    dFcst.input.dispatchEvent(new Event('input'));
+                    fullFcst.input.value = target.data.full_forecast;
+                    fullFcst.input.dispatchEvent(new Event('input'));
+                }
+                // Set Full Budget (c)
+                if (target.data.full_budget != null) {
+                    fullBudg.input.value = target.data.full_budget;
+                    fullBudg.input.dispatchEvent(new Event('input'));
+                }
+            }
+        } catch (e) {
+            console.error("Error fetching fixed inputs for auto-forecast", e);
+        }
+    });
+
+    // Auto-Calculate MTD Forecast (Mirror Daily Forecast)
+    const updateMTDForecast = () => {
+        mFcst.input.value = dFcst.input.value;
+        mFcst.input.dispatchEvent(new Event('input'));
+    };
+    dFcst.input.addEventListener('input', updateMTDForecast);
+
+    // Auto-Calculate MTD Actual (Average of all daily actuals in month)
+    const updateMTDActual = async () => {
+        const dateVal = date.input.value;
+        const currentDailyValStr = dAct.input.value;
+        if (!dateVal) return;
+
+        let currentDailyVal = 0;
+        if (currentDailyValStr) {
+            currentDailyVal = parseFloat(currentDailyValStr);
+        }
+        if (isNaN(currentDailyVal)) currentDailyVal = 0;
+
+        const d = new Date(dateVal);
+        const day = d.getDate();
+
+        if (day === 1) {
+            mAct.input.value = currentDailyVal;
+            mAct.input.dispatchEvent(new Event('input'));
+            return;
+        }
+
+        try {
+            const records = await fetchKPIRecords(dept);
+            const selectedMonth = d.getMonth();
+            const selectedYear = d.getFullYear();
+            const selectedDateTimestamp = d.getTime();
+
+            const matchedRecords = records.filter(r => {
+                if (r.metric_name !== metricName) return false;
+                if (!r.data || r.data.daily_actual == null) return false;
+                const rDate = new Date(r.date);
+                if (rDate.getMonth() !== selectedMonth || rDate.getFullYear() !== selectedYear) return false;
+                if (rDate.getTime() >= selectedDateTimestamp) return false;
+                return true;
+            });
+
+            let sum = 0;
+            let count = 0;
+            matchedRecords.forEach(r => {
+                let val = parseFloat(r.data.daily_actual);
+                if (!isNaN(val)) {
+                    sum += val;
+                    count++;
+                }
+            });
+
+            sum += currentDailyVal;
+            count += 1;
+
+            const average = count > 0 ? (sum / count) : 0;
+            mAct.input.value = Math.round(average * 100) / 100;
+            mAct.input.dispatchEvent(new Event('input'));
+        } catch (e) {
+            console.error("Error calculating MTD Actual", e);
+        }
+    };
+
+    dAct.input.addEventListener('input', updateMTDActual);
+    date.input.addEventListener('change', updateMTDActual);
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
@@ -13172,21 +13387,23 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
 
     // 2. Variances logic
     const calcVar = (act, fcst) => {
-        if (!fcst || isNaN(act) || isNaN(fcst)) return "0%";
-        const v = ((act - fcst) / fcst) * 100;
+        const a = parseOptionalFloatFE(act);
+        const f = parseOptionalFloatFE(fcst);
+        if (f === null || a === null || f === 0) return "-";
+        const v = ((a - f) / f) * 100;
         return Math.round(v) + "%";
     };
 
     // a. Daily Variance
     if (dept === 'Milling_CIL') {
         // Auto-populate day2/day2_forecast from previous record if not provided
-        if ((d.day2 === undefined || d.day2 === null || d.day2 === '' || d.day2 === 0) && pd) {
-            d.day2 = pd.daily_actual !== undefined ? pd.daily_actual : 0;
+        if ((d.day2 === undefined || d.day2 === null || d.day2 === '') && pd) {
+            d.day2 = (pd.daily_actual !== undefined && pd.daily_actual !== null) ? pd.daily_actual : null;
         }
-        if ((d.day2_forecast === undefined || d.day2_forecast === null || d.day2_forecast === '' || d.day2_forecast === 0) && pd) {
-            d.day2_forecast = pd.daily_forecast !== undefined ? pd.daily_forecast : 0;
+        if ((d.day2_forecast === undefined || d.day2_forecast === null || d.day2_forecast === '') && pd) {
+            d.day2_forecast = (pd.daily_forecast !== undefined && pd.daily_forecast !== null) ? pd.daily_forecast : null;
         }
-        if (d.day2 !== undefined && d.day2_forecast !== undefined) {
+        if (d.day2 !== undefined && d.day2 !== null && d.day2_forecast !== undefined && d.day2_forecast !== null) {
             d.var1 = calcVar(d.day2, d.day2_forecast);
             d.daily_var = d.var1;
         }
@@ -13435,7 +13652,7 @@ window.handleImportClick = function(dept, metric) {
                             if (cleanedVal !== '' && !isNaN(cleanedVal)) {
                                 record.data[key] = parseFloat(cleanedVal);
                             } else {
-                                record.data[key] = value || 0;
+                                record.data[key] = (value !== undefined && value !== '') ? value : null;
                             }
                         }
                     });

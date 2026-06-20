@@ -40,6 +40,24 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(ProfilingMiddleware)
 
 # ---------------------------------------------------------------------------
+# Utility helpers
+# ---------------------------------------------------------------------------
+
+def parse_optional_float(val):
+    if val is None or val == "" or val == "-":
+        return None
+    try:
+        return float(str(val).replace("%", "").replace(",", "").strip())
+    except (ValueError, TypeError):
+        return None
+
+def sum_or_none(iterable):
+    vals = [v for v in iterable if v is not None]
+    if not vals:
+        return None
+    return sum(vals)
+
+# ---------------------------------------------------------------------------
 # Email helper
 # ---------------------------------------------------------------------------
 
@@ -1137,14 +1155,14 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 var3 = "-"
         elif department == "Milling_CIL":
             # Auto-populate day2/day2_forecast from the previous day's record if not already set
-            day2 = d.get('day2')
-            day2_forecast = d.get('day2_forecast')
-            if (day2 is None or day2 == 0 or day2 == "") and idx > 0:
+            day2 = parse_optional_float(d.get('day2')) if 'day2' in d else parse_optional_float(d.get('day_2'))
+            day2_forecast = parse_optional_float(d.get('day2_forecast')) if 'day2_forecast' in d else parse_optional_float(d.get('day_2_forecast'))
+            if day2 is None and idx > 0:
                 prev_r = daily_records[idx - 1]
                 # Only use previous day if it's the immediately preceding calendar day
                 if (r.date - prev_r.date).days == 1:
-                    prev_day2 = prev_r.data.get('daily_actual')
-                    prev_day2_fcst = prev_r.data.get('daily_forecast')
+                    prev_day2 = parse_optional_float(prev_r.data.get('daily_actual'))
+                    prev_day2_fcst = parse_optional_float(prev_r.data.get('daily_forecast'))
                     if prev_day2 is not None:
                         day2 = prev_day2
                         d['day2'] = day2
@@ -1258,20 +1276,6 @@ def get_summary_dashboard(
         except (ValueError, TypeError):
             return 0.0
 
-    def parse_optional_float(val):
-        if val is None or val == "" or val == "-":
-            return None
-        try:
-            return float(str(val).replace("%", "").replace(",", "").strip())
-        except (ValueError, TypeError):
-            return None
-
-    def sum_or_none(iterable):
-        vals = [v for v in iterable if v is not None]
-        if not vals:
-            return None
-        return sum(vals)
-
     def calc_var(act, fcst, is_ohs=False, use_act_denom=False):
         if act is None or fcst is None or act == "-" or fcst == "-":
             return "-"
@@ -1357,8 +1361,8 @@ def get_summary_dashboard(
                     daily_actual = target_rec.data.get('daily_actual')
                 daily_forecast = target_rec.data.get('daily_forecast')
                 qty_available = target_rec.data.get('qty_available')
-                day2 = target_rec.data.get('day2') if 'day2' in target_rec.data else target_rec.data.get('day_2')
-                day2_forecast = target_rec.data.get('day2_forecast') if 'day2_forecast' in target_rec.data else target_rec.data.get('day_2_forecast')
+                day2 = parse_optional_float(target_rec.data.get('day2')) if 'day2' in target_rec.data else parse_optional_float(target_rec.data.get('day_2'))
+                day2_forecast = parse_optional_float(target_rec.data.get('day2_forecast')) if 'day2_forecast' in target_rec.data else parse_optional_float(target_rec.data.get('day_2_forecast'))
             else:
                 daily_actual = None
                 daily_forecast = None
@@ -1367,12 +1371,12 @@ def get_summary_dashboard(
                 day2_forecast = None
 
             # For Milling_CIL: auto-populate day2/day2_forecast from previous day's record if not set
-            if dept == "Milling_CIL" and (day2 is None or day2 == 0 or day2 == ""):
+            if dept == "Milling_CIL" and day2 is None:
                 prev_date = target_date - timedelta(days=1)
                 prev_rec = next((r for r in daily_records if r.metric_name == metric_name and r.subtype != 'fixed_input' and r.date == prev_date), None)
                 if prev_rec and prev_rec.data:
-                    day2 = prev_rec.data.get('daily_actual')
-                    day2_forecast = prev_rec.data.get('daily_forecast')
+                    day2 = parse_optional_float(prev_rec.data.get('daily_actual'))
+                    day2_forecast = parse_optional_float(prev_rec.data.get('daily_forecast'))
 
 
             if dept == "Mining" and metric_name in ("Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
