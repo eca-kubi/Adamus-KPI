@@ -11879,7 +11879,11 @@ function injectUserModals() {
           <div class="modal-body p-4">
             <input type="hidden" id="edit-user-id">
             <div class="row g-3">
-              <div class="col-12">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold small">Username <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="edit-username">
+              </div>
+              <div class="col-md-6">
                 <label class="form-label fw-semibold small">Full Name</label>
                 <input type="text" class="form-control" id="edit-fullname">
               </div>
@@ -12037,6 +12041,7 @@ window.showEditUserModal = function (userId) {
     if (!user) { DOM.showToast('User not found', 'error'); return; }
 
     document.getElementById('edit-user-id').value = userId;
+    document.getElementById('edit-username').value = user.username || '';
     document.getElementById('edit-fullname').value = user.full_name || '';
     document.getElementById('edit-email').value = user.email || '';
     document.getElementById('edit-phone').value = user.phone_number || '';
@@ -12081,6 +12086,7 @@ window.showEditUserModal = function (userId) {
 
 window.submitEditUser = async function () {
     const userId = parseInt(document.getElementById('edit-user-id')?.value);
+    const username = document.getElementById('edit-username')?.value.trim();
     const fullName = document.getElementById('edit-fullname')?.value.trim();
     const email = document.getElementById('edit-email')?.value.trim();
     const phone = document.getElementById('edit-phone')?.value.trim();
@@ -12088,9 +12094,11 @@ window.submitEditUser = async function () {
     const role = document.getElementById('edit-role')?.value;
 
     if (!userId) return;
+    if (!username) { DOM.showToast('Username is required', 'error'); return; }
 
     try {
         await updateUser(userId, {
+            username: username,
             full_name: fullName || null,
             email: email || null,
             phone_number: phone || null,
@@ -12472,7 +12480,7 @@ function sstatusHtml(varStr) {
 }
 
 function fmtVal(v, isOHS = false) {
-    if (v === null || v === undefined || v === '') return '';
+    if (v === null || v === undefined || v === '' || v === '-') return '';
     const s = String(v);
     const n = parseFloat(s.replace(/,/g, ''));
     if (isNaN(n)) return s;
@@ -13122,23 +13130,39 @@ function renderSummaryTable(departments) {
                 displayName = `${displayName} ${unit}`;
             }
             const isEng = dept === 'Engineering';
+            const isStockpileMetric = (
+                m.metric_name === 'Stock Pile Near Pit' ||
+                m.metric_name === 'Stock Pile Main Rompad' ||
+                m.metric_name === 'Grade Stockpile Near Pit' ||
+                m.metric_name === 'Grade Stockpile Main Rompad'
+            );
+            const isRuntimeThroughput = (
+                m.metric_name === 'Runtime' || m.metric_name === 'Throughput' ||
+                m.metric_name === 'Availability - Dump Truck' ||
+                m.metric_name === 'Utilization - Dump Truck' ||
+                m.metric_name === 'Availability - Excavator' ||
+                m.metric_name === 'Utilization - Excavator'
+            );
+            const isRehandleMetric = (
+                m.metric_name === 'Rehandle' || m.metric_name === 'Grade Rehandle'
+            );
 
             html += `<td style="font-weight:500;">${displayName}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-            html += `<td class="num-cell">${getSecondaryVal(dept, d, m.metric_name)}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
-            html += `<td class="num-cell">${getSecondaryVal2(dept, d, m.metric_name)}</td>`;
-            html += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
-            html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
-            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.mtd_actual, isOHS)}</td>`;
-            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.mtd_forecast, isOHS)}</td>`;
-            html += `<td class="${svarClass(v2)}">${isEng ? '-' : fmtVal(v2, isOHS)}</td>`;
-            html += `<td style="text-align:center;">${isEng ? '' : sstatusHtml(v2)}</td>`;
-            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.outlook ?? '', isOHS)}</td>`;
-            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.full_forecast ?? '', isOHS)}</td>`;
-            html += `<td class="num-cell">${isEng ? '-' : fmtVal(d.full_budget ?? '', isOHS)}</td>`;
-            html += `<td class="${svarClass(v3)}">${isEng ? '-' : fmtVal(v3, isOHS)}</td>`;
-            html += `<td style="text-align:center;">${isEng ? '' : sstatusHtml(v3)}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name)}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name)}</td>`;
+            html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
+            html += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_actual, isOHS))}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_forecast, isOHS))}</td>`;
+            html += `<td class="${(isStockpileMetric || isRuntimeThroughput) ? 'svar-na' : svarClass(v2)}">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(v2, isOHS))}</td>`;
+            html += `<td style="text-align:center;">${isStockpileMetric || isRuntimeThroughput ? '' : (isEng ? '' : sstatusHtml(v2))}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.outlook ?? '', isOHS))}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.full_forecast ?? '', isOHS))}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.full_budget ?? '', isOHS))}</td>`;
+            html += `<td class="${(isStockpileMetric || isRuntimeThroughput || isRehandleMetric) ? 'svar-na' : svarClass(v3)}">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(v3, isOHS))}</td>`;
+            html += `<td style="text-align:center;">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '' : (isEng ? '' : sstatusHtml(v3))}</td>`;
             html += `<td class="trend-cell">${summarySparkline(m.trend, isOHS)}</td>`;
 
             html += '</tr>';
@@ -13260,6 +13284,12 @@ function renderCommentsTable(departments, dateStr) {
 
     for (const r of rows) {
         const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
+        const isStockpileMetric = (
+            metricName === 'Stock Pile Near Pit' ||
+            metricName === 'Stock Pile Main Rompad' ||
+            metricName === 'Grade Stockpile Near Pit' ||
+            metricName === 'Grade Stockpile Main Rompad'
+        );
         html += '<tr>';
         if (dept !== lastDept) {
             const deptKey = dept.toLowerCase();
@@ -13268,11 +13298,11 @@ function renderCommentsTable(departments, dateStr) {
         }
         html += `<td style="font-weight:500;">${displayName}</td>`;
         html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-        html += `<td class="num-cell">${getSecondaryVal(dept, d, metricName)}</td>`;
-        html += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
-        html += `<td class="num-cell">${getSecondaryVal2(dept, d, metricName)}</td>`;
-        html += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
-        html += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
+        html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
+        html += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
         html += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
         html += '</tr>';
     }
@@ -13285,15 +13315,21 @@ function renderCommentsTable(departments, dateStr) {
     for (const r of rows) {
         const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
         const deptKey = dept.toLowerCase();
+        const isStockpileMetric = (
+            metricName === 'Stock Pile Near Pit' ||
+            metricName === 'Stock Pile Main Rompad' ||
+            metricName === 'Grade Stockpile Near Pit' ||
+            metricName === 'Grade Stockpile Main Rompad'
+        );
         exportRowsHtml += '<tr>';
         exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
         exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
         exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${getSecondaryVal(dept, d, metricName)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_forecast, isOHS)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${getSecondaryVal2(dept, d, metricName)}</td>`;
-        exportRowsHtml += `<td class="${svarClass(v1)}">${fmtVal(v1, isOHS)}</td>`;
-        exportRowsHtml += `<td style="text-align:center;">${sstatusHtml(v1)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
+        exportRowsHtml += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
+        exportRowsHtml += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
         exportRowsHtml += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
         exportRowsHtml += '</tr>';
     }

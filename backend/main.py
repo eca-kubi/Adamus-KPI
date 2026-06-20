@@ -427,6 +427,7 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 class UserUpdate(BaseModel):
+    username: Optional[str] = None
     email: Optional[str] = None
     full_name: Optional[str] = None
     departments: Optional[List[str]] = None
@@ -868,6 +869,14 @@ def update_user(
     if payload.email and not is_adamus_email(payload.email):
          raise HTTPException(status_code=400, detail="Only @adamusgh.com email addresses are allowed")
 
+    if payload.username:
+        payload.username = payload.username.strip()
+        if not payload.username:
+            raise HTTPException(status_code=400, detail="Username cannot be empty")
+        existing = session.exec(select(User).where(User.username == payload.username, User.id != user_id)).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Username already taken")
+
     update_data = payload.model_dump(exclude_unset=True)
     
     # If departments are updated, automatically recalculate allowed_metrics
@@ -1170,23 +1179,21 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
                 var3 = "-"
         elif department == "Milling_CIL":
-            # Auto-populate day2/day2_forecast from the previous day's record if not already set
-            day2 = parse_optional_float(d.get('day2')) if 'day2' in d else parse_optional_float(d.get('day_2'))
-            day2_forecast = parse_optional_float(d.get('day2_forecast')) if 'day2_forecast' in d else parse_optional_float(d.get('day_2_forecast'))
-            if day2 is None and idx > 0:
+            # day2/day2_forecast are always the previous day's daily_actual/daily_forecast
+            day2 = None
+            day2_forecast = None
+            if idx > 0:
                 prev_r = daily_records[idx - 1]
                 # Only use previous day if it's the immediately preceding calendar day
                 if (r.date - prev_r.date).days == 1:
-                    prev_day2 = parse_optional_float(prev_r.data.get('daily_actual'))
-                    prev_day2_fcst = parse_optional_float(prev_r.data.get('daily_forecast'))
-                    if prev_day2 is not None:
-                        day2 = prev_day2
-                        d['day2'] = day2
-                        d['day_2'] = day2
-                    if prev_day2_fcst is not None:
-                        day2_forecast = prev_day2_fcst
-                        d['day2_forecast'] = day2_forecast
-                        d['day_2_forecast'] = day2_forecast
+                    day2 = parse_optional_float(prev_r.data.get('daily_actual'))
+                    day2_forecast = parse_optional_float(prev_r.data.get('daily_forecast'))
+            if day2 is not None:
+                d['day2'] = day2
+                d['day_2'] = day2
+            if day2_forecast is not None:
+                d['day2_forecast'] = day2_forecast
+                d['day_2_forecast'] = day2_forecast
             var1 = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
             var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
             var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
@@ -1386,13 +1393,16 @@ def get_summary_dashboard(
                 day2 = None
                 day2_forecast = None
 
-            # For Milling_CIL: auto-populate day2/day2_forecast from previous day's record if not set
-            if dept == "Milling_CIL" and day2 is None:
+            # For Milling_CIL: day2/day2_forecast are always the previous day's daily_actual/daily_forecast
+            if dept == "Milling_CIL":
                 prev_date = target_date - timedelta(days=1)
-                prev_rec = next((r for r in daily_records if r.metric_name == metric_name and r.subtype != 'fixed_input' and r.date == prev_date), None)
+                prev_rec = next((r for r in dept_records if r.metric_name == metric_name and r.subtype != 'fixed_input' and r.date == prev_date), None)
                 if prev_rec and prev_rec.data:
                     day2 = parse_optional_float(prev_rec.data.get('daily_actual'))
                     day2_forecast = parse_optional_float(prev_rec.data.get('daily_forecast'))
+                else:
+                    day2 = None
+                    day2_forecast = None
 
 
             if dept == "Mining" and metric_name in ("Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
@@ -1530,8 +1540,8 @@ def get_summary_dashboard(
                 daily_act_clean = parse_float(daily_actual)
                 daily_fcst_clean = parse_float(daily_forecast)
                 data = {
-                    "daily_actual": f"{round(daily_act_clean)}%" if daily_actual not in (None, "", "-") else "-",
-                    "daily_forecast": f"{round(daily_fcst_clean)}%" if (daily_forecast not in (None, "", "-") and daily_actual is not None) else "-",
+                    "daily_actual": f"{round(daily_act_clean)}%" if daily_actual not in (None, "", "-") else None,
+                    "daily_forecast": f"{round(daily_fcst_clean)}%" if (daily_forecast not in (None, "", "-") and daily_actual is not None) else None,
                     "var1": var1,
                     "daily_var": var1,
                     "mtd_actual": "-",
