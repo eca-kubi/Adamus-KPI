@@ -373,6 +373,22 @@ class KPIImportRecord(BaseModel):
     subtype: Optional[str] = "daily_input"
     data: Dict[str, Any]
 
+class KPIRecordResponse(BaseModel):
+    id: Optional[int] = None
+    department: str
+    subtype: Optional[str] = None
+    date: date
+    metric_name: str
+    data: Dict[str, Any]
+    created_by_user_id: Optional[int] = None
+    created_by_username: Optional[str] = None
+    created_by_full_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    last_modification: Optional[Dict[str, Any]] = None
+
+    class Config:
+        from_attributes = True
+
 @app.on_event("startup")
 async def on_startup():
     # create_db_and_tables() 
@@ -1601,7 +1617,7 @@ def get_summary_dashboard(
 
     return {"date": target_date.isoformat(), "departments": result}
 
-@app.get("/api/kpi/{department}", response_model=List[KPIRecord])
+@app.get("/api/kpi/{department}", response_model=List[KPIRecordResponse])
 def get_kpi_records(
     department: str, 
     start_date: Optional[date] = None, 
@@ -1613,7 +1629,42 @@ def get_kpi_records(
         query = query.where(KPIRecord.date >= start_date)
     if end_date:
         query = query.where(KPIRecord.date <= end_date)
-    return session.exec(query).all()
+    records = session.exec(query).all()
+
+    # Collect unique user IDs and build a lookup map
+    user_ids = set()
+    for r in records:
+        if r.created_by_user_id is not None:
+            user_ids.add(r.created_by_user_id)
+        mod = r.last_modification
+        if mod and mod.get("by_user_id"):
+            user_ids.add(mod["by_user_id"])
+
+    username_map = {}
+    full_name_map = {}
+    if user_ids:
+        users = session.exec(select(User).where(User.id.in_(list(user_ids)))).all()
+        username_map = {u.id: u.username for u in users}
+        full_name_map = {u.id: u.full_name for u in users}
+
+    # Build response with created_by_username and created_by_full_name populated
+    result = []
+    for r in records:
+        uid = r.created_by_user_id
+        result.append(KPIRecordResponse(
+            id=r.id,
+            department=r.department,
+            subtype=r.subtype,
+            date=r.date,
+            metric_name=r.metric_name,
+            data=r.data,
+            created_by_user_id=uid,
+            created_by_username=username_map.get(uid) if uid else None,
+            created_by_full_name=full_name_map.get(uid) if uid else None,
+            created_at=r.created_at,
+            last_modification=r.last_modification,
+        ))
+    return result
 
 
 def _find_existing_record_for_upsert(session: Session, department: str, record: KPIRecord) -> Optional[KPIRecord]:

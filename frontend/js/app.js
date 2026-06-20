@@ -6143,7 +6143,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
-    dFcst.input.value = '';
+    dFcst.input.value = '0';
     // dFcst.input.readOnly = true; 
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -6264,7 +6264,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     // 1. Daily Forecast is always 0 (Target = Zero Harm)
     // Run this logic on date change to ensure consistency
     date.input.addEventListener('change', async () => {
-        dFcst.input.value = '';
+        dFcst.input.value = '0';
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         // MTD Logic
@@ -6371,7 +6371,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
             // Clear inputs (except KPI)
             date.input.value = '';
             dAct.input.value = '';
-            dFcst.input.value = ''; // Default
+            dFcst.input.value = '0'; // Default
             dVar.input.value = '';
             mAct.input.value = '';
             mFcst.input.value = '';
@@ -6420,7 +6420,7 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
-    dFcst.input.value = ''; // Default 0
+    dFcst.input.value = '0'; // Default 0
 
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -6674,7 +6674,7 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
         // Clear Inputs
         date.input.value = '';
         dAct.input.value = '';
-        dFcst.input.value = '';
+        dFcst.input.value = '0';
         dVar.input.value = '';
         mAct.input.value = '';
         mFcst.input.value = '';
@@ -6714,7 +6714,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
-    dFcst.input.value = ''; // Default 0
+    dFcst.input.value = '0'; // Default 0
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
 
@@ -6962,7 +6962,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
             // Clear / Reset Inputs
             date.input.value = '';
             dAct.input.value = '';
-            dFcst.input.value = '';
+            dFcst.input.value = '0';
             dVar.input.value = '';
             mAct.input.value = '';
             mFcst.input.value = '';
@@ -9773,9 +9773,18 @@ async function loadRecentRecords(dept) {
 
 
         if (records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="padding: 12px; text-align: center;">No records found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="padding: 12px; text-align: center;">No records found</td></tr>';
             return;
         }
+
+        // Helper to extract the user who made the input
+        const getInputBy = (r) => {
+            const modUser = r.last_modification?.username;
+            if (r.created_by_full_name) return r.created_by_full_name;
+            if (modUser) return modUser;
+            if (r.created_by_username) return r.created_by_username;
+            return '-';
+        };
 
         let filteredRecords = [];
 
@@ -9795,10 +9804,11 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Full Forecast</th>
                 <th style="padding: 12px; text-align: left;">Full Budget</th>
                 ${!hideRigColumn ? '<th style="padding: 12px; text-align: left;">Forecast Per Rig</th>' : ''}
+                <th style="padding: 12px; text-align: left;">Input By</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="padding: 12px; text-align: center;">No Fixed Input records found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="padding: 12px; text-align: center;">No Fixed Input records found</td></tr>';
                 return;
             }
 
@@ -9832,6 +9842,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatNum(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.full_budget)}</td>
                     ${!hideRigColumn ? `<td style="padding: 12px;">${forecastPerRigValue}</td>` : ''}
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -9860,11 +9871,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                const colspanVal = isExploration ? 15 : 16;
+                const colspanVal = isExploration ? 16 : 17;
                 tbody.innerHTML = `<tr><td colspan="${colspanVal}" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
@@ -9896,6 +9908,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -9927,11 +9940,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -9961,6 +9975,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -9988,11 +10003,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10022,6 +10038,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10049,11 +10066,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10079,6 +10097,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10110,11 +10129,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10144,6 +10164,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10173,11 +10194,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10206,6 +10228,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px; text-align: center;">-</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10236,11 +10259,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10270,6 +10294,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px; text-align: center;">-</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10304,11 +10329,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10337,6 +10363,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px; text-align: center;">-</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10366,11 +10393,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10399,6 +10427,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px; text-align: center;">-</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10430,11 +10459,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10464,6 +10494,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px;">-</td>
                     <td style="padding: 12px; text-align: center;">-</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10495,11 +10526,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10530,6 +10562,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10559,11 +10592,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10593,6 +10627,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.budget_var)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.budget_var)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10622,11 +10657,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10655,6 +10691,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10687,11 +10724,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="18" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10722,6 +10760,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10755,11 +10794,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="18" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="19" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10791,6 +10831,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10823,11 +10864,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="18" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10860,6 +10902,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.day2)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.day2_forecast)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10892,11 +10935,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="18" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10927,6 +10971,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -10959,11 +11004,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2</th>
                 <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="18" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -10994,6 +11040,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11017,11 +11064,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">Day-2 Act</th>
                 <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11043,6 +11091,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11071,11 +11120,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="14" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11102,6 +11152,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11131,11 +11182,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="14" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11163,6 +11215,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11192,11 +11245,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="14" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11224,6 +11278,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11255,11 +11310,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="14" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11287,6 +11343,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11315,11 +11372,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="14" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11346,6 +11404,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11374,11 +11433,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">F.Fcst</th>
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="14" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11405,6 +11465,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                         <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11425,6 +11486,7 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
         }
@@ -11433,7 +11495,7 @@ async function loadRecentRecords(dept) {
         filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
         if (filteredRecords.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="padding: 12px; text-align: center;">No records found for ' + STATE.currentMetric + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="padding: 12px; text-align: center;">No records found for ' + STATE.currentMetric + '</td></tr>';
             return;
         }
 
@@ -11447,6 +11509,7 @@ async function loadRecentRecords(dept) {
                 <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
                 <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                 <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                <td style="padding: 12px;">${getInputBy(r)}</td>
                 <td style="padding: 12px;">
                     <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
                     <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
@@ -11612,7 +11675,7 @@ async function loadUsersTable() {
         renderUserRows(users);
     } catch (e) {
         const tbody = document.getElementById('users-tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</td></tr>`;
     }
 }
 
@@ -11621,7 +11684,7 @@ function renderUserRows(users) {
     if (!tbody) return;
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No users found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No users found</td></tr>';
         return;
     }
 
