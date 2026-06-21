@@ -1059,6 +1059,15 @@ function renderSidebar() {
                <i class="bi bi-person-circle"></i>
                <span>My Profile</span>
             </a>
+
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 0.75rem 0;">
+
+            <a href="#" onclick="logout(); return false;"
+               class="nav-link text-danger"
+               data-tooltip="Sign Out">
+               <i class="bi bi-box-arrow-right"></i>
+               <span>Sign Out</span>
+            </a>
         </nav>
 
         <div class="user-info mt-auto">
