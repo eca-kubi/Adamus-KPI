@@ -20,6 +20,19 @@ function parseOptionalFloatFE(val) {
 const DEPARTMENTS = ["OHS", "Geology", "Mining", "Crushing", "Milling_CIL", "Engineering"];
 const METRIC_ACCESS_OPTIONS = ["All", ...DEPARTMENTS];
 
+/** Return the list of departments visible to the current user.
+ *  Admin users (or users with "All" in departments) see all departments.
+ *  Other users see only the departments explicitly assigned to them. */
+function getVisibleDepartments() {
+    if (!STATE.currentUser) return [];
+    const role = (STATE.currentUser.role || '').toLowerCase();
+    const depts = STATE.currentUser.departments || [];
+    if (role === 'admin' || depts.includes('All')) {
+        return [...DEPARTMENTS];
+    }
+    return depts.filter(d => DEPARTMENTS.includes(d));
+}
+
 const DEPT_ICONS = {
     "OHS": "bi-ohs",
     "Geology": "bi-gem",
@@ -388,6 +401,7 @@ async function applyRouteFromHash() {
 
     const route = parseRouteFromHash(window.location.hash);
     const isAdmin = ((STATE.currentUser.role || '').toLowerCase() === 'admin');
+    const visibleDepts = getVisibleDepartments();
 
     ROUTER_STATE.isApplyingRoute = true;
     try {
@@ -421,6 +435,16 @@ async function applyRouteFromHash() {
         }
 
         if (route.view === 'dept') {
+            // Guard: redirect non-admin users away from departments they cannot access
+            if (!visibleDepts.includes(route.dept)) {
+                if (visibleDepts.length > 0) {
+                    await window.loadDepartmentView(visibleDepts[0]);
+                } else {
+                    await renderSummaryDashboardPage();
+                    setRouteHash('#/summary', { replace: true });
+                }
+                return true;
+            }
             await window.loadDepartmentView(route.dept);
             if (route.metric && route.metric !== STATE.currentMetric) {
                 window.loadMetricView(route.metric);
@@ -1010,6 +1034,7 @@ function renderSidebar() {
     const userDisplay = STATE.currentUser ? STATE.currentUser.username : 'User';
     const userRole = STATE.currentUser ? STATE.currentUser.role : '';
     const isAdmin = (userRole || '').toLowerCase() === 'admin';
+    const visibleDepts = getVisibleDepartments();
 
     nav.innerHTML = `
         <div class="d-flex align-items-center justify-content-between mb-4 w-100">
@@ -1033,7 +1058,7 @@ function renderSidebar() {
 
             <hr style="border-color: rgba(255,255,255,0.1); margin: 0.5rem 0;">
 
-            ${DEPARTMENTS.map(dept => `
+            ${visibleDepts.map(dept => `
                 <a href="#" onclick="sidebarNavigate(() => loadDepartmentView('${dept}')); return false;" 
                    class="nav-link ${STATE.currentView === 'dept' && STATE.currentDept === dept ? 'active' : ''}"
                    data-tooltip="${dept.replace('_', ' ')}">
@@ -12356,12 +12381,23 @@ window.submitChangeMyPassword = async function () {
     }
 };
 
-// Update loadDepartmentView to reset currentView, and guard with a session check
+// Update loadDepartmentView to reset currentView, and guard with a session check & department access
 const _originalLoadDeptView = window.loadDepartmentView;
 window.loadDepartmentView = async function(dept) {
     // Validate session before loading a department section
     const sessionValid = await checkSession();
     if (!sessionValid) return;
+
+    // Guard: redirect non-admin users away from departments they cannot access
+    const visibleDepts = getVisibleDepartments();
+    if (!visibleDepts.includes(dept)) {
+        if (visibleDepts.length > 0) {
+            dept = visibleDepts[0];
+        } else {
+            await renderSummaryDashboardPage();
+            return;
+        }
+    }
 
     STATE.currentView = 'dept';
     await _originalLoadDeptView(dept);

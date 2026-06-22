@@ -932,6 +932,24 @@ def reset_user_password(
 
 SUMMARY_DEPARTMENTS = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"]
 
+
+def get_visible_departments(user: Optional[User]) -> List[str]:
+    """Return the list of departments visible to a given user.
+
+    Admin users (or users with "All" in their departments list) can see all
+    departments.  Other users can only see the departments explicitly assigned
+    to them.
+    """
+    if user is None:
+        return []
+    role = (user.role or "").lower()
+    depts = user.departments or []
+    if role == "admin" or "All" in depts:
+        return list(SUMMARY_DEPARTMENTS)
+    # Only return departments that actually exist
+    return [d for d in depts if d in SUMMARY_DEPARTMENTS]
+
+
 def recalculate_metric_month(department: str, metric_name: str, year: int, month: int, session: Session):
     """Recalculates MTD, Outlook, and variances for all daily records of a metric in a given month sequentially."""
     month_start = date(year, month, 1)
@@ -1277,8 +1295,10 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
 def get_summary_dashboard(
     target_date: date = Query(..., description="The date to show the summary for"),
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Aggregate latest KPI data across all departments for the given date, calculating values in realtime from daily records."""
+    visible_departments = get_visible_departments(current_user)
     month_start = date(target_date.year, target_date.month, 1)
     trend_start = target_date - timedelta(days=6)
     query_start = min(month_start, trend_start)
@@ -1337,7 +1357,7 @@ def get_summary_dashboard(
     remaining_days = max(0, total_days - current_day)
 
     result = {}
-    for dept in SUMMARY_DEPARTMENTS:
+    for dept in visible_departments:
         dept_records = [r for r in all_records if r.department == dept]
         
         # Get the list of metrics for this department
@@ -1632,8 +1652,12 @@ def get_kpi_records(
     department: str, 
     start_date: Optional[date] = None, 
     end_date: Optional[date] = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user),
 ):
+    visible_departments = get_visible_departments(current_user)
+    if department not in visible_departments:
+        raise HTTPException(status_code=403, detail="Not authorized to view this department")
     query = select(KPIRecord).where(KPIRecord.department == department)
     if start_date:
         query = query.where(KPIRecord.date >= start_date)
@@ -1860,8 +1884,12 @@ def get_previous_mtd(
     metric: str, 
     current_date: date, 
     subtype: Optional[str] = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user),
 ):
+    visible_departments = get_visible_departments(current_user)
+    if department not in visible_departments:
+        raise HTTPException(status_code=403, detail="Not authorized to view this department")
     # Find record for date - 1
     prev_date = current_date - timedelta(days=1)
     query = select(KPIRecord).where(

@@ -217,12 +217,14 @@ async function resetUserPassword(userId, newPassword) {
 // ---------------------------------------------------------------------------
 
 async function fetchSummaryDashboard(targetDate) {
-    const response = await fetch(`${API_BASE_URL}/summary-dashboard?target_date=${targetDate}`);
+    const response = await fetch(`${API_BASE_URL}/summary-dashboard?target_date=${targetDate}`, {
+        headers: authHeaders()
+    });
     return handleResponse(response);
 }
 
 // ---------------------------------------------------------------------------
-// KPI Records (public reads, auth-required writes)
+// KPI Records (auth-required reads & writes)
 // ---------------------------------------------------------------------------
 
 async function fetchKPIRecords(department, startDate, endDate) {
@@ -232,7 +234,9 @@ async function fetchKPIRecords(department, startDate, endDate) {
     if (endDate) params.append('end_date', endDate);
     if (params.toString()) url += `?${params.toString()}`;
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        headers: authHeaders()
+    });
     return handleResponse(response);
 }
 
@@ -273,7 +277,9 @@ async function fetchPreviousMTD(department, metric, currentDate, subtype) {
     if (subtype) url += `&subtype=${encodeURIComponent(subtype)}`;
 
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: authHeaders()
+        });
         if (!response.ok) return 0;
         const data = await response.json();
         return parseFloat(data.mtd_actual) || 0;
