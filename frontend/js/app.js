@@ -17,6 +17,49 @@ function parseOptionalFloatFE(val) {
     return isNaN(n) ? null : n;
 }
 
+/**
+ * Auto-populate a daily input form with data from an existing record for the selected date.
+ * Populates ONLY raw input fields; calculated fields (MTD, variance, outlook) are left to
+ * the existing calculation listeners which will fire afterward.
+ *
+ * @param {string} dept - Department identifier
+ * @param {string} metricName - Metric name
+ * @param {string} dateVal - Selected date (YYYY-MM-DD)
+ * @param {Object<string, string>} fieldMap - Maps record data keys to DOM element IDs
+ * @returns {Object|null} The existing record if found, null otherwise
+ */
+async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap) {
+    if (!dateVal || !fieldMap) return null;
+
+    try {
+        // Fetch fresh records for this department to ensure we have latest data
+        const records = await fetchKPIRecords(dept);
+        const existingRecord = records.find(r =>
+            r.metric_name === metricName &&
+            r.date === dateVal &&
+            r.subtype !== 'fixed_input'
+        );
+
+        if (existingRecord && existingRecord.data) {
+            for (const [dataKey, elementId] of Object.entries(fieldMap)) {
+                const el = document.getElementById(elementId);
+                if (!el) continue;
+                const val = existingRecord.data[dataKey];
+                if (val !== undefined && val !== null && val !== '' && val !== '-') {
+                    el.value = val;
+                } else {
+                    el.value = '';
+                }
+            }
+            return existingRecord;
+        }
+        return null;
+    } catch (e) {
+        console.warn('autoPopulateDailyForm failed', e);
+        return null;
+    }
+}
+
 const DEPARTMENTS = ["OHS", "Geology", "Mining", "Crushing", "Milling_CIL", "Engineering"];
 const METRIC_ACCESS_OPTIONS = ["All", ...DEPARTMENTS];
 
@@ -1756,10 +1799,63 @@ function renderFixedInputForm(dept, card) {
         }
     };
 
-    inputMonth.addEventListener('change', updateDays);
+    // Auto-populate Fixed Input form when KPI or month changes
+    const autoPopulateFixedInput = async () => {
+        const kpiVal = selectKPI.value;
+        const monthVal = inputMonth.value;
+        if (!kpiVal || !monthVal) return;
+
+        const targetDate = `${monthVal}-01`;
+        try {
+            const records = await fetchKPIRecords(dept);
+            const existingRecord = records.find(r =>
+                r.subtype === 'fixed_input' &&
+                r.metric_name === kpiVal &&
+                r.date === targetDate
+            );
+
+            if (existingRecord && existingRecord.data) {
+                if (existingRecord.data.num_days !== undefined && existingRecord.data.num_days !== null && existingRecord.data.num_days !== '') {
+                    inputDays.value = existingRecord.data.num_days;
+                }
+                if (existingRecord.data.full_forecast !== undefined && existingRecord.data.full_forecast !== null && existingRecord.data.full_forecast !== '') {
+                    inputForecast.value = existingRecord.data.full_forecast;
+                }
+                if (existingRecord.data.full_budget !== undefined && existingRecord.data.full_budget !== null && existingRecord.data.full_budget !== '') {
+                    inputBudget.value = existingRecord.data.full_budget;
+                }
+                // Forecast Per Rig for Geology
+                if (isGeology && existingRecord.data.forecast_per_rig !== undefined && existingRecord.data.forecast_per_rig !== null && existingRecord.data.forecast_per_rig !== '') {
+                    const rigElem = document.getElementById(`input-${dept}-fcst-per-rig`);
+                    if (rigElem) {
+                        const fcstPerRig = parseFloat(existingRecord.data.forecast_per_rig);
+                        // Ensure the value exists in options or add it
+                        if (!currentOptions.includes(fcstPerRig) && !isNaN(fcstPerRig)) {
+                            currentOptions.push(fcstPerRig);
+                            renderOptions(fcstPerRig);
+                        } else if (rigElem) {
+                            rigElem.value = fcstPerRig;
+                        }
+                    }
+                }
+                // Trigger the OHS auto-calc if applicable
+                if (isOHS) {
+                    inputBudget.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+        } catch (e) {
+            console.warn('autoPopulateFixedInput failed', e);
+        }
+    };
+
+    inputMonth.addEventListener('change', () => {
+        updateDays();
+        autoPopulateFixedInput();
+    });
     selectKPI.addEventListener('change', () => {
         updateDays();
         updateForecastPerRigVisibility();
+        autoPopulateFixedInput();
     });
 
     tr.appendChild(createCell(inputMonth));
@@ -2089,6 +2185,18 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            num_rigs: `input-${dept}-rigs`,
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        // Dispatch input events so variance/MTD/outlook recalculate
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
     // Auto-calculate MTD Actual and MTD Forecast for Exploration Drilling and Grade Control Drilling
     if (metricName === "Exploration Drilling" || metricName === "Grade Control Drilling") {
@@ -2466,6 +2574,14 @@ function renderGeologyTollForm(dept, metricName, card) {
             console.error("Error fetching fixed inputs for Toll", e);
         }
     };
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', fetchAndCalculateForecast);
 
     // Auto-calculate MTD Actual and MTD Forecast
@@ -2785,6 +2901,17 @@ function renderMiningOreForm(dept, metricName, card) {
 
     dAct.input.addEventListener('input', calculateMTD);
     dFcst.input.addEventListener('input', calculateMTD);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateMTD);
 
     // Row 4
@@ -3012,6 +3139,19 @@ function renderMiningGradeForm(dept, metricName, card) {
             console.error("Error fetching fixed inputs", e);
         }
     };
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_act_grade: `input-${dept}-daily-act-gt`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dActGrade.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', fetchFixedInputs);
 
     // Auto-Calculate MTD Actual (Weighted Average Formula)
@@ -3249,6 +3389,19 @@ function renderMiningGradeRehandleForm(dept, metricName, card) {
     dAct.input.addEventListener('input', calculateMTD);
     dActGrade.input.addEventListener('input', calculateMTD);
     dFcst.input.addEventListener('input', calculateMTD);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_act_grade: `input-${dept}-daily-act-gt`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dActGrade.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateMTD);
 
     // Add to Grid
@@ -3384,6 +3537,17 @@ function renderMiningRehandleForm(dept, metricName, card) {
 
     dAct.input.addEventListener('input', calculateMTD);
     dFcst.input.addEventListener('input', calculateMTD);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateMTD);
 
     // Add to Grid
@@ -3494,6 +3658,15 @@ function renderMiningStockPileForm(dept, metricName, card) {
     };
 
     dAct.input.addEventListener('input', calculateValues);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateValues);
 
     // Add to Grid
@@ -3606,6 +3779,17 @@ function renderMiningGradeStockPileForm(dept, metricName, card) {
     };
 
     dActGrade.input.addEventListener('input', calculateValues);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_act_grade: `input-${dept}-daily-act-gt`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dActGrade.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateValues);
 
     // Add to Grid
@@ -3701,6 +3885,17 @@ function renderMiningPctMetricForm(dept, metricName, card) {
 
     dAct.input.addEventListener('input', calculateValues);
     dFcst.input.addEventListener('input', calculateValues);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateValues);
 
     // Add to Grid
@@ -3850,6 +4045,17 @@ function renderMiningMaterialForm(dept, metricName, card) {
     dAct.input.addEventListener('input', calculateMTD);
     // Trigger Recalculation when Daily Forecast changes (e.g. autofill)
     dFcst.input.addEventListener('input', calculateMTD);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act-bcm`,
+            daily_forecast: `input-${dept}-daily-fcst-bcm`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateMTD);
 
     // Row 4
@@ -4090,6 +4296,17 @@ function renderMiningBlastHoleForm(dept, metricName, card) {
 
     dAct.input.addEventListener('input', calculateMTD);
     dFcst.input.addEventListener('input', calculateMTD);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateMTD);
 
     // Row 4
@@ -4310,6 +4527,19 @@ function renderCrushingGradeForm(dept, metricName, card) {
             console.error("Error fetching fixed inputs", e);
         }
     };
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_act_tonnes: `input-${dept}-daily-act-t`,
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dActT.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', fetchFixedInputs);
 
     // Auto-Calculate MTD Actual (Sum of previous records in month + current daily actual)
@@ -4367,11 +4597,9 @@ function renderCrushingGradeForm(dept, metricName, card) {
             mAct.input.value = totalMTDAct.toFixed(2);
             mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
 
-            // MTD Forecast Calculation - MANUAL now
-            // const prevFcstSum = relevantRecords.reduce((sum, r) => sum + (parseFloat(r.data.daily_forecast) || 0), 0);
-            // const totalMTDFcst = prevFcstSum + currentDailyFcst;
-            // mFcst.input.value = totalMTDFcst.toFixed(2);
-            // mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            // MTD Forecast mirrors Daily Forecast (not accrued — repeats the same value for the day)
+            mFcst.input.value = currentDailyFcst;
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         } catch (e) {
             console.warn("Auto-calc MTD failed", e);
@@ -4382,8 +4610,8 @@ function renderCrushingGradeForm(dept, metricName, card) {
 
             mAct.input.value = res.toFixed(2);
             mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
-            // mFcst.input.value = currentDailyFcst;
-            // mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            mFcst.input.value = currentDailyFcst;
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
         }
     };
 
@@ -4599,6 +4827,17 @@ function renderCrushingOreForm(dept, metricName, card) {
             console.error("Error fetching fixed inputs", e);
         }
     };
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', fetchFixedInputs);
     dAct.input.addEventListener('input', updateMTD);
     dFcst.input.addEventListener('input', updateMTD);
@@ -4743,6 +4982,12 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     const handleDateChange = async () => {
         const dateVal = date.input.value;
         if (!dateVal) return;
+
+        // Auto-populate raw input fields from existing daily record (if any)
+        await autoPopulateDailyForm(dept, metricName, dateVal, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
 
         const d = new Date(dateVal);
         const year = d.getFullYear();
@@ -4989,6 +5234,12 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
         const dateVal = date.input.value;
         if (!dateVal) return;
 
+        // Auto-populate raw input fields from existing daily record (if any)
+        await autoPopulateDailyForm(dept, metricName, dateVal, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+
         const d = new Date(dateVal);
         const year = d.getFullYear();
         const month = d.getMonth() + 1; // 1-based
@@ -5197,6 +5448,12 @@ function renderMillingRecoveryForm(dept, metricName, card) {
     const handleDateChange = async () => {
         const dateVal = date.input.value;
         if (!dateVal) return;
+
+        // Auto-populate raw input fields from existing daily record (if any)
+        await autoPopulateDailyForm(dept, metricName, dateVal, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
 
         const d = new Date(dateVal);
         const year = d.getFullYear();
@@ -5423,6 +5680,22 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     card.appendChild(grid);
 
     // ================== LOGIC INJECTION START ==================
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_act_tonnes: `input-${dept}-daily-act-t`,
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`,
+            day2: `input-${dept}-day2`,
+            day2_forecast: `input-${dept}-day2-forecast`
+        });
+        dActT.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+        day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // 1. Fetch Full Forecast (b) from Fixed Inputs when Date changes
     date.input.addEventListener('change', async () => {
         const dateVal = date.input.value;
@@ -5703,6 +5976,20 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
     card.appendChild(grid);
 
     // ================== LOGIC INJECTION START ==================
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`,
+            day2: `input-${dept}-day2`,
+            day2_forecast: `input-${dept}-day2-forecast`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+        day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // 1. Fetch Fixed Inputs for Calculation (Daily Forecast) and Auto-fill
     date.input.addEventListener('change', async () => {
         const dateVal = date.input.value;
@@ -5982,6 +6269,20 @@ function renderMillingRuntimeForm(dept, metricName, card) {
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`,
+            day2: `input-${dept}-day2`,
+            day2_forecast: `input-${dept}-day2-forecast`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+        day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
     // Fetch and auto-fill Daily Forecast from Fixed Inputs, if any, and Day-2 values
     date.input.addEventListener('change', async () => {
@@ -6297,6 +6598,14 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
 
     // 1. Daily Forecast is always 0 (Target = Zero Harm)
     // Run this logic on date change to ensure consistency
+    // Auto-populate daily_actual from existing record first
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', async () => {
         dFcst.input.value = '0';
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -6661,6 +6970,14 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
         outlook.input.dispatchEvent(new Event('input'));
     };
 
+    // Auto-populate daily_actual from existing record when date changes
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculateEnvMTD);
     dAct.input.addEventListener('input', calculateEnvMTD);
     dFcst.input.addEventListener('input', calculateEnvMTD);
@@ -6919,6 +7236,14 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
         }
     };
 
+    // Auto-populate daily_actual from existing record when date changes
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     date.input.addEventListener('change', calculatePropDamMTD);
     dAct.input.addEventListener('input', calculatePropDamMTD);
 
@@ -7136,6 +7461,18 @@ function renderEngineeringLightVehiclesForm(dept, metricName, card) {
             console.error("Error calculating MTD Actual", e);
         }
     };
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
     // Attach listeners
     dAct.input.addEventListener('input', updateMTDActual);
@@ -7409,6 +7746,18 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
             console.error("Error calculating MTD Actual", e);
         }
     };
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
     // Attach listeners
     dAct.input.addEventListener('input', updateMTDActual);
