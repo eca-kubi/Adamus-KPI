@@ -225,6 +225,7 @@ When making logic changes, also test through the UI:
   - Prefer extracting pure calculation helpers into `frontend/js/calculations.js` rather than adding more logic to `app.js`.
   - Use the `DOM` helper in `frontend/js/dom.js` for Bootstrap-styled elements.
   - Keep `DEPARTMENT_METRICS` / `DEPT_METRICS` in sync between the backend (`backend/main.py`) and frontend (`frontend/js/app.js`).
+  - **Cache busting**: `frontend/index.html` loads CSS/JS assets with a query-string version (e.g., `?v=20260622_3`). Whenever you modify any static asset under `frontend/css/` or `frontend/js/`, bump the version token on the corresponding `<link>` or `<script>` tag (and keep all asset version tokens in sync) so browsers and CDNs fetch the latest files instead of serving cached versions.
 - Environment configuration:
   - Load environment variables with `python-dotenv` (`load_dotenv()`).
   - Never hardcode secrets; the pre-commit hooks include Gitleaks and Bandit to catch this.
@@ -267,5 +268,6 @@ When making logic changes, also test through the UI:
 - `app.js` is large and contains legacy monolith logic. Make small, focused changes and prefer extracting helpers.
 - Adding a new department or metric requires updating `DEPARTMENT_METRICS` in `backend/main.py` and `DEPT_METRICS` / `IMPORT_CONFIGS` in `frontend/js/app.js`.
 - Milling/CIL daily records store both `day2` (previous day's actual) and `day2_forecast` (previous day's forecast) in the JSON `data` column. Both fields are surfaced in forms, tables, imports, and the summary dashboard.
+- **Bump cache-busting query strings**: After changing `frontend/css/style.css` or any file under `frontend/js/`, update the `?v=...` tokens in `frontend/index.html` so clients request the latest static assets rather than stale cached copies. Keep all asset tokens in sync.
 - Do not commit `.env` files. If you add new required environment variables, update `.env.example` and this file.
 - Do not run `git commit`, `git push`, `git reset`, or `git rebase` unless explicitly asked.
