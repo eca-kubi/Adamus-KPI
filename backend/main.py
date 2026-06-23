@@ -1212,7 +1212,8 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             if day2_forecast is not None:
                 d['day2_forecast'] = day2_forecast
                 d['day_2_forecast'] = day2_forecast
-            var1 = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
+            var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
+            day2_var = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
             var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
             var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
         else:
@@ -1229,6 +1230,8 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
         d["mtd_var"] = var2
         d["var3"] = var3
         d["budget_var"] = var3
+        if department == "Milling_CIL":
+            d["day2_var"] = day2_var
         if metric_name in ("Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad"):
             d["mtd_actual"] = round(mtd_actual, 2)
             d["mtd_forecast"] = round(mtd_forecast, 2)
@@ -1524,7 +1527,8 @@ def get_summary_dashboard(
                     var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
                     var3 = "-"
             elif dept == "Milling_CIL":
-                var1 = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
+                var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
+                day2_var = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
                 var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
             else:
@@ -1602,6 +1606,8 @@ def get_summary_dashboard(
             if day2_forecast is not None:
                 data["day_2_forecast"] = day2_forecast
                 data["day2_forecast"] = day2_forecast
+            if dept == "Milling_CIL":
+                data["day2_var"] = day2_var
             if target_rec and 'wet_tonnes' in target_rec.data:
                 data["wet_tonnes"] = target_rec.data["wet_tonnes"]
             if target_rec and 'daily_act_grade' in target_rec.data:
@@ -2045,7 +2051,8 @@ def cascade_fixed_input(
             # Recalculate Daily Variance (var1)
             # Logic: ((Actual - Forecast) / Forecast) * 100
             if department == "Milling_CIL":
-                new_data['var1'] = calc_var(new_data.get('day2'), new_data.get('day2_forecast'), is_ohs_dept, use_act_denom=is_ohs_dept)
+                new_data['var1'] = calc_var(new_data.get('daily_actual'), new_data.get('daily_forecast'), is_ohs_dept, use_act_denom=is_ohs_dept)
+                new_data['day2_var'] = calc_var(new_data.get('day2'), new_data.get('day2_forecast'), is_ohs_dept, use_act_denom=is_ohs_dept)
             elif 'daily_actual' in new_data and 'daily_forecast' in new_data:
                 new_data['var1'] = calc_var(new_data['daily_actual'], new_data['daily_forecast'], is_ohs_dept, use_act_denom=is_ohs_dept)
 

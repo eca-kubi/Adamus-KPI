@@ -1466,6 +1466,8 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
@@ -1475,7 +1477,6 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
-                <th style="padding: 12px; text-align: left;">Day-2</th>
             `;
         } else if ((metric === "Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Anx Excavators" || metric === "Dump Trucks" || metric === "ART Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
             tableHead.innerHTML = `
@@ -1537,6 +1538,8 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Actual</th>
                 <th style="padding: 12px; text-align: left;">MTD Forecast</th>
                 <th style="padding: 12px; text-align: left;">MTD Var %</th>
@@ -1546,7 +1549,6 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Full Budget (c)</th>
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
-                <th style="padding: 12px; text-align: left;">Day-2</th>
             `;
         } else if ((metric === "Runtime" || metric === "Throughput") && STATE.currentDept === "Milling_CIL") {
             tableHead.innerHTML = `
@@ -4920,26 +4922,31 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+
+    // Row 3: Day-2 fields
     const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
     const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
-    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
-    dVar.input.readOnly = true;
-    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
+    const day2Var = DOM.createInputGroup("Day-2 Var %", `input-${dept}-day2-var`, "text");
+    day2Var.input.readOnly = true;
+    attachVarianceListener(day2.input, day2Forecast.input, day2Var.input);
 
-    // Row 3
+    // Row 4
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
-    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    const mVar = DOM.createInputGroup("Var2 %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
-    // Row 4
+    // Row 5
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
     const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
 
-    // Row 5
-    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
+    // Row 6
+    const budgVar = DOM.createInputGroup("Var3 %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
 
@@ -4989,6 +4996,10 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
             daily_forecast: `input-${dept}-daily-fcst`
         });
 
+        // Trigger variance listeners for auto-populated values
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+
         const d = new Date(dateVal);
         const year = d.getFullYear();
         const month = d.getMonth() + 1;
@@ -5019,10 +5030,10 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
             );
 
             if (fixedRecord && fixedRecord.data) {
-                // fullFcst.input.value = fixedRecord.data.full_forecast || ''; // User requested manual input for Full Forecast
+                fullFcst.input.value = fixedRecord.data.full_forecast || '';
                 fullBudg.input.value = fixedRecord.data.full_budget || '';
                 // Trigger events
-                // fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
                 fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
             }
 
@@ -5072,9 +5083,10 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
     add(dAct); add(dFcst); add(dVar);
+    add(day2); add(day2Forecast); add(day2Var);
     add(mAct); add(mFcst); add(mVar);
     add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar); add(day2); add(day2Forecast);
+    add(budgVar);
 
     card.appendChild(grid);
 
@@ -5096,15 +5108,16 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
                 daily_actual: parseOptionalFloatFE(dAct.input.value),
                 daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value),
+                day2_var: day2Var.input.value,
                 mtd_actual: parseOptionalFloatFE(mAct.input.value),
                 mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
                 outlook: parseOptionalFloatFE(outlook.input.value),
                 full_forecast: parseOptionalFloatFE(fullFcst.input.value),
                 full_budget: parseOptionalFloatFE(fullBudg.input.value),
-                var3: budgVar.input.value,
-                day2: parseOptionalFloatFE(day2.input.value),
-                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
+                var3: budgVar.input.value
             }
         };
 
@@ -5118,6 +5131,9 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
             dAct.input.value = '';
             dFcst.input.value = '';
             dVar.input.value = '';
+            day2.input.value = '';
+            day2Forecast.input.value = '';
+            day2Var.input.value = '';
             mAct.input.value = '';
             mFcst.input.value = '';
             mVar.input.value = '';
@@ -5125,8 +5141,6 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
             fullFcst.input.value = '';
             fullBudg.input.value = '';
             budgVar.input.value = '';
-            day2.input.value = '';
-            day2Forecast.input.value = '';
 
             // Reset logic variables
             priorMtdAct = 0;
@@ -5159,26 +5173,31 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+
+    // Row 3: Day-2 fields
     const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
     const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
-    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
-    dVar.input.readOnly = true;
-    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
+    const day2Var = DOM.createInputGroup("Day-2 Var %", `input-${dept}-day2-var`, "text");
+    day2Var.input.readOnly = true;
+    attachVarianceListener(day2.input, day2Forecast.input, day2Var.input);
 
-    // Row 3
+    // Row 4
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
-    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    const mVar = DOM.createInputGroup("Var2 %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
-    // Row 4
+    // Row 5
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
     const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
 
-    // Row 5
-    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
+    // Row 6
+    const budgVar = DOM.createInputGroup("Var3 %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     // attachVarianceListener(outlook.input, fullBudg.input, budgVar.input); // Custom logic implemented in updateCalculations
 
@@ -5240,6 +5259,10 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
             daily_forecast: `input-${dept}-daily-fcst`
         });
 
+        // Trigger variance listeners for auto-populated values
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+
         const d = new Date(dateVal);
         const year = d.getFullYear();
         const month = d.getMonth() + 1; // 1-based
@@ -5270,7 +5293,9 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
             );
 
             if (fixedRecord && fixedRecord.data) {
+                fullFcst.input.value = fixedRecord.data.full_forecast || '';
                 fullBudg.input.value = fixedRecord.data.full_budget || '';
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
                 fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
             }
 
@@ -5320,9 +5345,10 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
     add(dAct); add(dFcst); add(dVar);
+    add(day2); add(day2Forecast); add(day2Var);
     add(mAct); add(mFcst); add(mVar);
     add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar); add(day2); add(day2Forecast);
+    add(budgVar);
 
     card.appendChild(grid);
 
@@ -5344,15 +5370,16 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
                 daily_actual: parseOptionalFloatFE(dAct.input.value),
                 daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value),
+                day2_var: day2Var.input.value,
                 mtd_actual: parseOptionalFloatFE(mAct.input.value),
                 mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
                 outlook: parseOptionalFloatFE(outlook.input.value),
                 full_forecast: parseOptionalFloatFE(fullFcst.input.value),
                 full_budget: parseOptionalFloatFE(fullBudg.input.value),
-                var3: budgVar.input.value,
-                day2: parseOptionalFloatFE(day2.input.value),
-                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
+                var3: budgVar.input.value
             }
         };
 
@@ -5366,6 +5393,9 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
             dAct.input.value = '';
             dFcst.input.value = '';
             dVar.input.value = '';
+            day2.input.value = '';
+            day2Forecast.input.value = '';
+            day2Var.input.value = '';
             mAct.input.value = '';
             mFcst.input.value = '';
             mVar.input.value = '';
@@ -5373,8 +5403,6 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
             fullFcst.input.value = '';
             fullBudg.input.value = '';
             budgVar.input.value = '';
-            day2.input.value = '';
-            day2Forecast.input.value = '';
 
             // Reset Logic
             priorMtdAct = 0;
@@ -5406,35 +5434,41 @@ function renderMillingRecoveryForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+
+    // Row 3: Day-2 fields
     const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
     const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
-    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
-    dVar.input.readOnly = true;
-    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
+    const day2Var = DOM.createInputGroup("Day-2 Var %", `input-${dept}-day2-var`, "text");
+    day2Var.input.readOnly = true;
+    attachVarianceListener(day2.input, day2Forecast.input, day2Var.input);
 
-    // Row 3
+    // Row 4
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
-    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    const mVar = DOM.createInputGroup("Var2 %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
-    // Row 4
+    // Row 5
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "text");
     const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "text");
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "text");
 
-    // Row 5
-    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
+    // Row 6
+    const budgVar = DOM.createInputGroup("Var3 %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
     add(dAct); add(dFcst); add(dVar);
+    add(day2); add(day2Forecast); add(day2Var);
     add(mAct); add(mFcst); add(mVar);
     add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar); add(day2); add(day2Forecast);
+    add(budgVar);
 
     // Logic: Calculate Outlook from Gold Recovery & Gold Contained
     // Also mirror Daily Forecast to MTD Forecast
@@ -5454,6 +5488,10 @@ function renderMillingRecoveryForm(dept, metricName, card) {
             daily_actual: `input-${dept}-daily-act`,
             daily_forecast: `input-${dept}-daily-fcst`
         });
+
+        // Trigger variance listeners for auto-populated values
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         const d = new Date(dateVal);
         const year = d.getFullYear();
@@ -5587,6 +5625,9 @@ function renderMillingRecoveryForm(dept, metricName, card) {
                 daily_actual: parseOptionalFloatFE(dAct.input.value),
                 daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value),
+                day2_var: day2Var.input.value,
                 mtd_actual: parseOptionalFloatFE(mAct.input.value),
                 mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
@@ -5596,9 +5637,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
                 outlook: parseOptionalFloatFE(outlook.input.value),
                 full_forecast: parseOptionalFloatFE(fullFcst.input.value),
                 full_budget: parseOptionalFloatFE(fullBudg.input.value),
-                var3: budgVar.input.value,
-                day2: parseOptionalFloatFE(day2.input.value),
-                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
+                var3: budgVar.input.value
             }
         };
 
@@ -5612,6 +5651,9 @@ function renderMillingRecoveryForm(dept, metricName, card) {
             dAct.input.value = '';
             dFcst.input.value = '';
             dVar.input.value = '';
+            day2.input.value = '';
+            day2Forecast.input.value = '';
+            day2Var.input.value = '';
             mAct.input.value = '';
             mFcst.input.value = '';
             mVar.input.value = '';
@@ -5619,8 +5661,6 @@ function renderMillingRecoveryForm(dept, metricName, card) {
             fullFcst.input.value = '';
             fullBudg.input.value = '';
             budgVar.input.value = '';
-            day2.input.value = '';
-            day2Forecast.input.value = '';
 
         } catch (e) {
             DOM.showToast("Error: " + e.message, "error");
@@ -5649,33 +5689,38 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     const dActT = DOM.createInputGroup("Daily Actual(t)", `input-${dept}-daily-act-t`, "number");
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+
+    // Row 3: Day-2 fields
     const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
     const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
-    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
-    dVar.input.readOnly = true;
-    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
+    const day2Var = DOM.createInputGroup("Day-2 Var %", `input-${dept}-day2-var`, "text");
+    day2Var.input.readOnly = true;
+    attachVarianceListener(day2.input, day2Forecast.input, day2Var.input);
 
-    // Row 3
+    // Row 4
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
-    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    const mVar = DOM.createInputGroup("Var2 %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
-    // Row 4
+    // Row 5
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
     const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
-    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
+    const budgVar = DOM.createInputGroup("Var3 %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Spacers
     add(dActT); add(dAct); add(dFcst); add(dVar);
+    add(day2); add(day2Forecast); add(day2Var); grid.appendChild(document.createElement('div')); // Spacer
     add(mAct); add(mFcst); add(mVar); grid.appendChild(document.createElement('div')); // Spacer
     add(outlook); add(fullFcst); add(fullBudg); add(budgVar);
-    add(day2); add(day2Forecast);
 
     card.appendChild(grid);
 
@@ -5883,15 +5928,16 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
                 daily_actual: parseOptionalFloatFE(dAct.input.value),
                 daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value),
+                day2_var: day2Var.input.value,
                 mtd_actual: parseOptionalFloatFE(mAct.input.value),
                 mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
                 outlook: parseOptionalFloatFE(outlook.input.value),
                 full_forecast: parseOptionalFloatFE(fullFcst.input.value),
                 full_budget: parseOptionalFloatFE(fullBudg.input.value),
-                var3: budgVar.input.value,
-                day2: parseOptionalFloatFE(day2.input.value),
-                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
+                var3: budgVar.input.value
             }
         };
 
@@ -5907,6 +5953,9 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             dAct.input.value = '';
             dFcst.input.value = '';
             dVar.input.value = '';
+            day2.input.value = '';
+            day2Forecast.input.value = '';
+            day2Var.input.value = '';
             mAct.input.value = '';
             mFcst.input.value = '';
             mVar.input.value = '';
@@ -5914,8 +5963,6 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             fullFcst.input.value = '';
             fullBudg.input.value = '';
             budgVar.input.value = '';
-            day2.input.value = '';
-            day2Forecast.input.value = '';
 
         } catch (e) {
             DOM.showToast("Error: " + e.message, "error");
@@ -5943,35 +5990,41 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+
+    // Row 3: Day-2 fields
     const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
     const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
-    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
-    dVar.input.readOnly = true;
-    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
+    const day2Var = DOM.createInputGroup("Day-2 Var %", `input-${dept}-day2-var`, "text");
+    day2Var.input.readOnly = true;
+    attachVarianceListener(day2.input, day2Forecast.input, day2Var.input);
 
-    // Row 3
+    // Row 4
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
-    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    const mVar = DOM.createInputGroup("Var2 %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
-    // Row 4
+    // Row 5
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
     const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
 
-    // Row 5
-    const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
+    // Row 6
+    const budgVar = DOM.createInputGroup("Var3 %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
     attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
     add(dAct); add(dFcst); add(dVar);
+    add(day2); add(day2Forecast); add(day2Var);
     add(mAct); add(mFcst); add(mVar);
     add(outlook); add(fullFcst); add(fullBudg);
-    add(budgVar); add(day2); add(day2Forecast);
+    add(budgVar);
 
     card.appendChild(grid);
 
@@ -6206,15 +6259,16 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
                 daily_actual: parseOptionalFloatFE(dAct.input.value),
                 daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value),
+                day2_var: day2Var.input.value,
                 mtd_actual: parseOptionalFloatFE(mAct.input.value),
                 mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
                 var2: mVar.input.value,
                 outlook: parseOptionalFloatFE(outlook.input.value),
                 full_forecast: parseOptionalFloatFE(fullFcst.input.value),
                 full_budget: parseOptionalFloatFE(fullBudg.input.value),
-                var3: budgVar.input.value,
-                day2: parseOptionalFloatFE(day2.input.value),
-                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
+                var3: budgVar.input.value
             }
         };
 
@@ -6228,6 +6282,9 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
             dAct.input.value = '';
             dFcst.input.value = '';
             dVar.input.value = '';
+            day2.input.value = '';
+            day2Forecast.input.value = '';
+            day2Var.input.value = '';
             mAct.input.value = '';
             mFcst.input.value = '';
             mVar.input.value = '';
@@ -6235,8 +6292,6 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
             fullFcst.input.value = '';
             fullBudg.input.value = '';
             budgVar.input.value = '';
-            day2.input.value = '';
-            day2Forecast.input.value = '';
 
         } catch (e) {
             DOM.showToast("Error: " + e.message, "error");
@@ -6264,11 +6319,16 @@ function renderMillingRuntimeForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+    attachVarianceListener(dAct.input, dFcst.input, dVar.input);
+
+    // Row 3: Day-2 fields
     const day2 = DOM.createInputGroup("Day-2 Actual", `input-${dept}-day2`, "number");
     const day2Forecast = DOM.createInputGroup("Day-2 Forecast", `input-${dept}-day2-forecast`, "number");
-    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
-    dVar.input.readOnly = true;
-    attachVarianceListener(day2.input, day2Forecast.input, dVar.input);
+    const day2Var = DOM.createInputGroup("Day-2 Var %", `input-${dept}-day2-var`, "text");
+    day2Var.input.readOnly = true;
+    attachVarianceListener(day2.input, day2Forecast.input, day2Var.input);
 
     // Auto-populate form when date changes (load existing daily record if any)
     date.input.addEventListener('change', async () => {
@@ -6367,7 +6427,7 @@ function renderMillingRuntimeForm(dept, metricName, card) {
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); // Spacer
     add(dAct); add(dFcst); add(dVar);
-    add(day2); add(day2Forecast); grid.appendChild(document.createElement('div')); // Spacer
+    add(day2); add(day2Forecast); add(day2Var);
 
     card.appendChild(grid);
 
@@ -6386,15 +6446,16 @@ function renderMillingRuntimeForm(dept, metricName, card) {
                 daily_actual: parseOptionalFloatFE(dAct.input.value),
                 daily_forecast: parseOptionalFloatFE(dFcst.input.value),
                 var1: dVar.input.value,
+                day2: parseOptionalFloatFE(day2.input.value),
+                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value),
+                day2_var: day2Var.input.value,
                 mtd_actual: "-",
                 mtd_forecast: "-",
                 var2: "-",
                 outlook: "-",
                 full_forecast: "-",
                 full_budget: "-",
-                var3: "-",
-                day2: parseOptionalFloatFE(day2.input.value),
-                day2_forecast: parseOptionalFloatFE(day2Forecast.input.value)
+                var3: "-"
             }
         };
 
@@ -6410,6 +6471,7 @@ function renderMillingRuntimeForm(dept, metricName, card) {
             dVar.input.value = '';
             day2.input.value = '';
             day2Forecast.input.value = '';
+            day2Var.input.value = '';
 
         } catch (e) {
             DOM.showToast("Error: " + e.message, "error");
@@ -10054,6 +10116,7 @@ window.editRecord = (id) => {
             var3: [`input-${dept}-budg-var`, `input-${dept}-full-var`],
             day2: [`input-${dept}-day2`],
             day2_forecast: [`input-${dept}-day2-forecast`],
+            day2_var: [`input-${dept}-day2-var`],
             qty_available: [`input-${dept}-qty-avail`],
             num_rigs: [`input-${dept}-rigs`],
             wet_tonnes: [`input-${dept}-wet-tonnes`],
@@ -10207,8 +10270,14 @@ async function loadRecentRecords(dept) {
                     dateDisplay = dateObj.toLocaleDateString('default', { month: 'long', year: 'numeric' });
                 } catch (e) { console.warn("Date parse error", e); }
 
-                // Format Numbers with Commas and round
-                const formatNum = (v) => formatDailyTableVal(v);
+                // Format Numbers with Commas — preserve exact decimal values (no rounding)
+                const formatNum = (v) => {
+                    if (v === undefined || v === null || v === '' || v === '-') return '-';
+                    const num = parseFloat(v);
+                    if (isNaN(num)) return v;
+                    // Preserve all decimal digits as-entered; no rounding
+                    return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 20 });
+                };
 
                 // Show "-" for Forecast Per Rig for Exploration Drilling and Toll
                 const shouldShowForecastPerRig = r.metric_name !== 'Exploration Drilling' && r.metric_name !== 'Toll';
@@ -11089,13 +11158,15 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Recovery') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
+            // Date | D.Act | D.Fcst | Var% | Status | Day-2 | Day-2 Fcst | MTD.Act | MTD.Fcst | Var% | Status | Outlook | F.Fcst | F.Budg | Var% | Status | Input By | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
@@ -11105,8 +11176,6 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
-                <th style="padding: 12px; text-align: left;">Day-2</th>
-                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
@@ -11132,6 +11201,8 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
@@ -11141,8 +11212,6 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}%</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -11158,7 +11227,7 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Plant Feed Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act(t) | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
+            // Date | D.Act(t) | D.Act | D.Fcst | Var% | Status | Day-2 | Day-2 Fcst | MTD.Act | MTD.Fcst | Var% | Status | Outlook | F.Fcst | F.Budg | Var% | Status | Input By | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act(t)</th>
@@ -11166,6 +11235,8 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
@@ -11175,8 +11246,6 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
-                <th style="padding: 12px; text-align: left;">Day-2</th>
-                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
@@ -11203,6 +11272,8 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
@@ -11212,8 +11283,6 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -11229,13 +11298,15 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Tonnes Treated') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
+            // Date | D.Act | D.Fcst | Var% | Status | Day-2 | Day-2 Fcst | MTD.Act | MTD.Fcst | Var% | Status | Outlook | F.Fcst | F.Budg | Var% | Status | Input By | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
@@ -11245,8 +11316,6 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
-                <th style="padding: 12px; text-align: left;">Day-2</th>
-                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
@@ -11274,6 +11343,8 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatNum(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                    <td style="padding: 12px;">${formatNum(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatNum(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.var2)}</td>
@@ -11283,8 +11354,6 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatNum(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
-                    <td style="padding: 12px;">${formatNum(r.data.day2)}</td>
-                    <td style="padding: 12px;">${formatNum(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -11300,13 +11369,15 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Gold Recovery') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
+            // Date | D.Act | D.Fcst | Var% | Status | Day-2 | Day-2 Fcst | MTD.Act | MTD.Fcst | Var% | Status | Outlook | F.Fcst | F.Budg | Var% | Status | Input By | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
@@ -11316,8 +11387,6 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
-                <th style="padding: 12px; text-align: left;">Day-2</th>
-                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
@@ -11343,6 +11412,8 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
@@ -11352,8 +11423,6 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -11369,12 +11438,16 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Gold Contained' || STATE.currentMetric === 'Toll Tonnes' || STATE.currentMetric === 'Toll Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act | D.Fcst | Var% | MTD.Act | MTD.Fcst | Var% | Outlook | F.Fcst | F.Budg | Var% | Day-2 | Day-2 Fcst | Action
+            // Date | D.Act | D.Fcst | Var% | Status | Day-2 | Day-2 Fcst | Day-2 Var% | Status | MTD.Act | MTD.Fcst | Var% | Status | Outlook | F.Fcst | F.Budg | Var% | Status | Input By | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Day-2</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
+                <th style="padding: 12px; text-align: left;">Day-2 Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
                 <th style="padding: 12px; text-align: left;">MTD.Act</th>
                 <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
@@ -11385,14 +11458,12 @@ async function loadRecentRecords(dept) {
                 <th style="padding: 12px; text-align: left;">F.Budg</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
-                <th style="padding: 12px; text-align: left;">Day-2</th>
-                <th style="padding: 12px; text-align: left;">Day-2 Fcst</th>
                 <th style="padding: 12px; text-align: left;">Input By</th>
                 <th style="padding: 12px; text-align: left;">Action</th>
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="18" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="20" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11412,6 +11483,10 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_var)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.day2_var)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
@@ -11421,8 +11496,6 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
                     <td style="padding: 12px;">${getInputBy(r)}</td>
                     <td style="padding: 12px;">
                         <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
@@ -13835,7 +13908,7 @@ window.downloadImportTemplate = function(dept, metric) {
  * Identify fields that should be computed automatically during import,
  * ignoring any values provided in the CSV for these fields.
  */
-const COMPUTED_FIELDS = ['var1', 'var2', 'var3', 'daily_var', 'mtd_var', 'budget_var', 'mtd_actual', 'mtd_forecast', 'outlook'];
+const COMPUTED_FIELDS = ['var1', 'var2', 'var3', 'day2_var', 'daily_var', 'mtd_var', 'budget_var', 'mtd_actual', 'mtd_forecast', 'outlook'];
 
 /**
  * Computes fields for a record based on its data and the previous record's data.
@@ -13896,9 +13969,12 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         if ((d.day2_forecast === undefined || d.day2_forecast === null || d.day2_forecast === '') && pd) {
             d.day2_forecast = (pd.daily_forecast !== undefined && pd.daily_forecast !== null) ? pd.daily_forecast : null;
         }
-        if (d.day2 !== undefined && d.day2 !== null && d.day2_forecast !== undefined && d.day2_forecast !== null) {
-            d.var1 = calcVar(d.day2, d.day2_forecast);
+        if (d.daily_actual !== undefined && d.daily_forecast !== undefined) {
+            d.var1 = calcVar(d.daily_actual, d.daily_forecast);
             d.daily_var = d.var1;
+        }
+        if (d.day2 !== undefined && d.day2 !== null && d.day2_forecast !== undefined && d.day2_forecast !== null) {
+            d.day2_var = calcVar(d.day2, d.day2_forecast);
         }
     } else if (metric === 'Grade Rehandle') {
         if (d.daily_act_grade !== undefined && d.daily_forecast !== undefined) {
