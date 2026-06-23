@@ -1500,6 +1500,7 @@ def get_summary_dashboard(
                 outlook = mtd_actual
 
             # Variances
+            day2_var = "-"
             if daily_actual is None:
                 var1 = "-"
                 var2 = "-"
