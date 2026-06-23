@@ -254,6 +254,10 @@ async function saveKPIRecord(department, record) {
     if (commentInput) {
         commentInput.value = '';
     }
+    // Clear the persisted draft for this department/metric now that it has been saved.
+    if (typeof window.clearFormDraft === 'function' && record && record.metric_name) {
+        window.clearFormDraft(department, record.metric_name);
+    }
     if (typeof window.afterKPIChange === 'function') {
         try {
             await window.afterKPIChange(department, record ? record.date : null);

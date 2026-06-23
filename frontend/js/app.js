@@ -17,6 +17,125 @@ function parseOptionalFloatFE(val) {
     return isNaN(n) ? null : n;
 }
 
+// ---------------------------------------------------------------------------
+// Form draft persistence
+// ---------------------------------------------------------------------------
+// Unsaved form values are persisted to sessionStorage so users can navigate
+// between department/metric tabs without losing work. Drafts are keyed by
+// (username, department, metric) and cleared once a record is saved.
+
+const DRAFT_STORAGE_KEY = 'kpi_form_drafts_v1';
+let _isRestoringDraft = false;
+
+function getDraftStorageKey(dept, metric) {
+    const username = (STATE && STATE.currentUser && STATE.currentUser.username) || 'anonymous';
+    return `${username}||${dept}||${metric}`;
+}
+
+function _loadDrafts() {
+    try {
+        const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        if (typeof parsed !== 'object' || parsed === null) return {};
+        return parsed;
+    } catch (e) {
+        console.warn('Failed to load form drafts', e);
+        return {};
+    }
+}
+
+function _saveDrafts(drafts) {
+    try {
+        sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(drafts));
+    } catch (e) {
+        console.warn('Failed to save form drafts', e);
+    }
+}
+
+function hasFormDraft(dept, metric) {
+    const drafts = _loadDrafts();
+    const entry = drafts[getDraftStorageKey(dept, metric)];
+    if (!entry || !entry.values) return false;
+    return Object.values(entry.values).some(v => v !== null && v !== undefined && String(v) !== '');
+}
+
+function saveFormDraft(dept, metric) {
+    if (_isRestoringDraft) return;
+    const container = document.getElementById('kpi-forms-container');
+    if (!container) return;
+
+    const values = {};
+    const inputs = container.querySelectorAll('input, select, textarea');
+    inputs.forEach(el => {
+        if (!el.id || el.disabled) return;
+        // Persist the current value; skip purely calculated/read-only fields
+        // that have no user meaning (e.g., variance percentages).
+        if (el.classList.contains('form-control') && el.readOnly && el.value && el.value.includes('%')) {
+            // Variance fields are derived; do not persist them.
+            return;
+        }
+        values[el.id] = el.value;
+    });
+
+    const drafts = _loadDrafts();
+    drafts[getDraftStorageKey(dept, metric)] = {
+        timestamp: Date.now(),
+        values: values
+    };
+    _saveDrafts(drafts);
+}
+
+function restoreFormDraft(dept, metric) {
+    const drafts = _loadDrafts();
+    const entry = drafts[getDraftStorageKey(dept, metric)];
+    if (!entry || !entry.values) return false;
+
+    // Expire drafts older than 7 days to avoid surprising users with stale data.
+    const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+    if (entry.timestamp && (Date.now() - entry.timestamp > ONE_WEEK)) {
+        clearFormDraft(dept, metric);
+        return false;
+    }
+
+    const container = document.getElementById('kpi-forms-container');
+    if (!container) return false;
+
+    _isRestoringDraft = true;
+    try {
+        const restored = [];
+        Object.entries(entry.values).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (!el || el.disabled) return;
+            el.value = value;
+            restored.push(el);
+        });
+
+        // Fire input events so calculation listeners update derived fields.
+        // We intentionally avoid 'change' here to prevent async auto-populate
+        // listeners (e.g., fetch fixed inputs) from overwriting the user's draft.
+        restored.forEach(el => {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
+        return true;
+    } finally {
+        _isRestoringDraft = false;
+    }
+}
+
+function clearFormDraft(dept, metric) {
+    const drafts = _loadDrafts();
+    delete drafts[getDraftStorageKey(dept, metric)];
+    _saveDrafts(drafts);
+}
+
+// Expose helpers for api.js and other modules.
+window.hasFormDraft = hasFormDraft;
+window.saveFormDraft = saveFormDraft;
+window.restoreFormDraft = restoreFormDraft;
+window.clearFormDraft = clearFormDraft;
+
 /**
  * Auto-populate a daily input form with data from an existing record for the selected date.
  * Populates ONLY raw input fields; calculated fields (MTD, variance, outlook) are left to
@@ -1052,6 +1171,7 @@ async function performLogin(u, p) {
 function logout() {
     STATE.currentUser = null;
     localStorage.removeItem('kpi_current_user');
+    sessionStorage.removeItem(DRAFT_STORAGE_KEY);
     clearToken();
     renderLoginScreen();
 }
@@ -1694,6 +1814,9 @@ function renderKPIForm(dept, metricName) {
     }
 
     container.appendChild(card);
+
+    // Restore any previously saved draft for this department/metric.
+    restoreFormDraft(dept, metricName);
 }
 
 function renderFixedInputForm(dept, card) {
@@ -14431,4 +14554,31 @@ function parseCSV(text) {
         }
     };
     window.loadRecentRecords = loadRecentRecords;
+})();
+
+// Auto-save form drafts as the user types/changes values in any KPI form.
+(function() {
+    const content = document.getElementById('content');
+    if (!content) return;
+
+    const isFormInput = (target) => {
+        if (!target) return false;
+        const tag = target.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return false;
+        return target.closest && !!target.closest('#kpi-forms-container');
+    };
+
+    const saveCurrentDraft = () => {
+        if (STATE.currentView === 'dept' && STATE.currentDept && STATE.currentMetric) {
+            saveFormDraft(STATE.currentDept, STATE.currentMetric);
+        }
+    };
+
+    content.addEventListener('input', (e) => {
+        if (isFormInput(e.target)) saveCurrentDraft();
+    });
+
+    content.addEventListener('change', (e) => {
+        if (isFormInput(e.target)) saveCurrentDraft();
+    });
 })();
