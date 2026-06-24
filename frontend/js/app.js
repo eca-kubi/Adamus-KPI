@@ -17,6 +17,12 @@ function parseOptionalFloatFE(val) {
     return isNaN(n) ? null : n;
 }
 
+/** Format and display a save-error toast with the backend's specific message. */
+function showSaveError(error, context) {
+    const message = (error && error.message) ? error.message : String(error || 'Unknown error');
+    DOM.showToast(`${context}: ${message}`, 'error');
+}
+
 // ---------------------------------------------------------------------------
 // Form draft persistence
 // ---------------------------------------------------------------------------
@@ -2296,7 +2302,7 @@ function renderFixedInputForm(dept, card) {
             }
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save Fixed Inputs: " + e.message, "error");
+            showSaveError(e, "Failed to save Fixed Inputs");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -2633,7 +2639,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -2992,7 +2998,7 @@ function renderGeologyTollForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -3240,7 +3246,7 @@ function renderMiningOreForm(dept, metricName, card) {
             budgVar.input.value = '';
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -3461,7 +3467,7 @@ function renderMiningGradeForm(dept, metricName, card) {
             date.input.value = '';
         } catch (e) {
             console.error("Save failed", e);
-            DOM.showToast("Failed to save record", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -3632,7 +3638,7 @@ function renderMiningGradeRehandleForm(dept, metricName, card) {
             date.input.value = '';
         } catch (e) {
             console.error("Save failed", e);
-            DOM.showToast("Failed to save record", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -3776,7 +3782,7 @@ function renderMiningRehandleForm(dept, metricName, card) {
             date.input.value = '';
         } catch (e) {
             console.error("Save failed", e);
-            DOM.showToast("Failed to save record", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -3895,7 +3901,7 @@ function renderMiningStockPileForm(dept, metricName, card) {
             date.input.value = '';
         } catch (e) {
             console.error("Save failed", e);
-            DOM.showToast("Failed to save record", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -4022,7 +4028,7 @@ function renderMiningGradeStockPileForm(dept, metricName, card) {
             date.input.value = '';
         } catch (e) {
             console.error("Save failed", e);
-            DOM.showToast("Failed to save record", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -4128,7 +4134,7 @@ function renderMiningPctMetricForm(dept, metricName, card) {
             date.input.value = '';
         } catch (e) {
             console.error("Save failed", e);
-            DOM.showToast("Failed to save record", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -4383,7 +4389,7 @@ function renderMiningMaterialForm(dept, metricName, card) {
 
         } catch (e) {
             console.error("Save failed", e);
-            DOM.showToast("Failed to save record", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -4630,7 +4636,7 @@ function renderMiningBlastHoleForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -4867,7 +4873,7 @@ function renderCrushingGradeForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -5074,7 +5080,7 @@ function renderCrushingOreForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save: " + e.message, "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -5325,7 +5331,7 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save: " + e.message, "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -5586,7 +5592,7 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save: " + e.message, "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -5840,7 +5846,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
             budgVar.input.value = '';
 
         } catch (e) {
-            DOM.showToast("Error: " + e.message, "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -6142,7 +6148,7 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             budgVar.input.value = '';
 
         } catch (e) {
-            DOM.showToast("Error: " + e.message, "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -6471,7 +6477,7 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
             budgVar.input.value = '';
 
         } catch (e) {
-            DOM.showToast("Error: " + e.message, "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -6651,7 +6657,7 @@ function renderMillingRuntimeForm(dept, metricName, card) {
             day2Var.input.value = '';
 
         } catch (e) {
-            DOM.showToast("Error: " + e.message, "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -7571,7 +7577,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
             budgVar.input.value = '';
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -7816,7 +7822,7 @@ function renderEngineeringLightVehiclesForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -8061,7 +8067,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
 
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -8323,7 +8329,7 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
 
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -8582,7 +8588,7 @@ function renderEngineeringAnxExcavatorsForm(dept, metricName, card) {
 
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -8831,7 +8837,7 @@ function renderEngineeringDumpTrucksForm(dept, metricName, card) {
 
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -9073,7 +9079,7 @@ function renderEngineeringArtDumpTrucksForm(dept, metricName, card) {
 
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -9315,7 +9321,7 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
 
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -9557,7 +9563,7 @@ function renderEngineeringGradersForm(dept, metricName, card) {
 
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -9712,7 +9718,7 @@ function renderEngineeringDozersForm(dept, metricName, card) {
             budgVar.input.value = '';
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -9920,7 +9926,7 @@ function renderEngineeringCrusherForm(dept, metricName, card) {
             budgVar.input.value = '';
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -10128,7 +10134,7 @@ function renderEngineeringMillForm(dept, metricName, card) {
             budgVar.input.value = '';
         } catch (error) {
             console.error(error);
-            DOM.showToast("Failed to save record.", "error");
+            showSaveError(error, "Failed to save record");
         }
     });
     btnContainer.appendChild(saveBtn);
@@ -10187,7 +10193,7 @@ function renderStandardKPIForm(dept, metricName, card) {
 
         } catch (e) {
             console.error(e);
-            DOM.showToast("Failed to save", "error");
+            showSaveError(e, "Failed to save record");
         }
     });
 
@@ -12246,6 +12252,9 @@ window.renderUserManagementPage = async function () {
                 <p class="text-muted mb-0 small">Manage user accounts, roles, and access</p>
             </div>
             <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary" id="btn-resync-metrics" onclick="resyncUserMetrics()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Resync Metrics
+                </button>
                 <button class="btn btn-outline-secondary" id="btn-export-users" onclick="exportUsersCSV()">
                     <i class="bi bi-download me-2"></i>Export CSV
                 </button>
@@ -12440,6 +12449,26 @@ window.exportUsersCSV = function () {
     link.click();
     document.body.removeChild(link);
     DOM.showToast('Users exported successfully', 'success');
+};
+
+window.resyncUserMetrics = async function () {
+    const btn = document.getElementById('btn-resync-metrics');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Resyncing…';
+    }
+    try {
+        const result = await resyncAllowedMetrics();
+        DOM.showToast(`Metrics resynced: ${result.updated || 0} of ${result.total || 0} users updated`, 'success');
+        await loadUsersTable();
+    } catch (e) {
+        DOM.showToast(`Failed to resync metrics: ${e.message}`, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Resync Metrics';
+        }
+    }
 };
 
 // ---- Modals ----

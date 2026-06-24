@@ -212,6 +212,14 @@ async function resetUserPassword(userId, newPassword) {
     return handleResponse(response);
 }
 
+async function resyncAllowedMetrics() {
+    const response = await fetch(`${API_BASE_URL}/admin/resync-allowed-metrics`, {
+        method: 'POST',
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+
 // ---------------------------------------------------------------------------
 // Summary Dashboard
 // ---------------------------------------------------------------------------

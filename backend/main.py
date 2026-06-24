@@ -485,6 +485,18 @@ def get_allowed_metrics_for_departments(departments: List[str]) -> List[str]:
     return list(allowed)
 
 
+def get_current_allowed_metrics(user: User) -> List[str]:
+    """Return the current metrics a user is allowed to edit.
+
+    This is derived from the user's departments and the current
+    DEPARTMENT_METRICS mapping.  Using the live mapping instead of the
+    cached ``allowed_metrics`` column means that newly added metrics are
+    automatically available to users whose departments already include them,
+    without requiring a manual cache refresh or database migration.
+    """
+    return get_allowed_metrics_for_departments(user.departments or [])
+
+
 async def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -613,7 +625,7 @@ def login(request: Request, data: Dict[str, Any], session: Session = Depends(get
                 "username": user.username,
                 "role": user.role,
                 "departments": user.departments or [],
-                "allowed_metrics": user.allowed_metrics or []
+                "allowed_metrics": get_current_allowed_metrics(user)
             }
         }
 
@@ -889,6 +901,30 @@ def update_user(
     session.commit()
     session.refresh(user)
     return user
+
+@app.post("/api/admin/resync-allowed-metrics")
+def resync_allowed_metrics(
+    _admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    """(Admin) Recompute allowed_metrics for every user from their departments.
+
+    This updates the cached ``allowed_metrics`` column so it matches the
+    current DEPARTMENT_METRICS mapping.  It is useful after adding new
+    metrics to a department for users whose access was granted before those
+    metrics existed.
+    """
+    users = session.exec(select(User)).all()
+    updated = 0
+    for user in users:
+        fresh = get_allowed_metrics_for_departments(user.departments or [])
+        current = user.allowed_metrics or []
+        if sorted(fresh) != sorted(current):
+            user.allowed_metrics = fresh
+            session.add(user)
+            updated += 1
+    session.commit()
+    return {"updated": updated, "total": len(users)}
 
 @app.patch("/api/users/{user_id}/status", response_model=UserResponse)
 def toggle_user_status(
@@ -1768,7 +1804,8 @@ def _deduplicate_daily_records(session: Session, department: str, record_date: d
 @app.post("/api/kpi/{department}", response_model=KPIRecord)
 def create_kpi_record(department: str, record: KPIRecord, session: Session = Depends(get_session), _user: User = Depends(get_current_active_user)):
     if (_user.role or "").lower() != "admin":
-        if record.metric_name != "Fixed Inputs" and record.metric_name not in (_user.allowed_metrics or []):
+        allowed = get_current_allowed_metrics(_user)
+        if record.metric_name != "Fixed Inputs" and record.metric_name not in allowed:
             raise HTTPException(status_code=403, detail="Not authorized to modify this metric")
 
     try:
@@ -1841,7 +1878,7 @@ def import_kpi_records(
 ):
     if (_user.role or "").lower() != "admin":
         # Check if user is allowed for ALL metrics in the import
-        allowed = set(_user.allowed_metrics or [])
+        allowed = set(get_current_allowed_metrics(_user))
         for r in records:
             if r.metric_name != "Fixed Inputs" and r.metric_name not in allowed:
                 raise HTTPException(status_code=403, detail=f"Not authorized to modify metric: {r.metric_name}")
@@ -1964,7 +2001,8 @@ def cascade_fixed_input(
     _user: User = Depends(get_current_active_user),
 ):
     if (_user.role or "").lower() != "admin":
-        if payload.metric_name not in (_user.allowed_metrics or []):
+        allowed = get_current_allowed_metrics(_user)
+        if payload.metric_name not in allowed:
             raise HTTPException(status_code=403, detail="Not authorized to modify this metric")
 
     try:
