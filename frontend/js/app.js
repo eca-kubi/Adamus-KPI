@@ -13050,7 +13050,7 @@ const METRIC_UNITS = {
     "Productivity - Dump Trucks": "bcm/hr",
     "Availability - Tipper Trucks": "%",
     "Utilization - Tipper Trucks": "%",
-    "Productivity - Tipper Trucks": "bcm/hr",
+    "Productivity - Tipper Trucks": "t/hr",
     "Availability - Drill Rigs": "%",
     "Utilization - Drill Rigs": "%",
     "Productivity - Drill Rigs": "m/hr",
@@ -13081,6 +13081,15 @@ const SUMMARY_METRIC_ORDER = {
     "Mining": ["Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Total Material Moved", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
     "Engineering": ["Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Pumps", "Drill Rigs"]
+};
+
+// Mining base metric -> associated grade metric. On the summary dashboard the
+// KPI cell for the base metric spans both rows so only the base name is shown.
+const GRADE_METRIC_PAIRS = {
+    "Ore Mined": "Ore Mined Grade",
+    "Rehandle": "Rehandle Grade",
+    "Near Pit Ore Stockpile": "Near Pit Ore Stockpile Grade",
+    "Main Rompad Stockpile": "Main Rompad Ore Stockpile Grade"
 };
 
 const DEPT_DISPLAY = {
@@ -13762,6 +13771,19 @@ function renderSummaryTable(departments) {
             <td>Last 7 Days Trend</td>
         </tr>`;
 
+        // Identify metric/grade pairs so the KPI column can be merged.
+        // This collapsing is currently only required for the Mining section.
+        const groupFlags = new Array(sorted.length).fill(null);
+        for (let i = 0; i < sorted.length - 1; i++) {
+            if (dept !== 'Mining' || groupFlags[i]) continue;
+            const baseName = sorted[i].metric_name;
+            const gradeName = GRADE_METRIC_PAIRS[baseName];
+            if (gradeName && sorted[i + 1].metric_name === gradeName) {
+                groupFlags[i] = 'groupStart';
+                groupFlags[i + 1] = 'groupMember';
+            }
+        }
+
         // Data rows
         sorted.forEach((m, idx) => {
             const d = m.data || {};
@@ -13780,6 +13802,8 @@ function renderSummaryTable(departments) {
             if (displayName === "Near Miss") {
                 displayName = "Near Miss / Dangerous Occurance";
             }
+
+            const groupRole = groupFlags[idx];
             
             const unit = METRIC_UNITS[m.metric_name] || '';
             const isEng = dept === 'Engineering';
@@ -13804,7 +13828,13 @@ function renderSummaryTable(departments) {
                 m.metric_name === 'Rehandle' || m.metric_name === 'Rehandle Grade'
             );
 
-            html += `<td style="font-weight:500;">${displayName}</td>`;
+            if (groupRole === 'groupStart') {
+                html += `<td style="font-weight:500;vertical-align:middle;" rowspan="2">${displayName}</td>`;
+            } else if (groupRole !== 'groupMember') {
+                html += `<td style="font-weight:500;">${displayName}</td>`;
+            }
+            // groupMember rows intentionally omit the KPI cell because it is
+            // spanned from the preceding base-metric row.
             html += `<td style="font-size:0.65rem;color:#666;">${unit}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
