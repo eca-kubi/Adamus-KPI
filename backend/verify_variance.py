@@ -99,8 +99,8 @@ def verify_variance_logic():
         print(f"Standard (Act 100, Fcst 120) -> Var1 Expected '-17%': {r_std.data.get('var1')}")
         assert r_std.data.get('var1') == "-17%"
 
-        # Setup Data for Grade Rehandle
-        metric_rehandle = "Grade Rehandle"
+        # Setup Data for Rehandle Grade
+        metric_rehandle = "Rehandle Grade"
         r_rehandle_1 = KPIRecord(
             department=dept_std,
             metric_name=metric_rehandle,
@@ -119,7 +119,7 @@ def verify_variance_logic():
         session.add(r_rehandle_2)
         session.commit()
         
-        # We need to trigger recalculation for Grade Rehandle
+        # We need to trigger recalculation for Rehandle Grade
         from backend.main import recalculate_metric_month
         recalculate_metric_month(dept_std, metric_rehandle, 2026, 1, session)
         session.commit()
@@ -127,7 +127,7 @@ def verify_variance_logic():
         session.refresh(r_rehandle_1)
         session.refresh(r_rehandle_2)
         
-        print("\n--- Verifying Grade Rehandle (Weighted average, forecast mirrors daily) ---")
+        print("\n--- Verifying Rehandle Grade (Weighted average, forecast mirrors daily) ---")
         print(f"Day 1 Var1 (Expected -6%): {r_rehandle_1.data.get('var1')}")
         print(f"Day 1 MTD Actual (Expected 1.5): {r_rehandle_1.data.get('mtd_actual')}")
         print(f"Day 1 MTD Forecast (Expected 1.6): {r_rehandle_1.data.get('mtd_forecast')}")
@@ -201,8 +201,8 @@ def verify_variance_logic():
         assert r_tonnes_rehandle_2.data.get('mtd_forecast') == 2700
         assert r_tonnes_rehandle_2.data.get('var2') == "11%"
 
-        # Setup Data for Stockpile (Stock Pile Near Pit)
-        metric_stockpile = "Stock Pile Near Pit"
+        # Setup Data for Stockpile (Near Pit Ore Stockpile)
+        metric_stockpile = "Near Pit Ore Stockpile"
         r_stockpile_1 = KPIRecord(
             department=dept_std,
             metric_name=metric_stockpile,
@@ -236,7 +236,7 @@ def verify_variance_logic():
         session.refresh(r_stockpile_2)
         session.refresh(r_stockpile_3)
 
-        print("\n--- Verifying Stock Pile Near Pit (Forecast forced 0, MTD Actual = Daily Actual, Outlook = Daily Actual) ---")
+        print("\n--- Verifying Near Pit Ore Stockpile (Forecast forced 0, MTD Actual = Daily Actual, Outlook = Daily Actual) ---")
         print(f"Day 1 Var1 (Expected '-'): {r_stockpile_1.data.get('var1')}")
         print(f"Day 1 MTD Actual (Expected 4500.5): {r_stockpile_1.data.get('mtd_actual')}")
         print(f"Day 1 MTD Forecast (Expected 0): {r_stockpile_1.data.get('mtd_forecast')}")
@@ -265,8 +265,8 @@ def verify_variance_logic():
 
         assert r_stockpile_3.data.get('var1') == "0%"
 
-        # Setup Data for Grade Stockpile (Grade Stockpile Near Pit)
-        metric_grade_stockpile = "Grade Stockpile Near Pit"
+        # Setup Data for Grade Stockpile (Near Pit Ore Stockpile Grade)
+        metric_grade_stockpile = "Near Pit Ore Stockpile Grade"
         r_gstockpile_1 = KPIRecord(
             department=dept_std,
             metric_name=metric_grade_stockpile,
@@ -291,7 +291,7 @@ def verify_variance_logic():
         session.refresh(r_gstockpile_1)
         session.refresh(r_gstockpile_2)
 
-        print("\n--- Verifying Grade Stockpile Near Pit (Forecast forced 0, MTD Actual = Daily Actual Grade, Outlook = Daily Actual Grade) ---")
+        print("\n--- Verifying Near Pit Ore Stockpile Grade (Forecast forced 0, MTD Actual = Daily Actual Grade, Outlook = Daily Actual Grade) ---")
         print(f"Day 1 Var1 (Expected '-'): {r_gstockpile_1.data.get('var1')}")
         print(f"Day 1 MTD Actual (Expected 1.5): {r_gstockpile_1.data.get('mtd_actual')}")
         print(f"Day 1 MTD Forecast (Expected 0): {r_gstockpile_1.data.get('mtd_forecast')}")
@@ -316,8 +316,8 @@ def verify_variance_logic():
         assert r_gstockpile_2.data.get('var2') == "0%"
         assert r_gstockpile_2.data.get('outlook') == 0.0
 
-        # Setup Data for Pct Metric (Availability - Dump Truck) under Mining
-        metric_avail = "Availability - Dump Truck"
+        # Setup Data for Pct Metric (Availability - Dump Trucks) under Mining
+        metric_avail = "Availability - Dump Trucks"
         r_avail_1 = KPIRecord(
             department=dept_std,
             metric_name=metric_avail,
@@ -342,7 +342,7 @@ def verify_variance_logic():
         session.refresh(r_avail_1)
         session.refresh(r_avail_2)
 
-        print("\n--- Verifying Availability - Dump Truck (Var1 = Actual - Forecast, MTD/Outlook forced to '-') ---")
+        print("\n--- Verifying Availability - Dump Trucks (Var1 = Actual - Forecast, MTD/Outlook forced to '-') ---")
         print(f"Day 1 Var1 (Expected '5%'): {r_avail_1.data.get('var1')}")
         print(f"Day 1 MTD Actual (Expected '-'): {r_avail_1.data.get('mtd_actual')}")
         print(f"Day 1 Outlook (Expected '-'): {r_avail_1.data.get('outlook')}")

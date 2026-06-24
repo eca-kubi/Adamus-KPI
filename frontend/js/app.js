@@ -231,17 +231,25 @@ const DEPT_METRICS = {
     "Mining": [
         "Fixed Inputs",
         "Ore Mined",
-        "Grade - Ore Mined",
-        "Grade Rehandle",
+        "Ore Mined Grade",
         "Rehandle",
-        "Stock Pile Near Pit",
-        "Stock Pile Main Rompad",
-        "Grade Stockpile Near Pit",
-        "Grade Stockpile Main Rompad",
-        "Availability - Dump Truck",
-        "Utilization - Dump Truck",
-        "Availability - Excavator",
-        "Utilization - Excavator",
+        "Rehandle Grade",
+        "Near Pit Ore Stockpile",
+        "Near Pit Ore Stockpile Grade",
+        "Main Rompad Stockpile",
+        "Main Rompad Ore Stockpile Grade",
+        "Availability - Dump Trucks",
+        "Utilization - Dump Trucks",
+        "Productivity - Dump Trucks",
+        "Availability - Excavators",
+        "Utilization - Excavators",
+        "Productivity - Excavators",
+        "Availability - Tipper Trucks",
+        "Utilization - Tipper Trucks",
+        "Productivity - Tipper Trucks",
+        "Availability - Drill Rigs",
+        "Utilization - Drill Rigs",
+        "Productivity - Drill Rigs",
         "Total Material Moved",
         "Blast Hole Drilling"
     ],
@@ -296,11 +304,11 @@ const IMPORT_CONFIGS = {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
     },
-    'Grade - Ore Mined': {
+    'Ore Mined Grade': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Actual(g/t)', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'daily_actual', 'daily_act_grade', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
     },
-    'Grade Rehandle': {
+    'Rehandle Grade': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Actual (g/t)', 'Daily Forecast (g/t)'],
         keys: ['date', 'daily_actual', 'daily_act_grade', 'daily_forecast']
     },
@@ -308,35 +316,51 @@ const IMPORT_CONFIGS = {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Forecast (t)'],
         keys: ['date', 'daily_actual', 'daily_forecast']
     },
-    'Stock Pile Near Pit': {
+    'Near Pit Ore Stockpile': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)'],
         keys: ['date', 'daily_actual']
     },
-    'Stock Pile Main Rompad': {
+    'Main Rompad Stockpile': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)'],
         keys: ['date', 'daily_actual']
     },
-    'Grade Stockpile Near Pit': {
+    'Near Pit Ore Stockpile Grade': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Actual (g/t)'],
         keys: ['date', 'daily_actual', 'daily_act_grade']
     },
-    'Grade Stockpile Main Rompad': {
+    'Main Rompad Ore Stockpile Grade': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Actual (g/t)'],
         keys: ['date', 'daily_actual', 'daily_act_grade']
     },
-    'Availability - Dump Truck': {
+    'Availability - Dump Trucks': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
         keys: ['date', 'daily_actual', 'daily_forecast']
     },
-    'Utilization - Dump Truck': {
+    'Utilization - Dump Trucks': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
         keys: ['date', 'daily_actual', 'daily_forecast']
     },
-    'Availability - Excavator': {
+    'Availability - Excavators': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
         keys: ['date', 'daily_actual', 'daily_forecast']
     },
-    'Utilization - Excavator': {
+    'Utilization - Excavators': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
+        keys: ['date', 'daily_actual', 'daily_forecast']
+    },
+    'Availability - Tipper Trucks': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
+        keys: ['date', 'daily_actual', 'daily_forecast']
+    },
+    'Utilization - Tipper Trucks': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
+        keys: ['date', 'daily_actual', 'daily_forecast']
+    },
+    'Availability - Drill Rigs': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
+        keys: ['date', 'daily_actual', 'daily_forecast']
+    },
+    'Utilization - Drill Rigs': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
         keys: ['date', 'daily_actual', 'daily_forecast']
     },
@@ -345,6 +369,22 @@ const IMPORT_CONFIGS = {
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
     },
     'Blast Hole Drilling': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Productivity - Excavators': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Productivity - Dump Trucks': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Productivity - Tipper Trucks': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Productivity - Drill Rigs': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
     },
@@ -1485,7 +1525,7 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if (metric === "Grade - Ore Mined") {
+        } else if (metric === "Ore Mined Grade") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -1522,7 +1562,11 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if (metric === "Blast Hole Drilling") {
+        } else if (metric === "Blast Hole Drilling" ||
+                   metric === "Productivity - Excavators" ||
+                   metric === "Productivity - Dump Trucks" ||
+                   metric === "Productivity - Tipper Trucks" ||
+                   metric === "Productivity - Drill Rigs") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -1733,26 +1777,36 @@ function renderKPIForm(dept, metricName) {
         renderGeologyTollForm(dept, metricName, card);
     } else if (dept === "Mining" && metricName === "Ore Mined") {
         renderMiningOreForm(dept, metricName, card);
-    } else if (dept === "Mining" && metricName === "Grade - Ore Mined") {
+    } else if (dept === "Mining" && metricName === "Ore Mined Grade") {
         renderMiningGradeForm(dept, metricName, card);
-    } else if (dept === "Mining" && metricName === "Grade Rehandle") {
+    } else if (dept === "Mining" && metricName === "Rehandle Grade") {
         renderMiningGradeRehandleForm(dept, metricName, card);
     } else if (dept === "Mining" && metricName === "Rehandle") {
         renderMiningRehandleForm(dept, metricName, card);
-    } else if (dept === "Mining" && (metricName === "Stock Pile Near Pit" || metricName === "Stock Pile Main Rompad")) {
+    } else if (dept === "Mining" && (metricName === "Near Pit Ore Stockpile" || metricName === "Main Rompad Stockpile")) {
         renderMiningStockPileForm(dept, metricName, card);
-    } else if (dept === "Mining" && (metricName === "Grade Stockpile Near Pit" || metricName === "Grade Stockpile Main Rompad")) {
+    } else if (dept === "Mining" && (metricName === "Near Pit Ore Stockpile Grade" || metricName === "Main Rompad Ore Stockpile Grade")) {
         renderMiningGradeStockPileForm(dept, metricName, card);
     } else if (dept === "Mining" && (
-        metricName === "Availability - Dump Truck" ||
-        metricName === "Utilization - Dump Truck" ||
-        metricName === "Availability - Excavator" ||
-        metricName === "Utilization - Excavator"
+        metricName === "Availability - Dump Trucks" ||
+        metricName === "Utilization - Dump Trucks" ||
+        metricName === "Availability - Excavators" ||
+        metricName === "Utilization - Excavators" ||
+        metricName === "Availability - Tipper Trucks" ||
+        metricName === "Utilization - Tipper Trucks" ||
+        metricName === "Availability - Drill Rigs" ||
+        metricName === "Utilization - Drill Rigs"
     )) {
         renderMiningPctMetricForm(dept, metricName, card);
     } else if (dept === "Mining" && metricName === "Total Material Moved") {
         renderMiningMaterialForm(dept, metricName, card);
-    } else if (dept === "Mining" && metricName === "Blast Hole Drilling") {
+    } else if (dept === "Mining" && (
+        metricName === "Blast Hole Drilling" ||
+        metricName === "Productivity - Excavators" ||
+        metricName === "Productivity - Dump Trucks" ||
+        metricName === "Productivity - Tipper Trucks" ||
+        metricName === "Productivity - Drill Rigs"
+    )) {
         renderMiningBlastHoleForm(dept, metricName, card);
     } else if (dept === "Crushing" && metricName === "Grade - Ore Crushed") {
         renderCrushingGradeForm(dept, metricName, card);
@@ -10683,8 +10737,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Grade - Ore Mined
-        if (STATE.currentMetric === 'Grade - Ore Mined') {
+        // Handling for Ore Mined Grade
+        if (STATE.currentMetric === 'Ore Mined Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | Daily Act (Ton) | Daily Act (g/t) | Daily Fcst | Var % | MTD Act | MTD Fcst | Var % | Outlook | Full Fcst | Full Budg | Var % | Action
@@ -10751,7 +10805,7 @@ async function loadRecentRecords(dept) {
         }
 
         // Handling for Stockpile metrics
-        if (STATE.currentMetric === 'Stock Pile Near Pit' || STATE.currentMetric === 'Stock Pile Main Rompad') {
+        if (STATE.currentMetric === 'Near Pit Ore Stockpile' || STATE.currentMetric === 'Main Rompad Stockpile') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             thead.innerHTML = `
@@ -10815,7 +10869,7 @@ async function loadRecentRecords(dept) {
         }
 
         // Handling for Grade Stockpile metrics
-        if (STATE.currentMetric === 'Grade Stockpile Near Pit' || STATE.currentMetric === 'Grade Stockpile Main Rompad') {
+        if (STATE.currentMetric === 'Near Pit Ore Stockpile Grade' || STATE.currentMetric === 'Main Rompad Ore Stockpile Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             thead.innerHTML = `
@@ -10882,10 +10936,14 @@ async function loadRecentRecords(dept) {
 
         // Handling for Mining Pct metrics
         if (
-            STATE.currentMetric === 'Availability - Dump Truck' ||
-            STATE.currentMetric === 'Utilization - Dump Truck' ||
-            STATE.currentMetric === 'Availability - Excavator' ||
-            STATE.currentMetric === 'Utilization - Excavator'
+            STATE.currentMetric === 'Availability - Dump Trucks' ||
+            STATE.currentMetric === 'Utilization - Dump Trucks' ||
+            STATE.currentMetric === 'Availability - Excavators' ||
+            STATE.currentMetric === 'Utilization - Excavators' ||
+            STATE.currentMetric === 'Availability - Tipper Trucks' ||
+            STATE.currentMetric === 'Utilization - Tipper Trucks' ||
+            STATE.currentMetric === 'Availability - Drill Rigs' ||
+            STATE.currentMetric === 'Utilization - Drill Rigs'
         ) {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
@@ -11013,8 +11071,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Grade Rehandle
-        if (STATE.currentMetric === 'Grade Rehandle') {
+        // Handling for Rehandle Grade
+        if (STATE.currentMetric === 'Rehandle Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | Daily Act (t) | Daily Act (g/t) | Daily Fcst (g/t) | Var % | Status | MTD Act | MTD Fcst | Var % | Status | Outlook | Full Forecast | Full Budget | Var % | Status | Action
@@ -11213,8 +11271,14 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Blast Hole Drilling
-        if (STATE.currentMetric === 'Blast Hole Drilling') {
+        // Handling for Blast Hole Drilling and Mining productivity metrics
+        if (
+            STATE.currentMetric === 'Blast Hole Drilling' ||
+            STATE.currentMetric === 'Productivity - Excavators' ||
+            STATE.currentMetric === 'Productivity - Dump Trucks' ||
+            STATE.currentMetric === 'Productivity - Tipper Trucks' ||
+            STATE.currentMetric === 'Productivity - Drill Rigs'
+        ) {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             thead.innerHTML = `
@@ -12969,19 +13033,27 @@ const METRIC_UNITS = {
     "Grade - Ore Crushed": "g/t",
     // Mining
     "Ore Mined": "t",
-    "Grade - Ore Mined": "g/t",
-    "Grade Rehandle": "g/t",
+    "Ore Mined Grade": "g/t",
+    "Rehandle Grade": "g/t",
     "Rehandle": "t",
-    "Stock Pile Near Pit": "t",
-    "Stock Pile Main Rompad": "t",
-    "Grade Stockpile Near Pit": "g/t",
-    "Grade Stockpile Main Rompad": "g/t",
-    "Availability - Dump Truck": "%",
-    "Utilization - Dump Truck": "%",
-    "Availability - Excavator": "%",
-    "Utilization - Excavator": "%",
+    "Near Pit Ore Stockpile": "t",
+    "Main Rompad Stockpile": "t",
+    "Near Pit Ore Stockpile Grade": "g/t",
+    "Main Rompad Ore Stockpile Grade": "g/t",
+    "Availability - Dump Trucks": "%",
+    "Utilization - Dump Trucks": "%",
+    "Availability - Excavators": "%",
+    "Utilization - Excavators": "%",
     "Total Material Moved": "bcm",
     "Blast Hole Drilling": "m",
+    "Productivity - Excavators": "bcm/hr",
+    "Productivity - Dump Trucks": "bcm/hr",
+    "Availability - Tipper Trucks": "%",
+    "Utilization - Tipper Trucks": "%",
+    "Productivity - Tipper Trucks": "bcm/hr",
+    "Availability - Drill Rigs": "%",
+    "Utilization - Drill Rigs": "%",
+    "Productivity - Drill Rigs": "m/hr",
     // Geology
     "Grade Control Drilling": "m",
     "Toll": "t",
@@ -13006,7 +13078,7 @@ const SUMMARY_METRIC_ORDER = {
     "OHS": ["Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
     "Milling_CIL": ["Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
-    "Mining": ["Ore Mined", "Grade - Ore Mined", "Grade Rehandle", "Rehandle", "Stock Pile Near Pit", "Stock Pile Main Rompad", "Grade Stockpile Near Pit", "Grade Stockpile Main Rompad", "Availability - Dump Truck", "Utilization - Dump Truck", "Availability - Excavator", "Utilization - Excavator", "Total Material Moved", "Blast Hole Drilling"],
+    "Mining": ["Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Total Material Moved", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
     "Engineering": ["Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Pumps", "Drill Rigs"]
 };
@@ -13667,6 +13739,7 @@ function renderSummaryTable(departments) {
         const secLabel = DEPT_SECONDARY_LABEL[dept] || '';
         const secLabel2 = DEPT_SECONDARY_LABEL2[dept] || '';
         const isOHS = dept === 'OHS';
+        const isMilling = dept === 'Milling_CIL';
 
         // Build all metrics in defined order, showing empty rows when no data exists
         const order = SUMMARY_METRIC_ORDER[dept] || [];
@@ -13682,8 +13755,8 @@ function renderSummaryTable(departments) {
 
         // Department section header row
         html += `<tr class="summary-dept-hdr dept-hdr-${deptKey}">
-            <td>Area</td><td>KPI</td><td>Unit</td><td>Daily Actual</td><td>${secLabel}</td>
-            <td>Daily Forecast</td><td>${secLabel2}</td><td>Variance</td><td>Status</td>
+            <td>Area</td><td>KPI</td><td>Unit</td><td>Daily Actual</td><td>Daily Forecast</td><td>Variance</td><td>Status</td><td>${secLabel}</td>
+            <td>${secLabel2}</td><td>${isMilling ? 'Day-2 Var' : ''}</td>
             <td>MTD Actual</td><td>MTD Forecast</td><td>Variance</td><td>Status</td>
             <td>Outlook (a)</td><td>Forecast (b)</td><td>Budget (c)</td><td>Variance (a-b)</td><td>Status</td>
             <td>Last 7 Days Trend</td>
@@ -13711,30 +13784,35 @@ function renderSummaryTable(departments) {
             const unit = METRIC_UNITS[m.metric_name] || '';
             const isEng = dept === 'Engineering';
             const isStockpileMetric = (
-                m.metric_name === 'Stock Pile Near Pit' ||
-                m.metric_name === 'Stock Pile Main Rompad' ||
-                m.metric_name === 'Grade Stockpile Near Pit' ||
-                m.metric_name === 'Grade Stockpile Main Rompad'
+                m.metric_name === 'Near Pit Ore Stockpile' ||
+                m.metric_name === 'Main Rompad Stockpile' ||
+                m.metric_name === 'Near Pit Ore Stockpile Grade' ||
+                m.metric_name === 'Main Rompad Ore Stockpile Grade'
             );
             const isRuntimeThroughput = (
                 m.metric_name === 'Runtime' || m.metric_name === 'Throughput' ||
-                m.metric_name === 'Availability - Dump Truck' ||
-                m.metric_name === 'Utilization - Dump Truck' ||
-                m.metric_name === 'Availability - Excavator' ||
-                m.metric_name === 'Utilization - Excavator'
+                m.metric_name === 'Availability - Dump Trucks' ||
+                m.metric_name === 'Utilization - Dump Trucks' ||
+                m.metric_name === 'Availability - Excavators' ||
+                m.metric_name === 'Utilization - Excavators' ||
+                m.metric_name === 'Availability - Tipper Trucks' ||
+                m.metric_name === 'Utilization - Tipper Trucks' ||
+                m.metric_name === 'Availability - Drill Rigs' ||
+                m.metric_name === 'Utilization - Drill Rigs'
             );
             const isRehandleMetric = (
-                m.metric_name === 'Rehandle' || m.metric_name === 'Grade Rehandle'
+                m.metric_name === 'Rehandle' || m.metric_name === 'Rehandle Grade'
             );
 
             html += `<td style="font-weight:500;">${displayName}</td>`;
             html += `<td style="font-size:0.65rem;color:#666;">${unit}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name)}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name)}</td>`;
+            html += `<td class="${isMilling ? svarClass(d.day2_var) : 'num-cell'}">${isMilling ? fmtVal(d.day2_var, isOHS) : ''}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_actual, isOHS))}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_forecast, isOHS))}</td>`;
             html += `<td class="${(isStockpileMetric || isRuntimeThroughput) ? 'svar-na' : svarClass(v2)}">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(v2, isOHS))}</td>`;
@@ -13751,7 +13829,7 @@ function renderSummaryTable(departments) {
 
         // Empty state row if no data
         if (sorted.length === 0) {
-            html += `<tr><td class="summary-area-cell area-${deptKey}">${deptLabel}</td><td colspan="18" class="text-muted" style="text-align:center;">No data for this date</td></tr>`;
+            html += `<tr><td class="summary-area-cell area-${deptKey}">${deptLabel}</td><td colspan="19" class="text-muted" style="text-align:center;">No data for this date</td></tr>`;
         }
     }
 
@@ -13842,15 +13920,15 @@ function renderCommentsTable(departments, dateStr) {
         csvBtn.onclick = () => exportCommentsCSV(rows, dateStr);
     }
 
-    // Build table — columns: Area | KPI | Daily Actual | Sec | Daily Forecast | Sec2 | Variance | Status | Comments
+    // Build table — columns: Area | KPI | Daily Actual | Daily Forecast | Variance | Status | Sec | Sec2 | Comments
     let html = `
         <table class="summary-table">
         <thead>
             <tr class="summary-dept-hdr">
                 <th>Area</th><th>KPI</th>
-                <th>Daily Actual</th><th></th>
-                <th>Daily Forecast</th><th></th>
-                <th>Variance</th><th>Status</th>
+                <th>Daily Actual</th>
+                <th>Daily Forecast</th>
+                <th>Variance</th><th>Status</th><th></th><th></th>
                 <th style="min-width:200px;">Comments</th>
             </tr>
         </thead>
@@ -13866,10 +13944,10 @@ function renderCommentsTable(departments, dateStr) {
     for (const r of rows) {
         const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
         const isStockpileMetric = (
-            metricName === 'Stock Pile Near Pit' ||
-            metricName === 'Stock Pile Main Rompad' ||
-            metricName === 'Grade Stockpile Near Pit' ||
-            metricName === 'Grade Stockpile Main Rompad'
+            metricName === 'Near Pit Ore Stockpile' ||
+            metricName === 'Main Rompad Stockpile' ||
+            metricName === 'Near Pit Ore Stockpile Grade' ||
+            metricName === 'Main Rompad Ore Stockpile Grade'
         );
         html += '<tr>';
         if (dept !== lastDept) {
@@ -13879,11 +13957,11 @@ function renderCommentsTable(departments, dateStr) {
         }
         html += `<td style="font-weight:500;">${displayName}</td>`;
         html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
         html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         html += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
         html += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
         html += '</tr>';
     }
@@ -13897,20 +13975,20 @@ function renderCommentsTable(departments, dateStr) {
         const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
         const deptKey = dept.toLowerCase();
         const isStockpileMetric = (
-            metricName === 'Stock Pile Near Pit' ||
-            metricName === 'Stock Pile Main Rompad' ||
-            metricName === 'Grade Stockpile Near Pit' ||
-            metricName === 'Grade Stockpile Main Rompad'
+            metricName === 'Near Pit Ore Stockpile' ||
+            metricName === 'Main Rompad Stockpile' ||
+            metricName === 'Near Pit Ore Stockpile Grade' ||
+            metricName === 'Main Rompad Ore Stockpile Grade'
         );
         exportRowsHtml += '<tr>';
         exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
         exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
         exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
         exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
         exportRowsHtml += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         exportRowsHtml += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
         exportRowsHtml += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
         exportRowsHtml += '</tr>';
     }
@@ -13919,9 +13997,9 @@ function renderCommentsTable(departments, dateStr) {
         <thead>
             <tr class="summary-dept-hdr">
                 <th>Area</th><th>KPI</th>
-                <th>Daily Actual</th><th></th>
-                <th>Daily Forecast</th><th></th>
-                <th>Variance</th><th>Status</th>
+                <th>Daily Actual</th>
+                <th>Daily Forecast</th>
+                <th>Variance</th><th>Status</th><th></th><th></th>
                 <th style="min-width:200px;">Comments</th>
             </tr>
         </thead>
@@ -14034,7 +14112,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
     // 1. Ignore existing computed values from CSV
     COMPUTED_FIELDS.forEach(field => delete d[field]);
 
-    if (metric === 'Stock Pile Near Pit' || metric === 'Stock Pile Main Rompad' || metric === 'Grade Stockpile Near Pit' || metric === 'Grade Stockpile Main Rompad') {
+    if (metric === 'Near Pit Ore Stockpile' || metric === 'Main Rompad Stockpile' || metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
         d.daily_forecast = 0;
     }
 
@@ -14090,18 +14168,18 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         if (d.day2 !== undefined && d.day2 !== null && d.day2_forecast !== undefined && d.day2_forecast !== null) {
             d.day2_var = calcVar(d.day2, d.day2_forecast);
         }
-    } else if (metric === 'Grade Rehandle') {
+    } else if (metric === 'Rehandle Grade') {
         if (d.daily_act_grade !== undefined && d.daily_forecast !== undefined) {
             d.var1 = calcVar(d.daily_act_grade, d.daily_forecast);
             d.daily_var = d.var1;
         }
-    } else if (metric === 'Grade Stockpile Near Pit' || metric === 'Grade Stockpile Main Rompad') {
+    } else if (metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
         if (d.daily_act_grade !== undefined) {
             const currentDailyActGrade = parseFloat(d.daily_act_grade) || 0;
             d.var1 = currentDailyActGrade === 0 ? "0%" : "-";
             d.daily_var = d.var1;
         }
-    } else if (metric === 'Availability - Dump Truck' || metric === 'Utilization - Dump Truck' || metric === 'Availability - Excavator' || metric === 'Utilization - Excavator') {
+    } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
         if (d.daily_actual !== undefined && d.daily_forecast !== undefined) {
             const act = parseFloat(d.daily_actual) || 0;
             const fcst = parseFloat(d.daily_forecast) || 0;
@@ -14124,7 +14202,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
             const prevMtd = pd ? (parseFloat(pd.mtd_actual) || 0) : 0;
             d.mtd_actual = prevMtd + parseFloat(d.wet_tonnes);
         }
-    } else if (metric === "Grade Rehandle") {
+    } else if (metric === "Rehandle Grade") {
         let cumTonnes = 0;
         let cumSumProd = 0;
         
@@ -14148,7 +14226,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
                     cumSumProd += (tonnes * grade);
                 });
             } catch (err) {
-                console.error("Failed to fetch history for MTD Grade Rehandle calculation:", err);
+                console.error("Failed to fetch history for MTD Rehandle Grade calculation:", err);
             }
         }
         
@@ -14165,15 +14243,15 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         }
         
         d.mtd_forecast = parseFloat((parseFloat(d.daily_forecast) || 0).toFixed(2));
-    } else if (metric === 'Stock Pile Near Pit' || metric === 'Stock Pile Main Rompad') {
+    } else if (metric === 'Near Pit Ore Stockpile' || metric === 'Main Rompad Stockpile') {
         if (d.daily_actual !== undefined) {
             d.mtd_actual = parseFloat(d.daily_actual) || 0;
         }
-    } else if (metric === 'Grade Stockpile Near Pit' || metric === 'Grade Stockpile Main Rompad') {
+    } else if (metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
         if (d.daily_act_grade !== undefined) {
             d.mtd_actual = parseFloat(d.daily_act_grade) || 0;
         }
-    } else if (metric === 'Availability - Dump Truck' || metric === 'Utilization - Dump Truck' || metric === 'Availability - Excavator' || metric === 'Utilization - Excavator') {
+    } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
         d.mtd_actual = "-";
     } else {
         if (d.daily_actual !== undefined) {
@@ -14182,11 +14260,11 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         }
     }
 
-    if (metric === 'Stock Pile Near Pit' || metric === 'Stock Pile Main Rompad' || metric === 'Grade Stockpile Near Pit' || metric === 'Grade Stockpile Main Rompad') {
+    if (metric === 'Near Pit Ore Stockpile' || metric === 'Main Rompad Stockpile' || metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
         d.mtd_forecast = 0;
-    } else if (metric === 'Availability - Dump Truck' || metric === 'Utilization - Dump Truck' || metric === 'Availability - Excavator' || metric === 'Utilization - Excavator') {
+    } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
         d.mtd_forecast = "-";
-    } else if (metric !== "Grade Rehandle") {
+    } else if (metric !== "Rehandle Grade") {
         if (d.daily_forecast !== undefined) {
             const prevMtdFcst = pd ? (parseFloat(pd.mtd_forecast) || 0) : 0;
             d.mtd_forecast = prevMtdFcst + parseFloat(d.daily_forecast);
@@ -14194,9 +14272,9 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
     }
 
     if (d.mtd_actual !== undefined && d.mtd_forecast !== undefined) {
-        if (metric === 'Grade Stockpile Near Pit' || metric === 'Grade Stockpile Main Rompad') {
+        if (metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
             d.var2 = (parseFloat(d.mtd_actual) || 0) === 0 ? "0%" : "-";
-        } else if (metric === 'Availability - Dump Truck' || metric === 'Utilization - Dump Truck' || metric === 'Availability - Excavator' || metric === 'Utilization - Excavator') {
+        } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
             d.var2 = "-";
         } else {
             d.var2 = calcVar(d.mtd_actual, d.mtd_forecast);
@@ -14215,25 +14293,25 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         const fullFcst = monthFixed ? (parseFloat(monthFixed.data.full_forecast) || 0) : (parseFloat(d.full_forecast) || 0);
         const fullBudg = monthFixed ? (parseFloat(monthFixed.data.full_budget) || 0) : (parseFloat(d.full_budget) || 0);
 
-        if (metric === 'Grade Rehandle' || metric === 'Rehandle') {
+        if (metric === 'Rehandle Grade' || metric === 'Rehandle') {
             d.full_forecast = "-";
             d.full_budget = "-";
             d.outlook = "-";
             d.var3 = "-";
             d.budget_var = "-";
-        } else if (metric === 'Stock Pile Near Pit' || metric === 'Stock Pile Main Rompad') {
+        } else if (metric === 'Near Pit Ore Stockpile' || metric === 'Main Rompad Stockpile') {
             d.full_forecast = "-";
             d.full_budget = "-";
             d.outlook = parseFloat(d.daily_actual) || 0;
             d.var3 = "-";
             d.budget_var = "-";
-        } else if (metric === 'Grade Stockpile Near Pit' || metric === 'Grade Stockpile Main Rompad') {
+        } else if (metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
             d.full_forecast = "-";
             d.full_budget = "-";
             d.outlook = parseFloat(d.daily_act_grade) || 0;
             d.var3 = "-";
             d.budget_var = "-";
-        } else if (metric === 'Availability - Dump Truck' || metric === 'Utilization - Dump Truck' || metric === 'Availability - Excavator' || metric === 'Utilization - Excavator') {
+        } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
             d.full_forecast = "-";
             d.full_budget = "-";
             d.outlook = "-";
