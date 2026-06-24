@@ -12954,57 +12954,52 @@ window.loadDepartmentView = async function(dept) {
 // ---------------------------------------------------------------------------
 
 const METRIC_UNITS = {
-    // OHS
-    "Safety Incidents": "(Injuries)",
-    "Environmental Incidents": "(Incidents)",
-    "Property Damage": "(Incidents)",
-    "Near Miss": "(Incidents)",
     // Milling_CIL
-    "Gold Contained": "(Oz)",
-    "Gold Recovery": "(Oz)",
-    "Recovery": "(%)",
-    "Plant Feed Grade": "(g/t)",
-    "Tonnes Treated": "(t)",
-    "Runtime": "(hr)",
-    "Throughput": "(t/hr)",
-    "Toll Tonnes": "(t)",
-    "Toll Grade": "(g/t)",
+    "Gold Contained": "Oz",
+    "Gold Recovery": "Oz",
+    "Recovery": "%",
+    "Plant Feed Grade": "g/t",
+    "Tonnes Treated": "t",
+    "Runtime": "hr",
+    "Throughput": "t/hr",
+    "Toll Tonnes": "t",
+    "Toll Grade": "g/t",
     // Crushing
-    "Ore Crushed": "(t)",
-    "Grade - Ore Crushed": "(g/t)",
+    "Ore Crushed": "t",
+    "Grade - Ore Crushed": "g/t",
     // Mining
-    "Ore Mined": "(t)",
-    "Grade - Ore Mined": "(g/t)",
-    "Grade Rehandle": "(g/t)",
-    "Rehandle": "(t)",
-    "Stock Pile Near Pit": "(t)",
-    "Stock Pile Main Rompad": "(t)",
-    "Grade Stockpile Near Pit": "(g/t)",
-    "Grade Stockpile Main Rompad": "(g/t)",
-    "Availability - Dump Truck": "(%)",
-    "Utilization - Dump Truck": "(%)",
-    "Availability - Excavator": "(%)",
-    "Utilization - Excavator": "(%)",
-    "Total Material Moved": "(bcm)",
-    "Blast Hole Drilling": "(m)",
+    "Ore Mined": "t",
+    "Grade - Ore Mined": "g/t",
+    "Grade Rehandle": "g/t",
+    "Rehandle": "t",
+    "Stock Pile Near Pit": "t",
+    "Stock Pile Main Rompad": "t",
+    "Grade Stockpile Near Pit": "g/t",
+    "Grade Stockpile Main Rompad": "g/t",
+    "Availability - Dump Truck": "%",
+    "Utilization - Dump Truck": "%",
+    "Availability - Excavator": "%",
+    "Utilization - Excavator": "%",
+    "Total Material Moved": "bcm",
+    "Blast Hole Drilling": "m",
     // Geology
-    "Grade Control Drilling": "(m)",
-    "Toll": "(t)",
-    "Exploration Drilling": "(m)",
+    "Grade Control Drilling": "m",
+    "Toll": "t",
+    "Exploration Drilling": "m",
     // Engineering
-    "Tipper Trucks": "(%)",
-    "Prime Excavators": "(%)",
-    "Anx Excavators": "(%)",
-    "Dump Trucks": "(%)",
-    "ART Dump Trucks": "(%)",
-    "Wheel Loaders": "(%)",
-    "Graders": "(%)",
-    "Dozers": "(%)",
-    "Crusher": "(%)",
-    "Mill": "(%)",
-    "Light Vehicles": "(%)",
-    "Pumps": "(%)",
-    "Drill Rigs": "(%)"
+    "Tipper Trucks": "%",
+    "Prime Excavators": "%",
+    "Anx Excavators": "%",
+    "Dump Trucks": "%",
+    "ART Dump Trucks": "%",
+    "Wheel Loaders": "%",
+    "Graders": "%",
+    "Dozers": "%",
+    "Crusher": "%",
+    "Mill": "%",
+    "Light Vehicles": "%",
+    "Pumps": "%",
+    "Drill Rigs": "%"
 };
 
 const SUMMARY_METRIC_ORDER = {
@@ -13687,7 +13682,7 @@ function renderSummaryTable(departments) {
 
         // Department section header row
         html += `<tr class="summary-dept-hdr dept-hdr-${deptKey}">
-            <td>Area</td><td>KPI</td><td>Daily Actual</td><td>${secLabel}</td>
+            <td>Area</td><td>KPI</td><td>Unit</td><td>Daily Actual</td><td>${secLabel}</td>
             <td>Daily Forecast</td><td>${secLabel2}</td><td>Variance</td><td>Status</td>
             <td>MTD Actual</td><td>MTD Forecast</td><td>Variance</td><td>Status</td>
             <td>Outlook (a)</td><td>Forecast (b)</td><td>Budget (c)</td><td>Variance (a-b)</td><td>Status</td>
@@ -13709,16 +13704,11 @@ function renderSummaryTable(departments) {
             }
 
             let displayName = m.metric_name;
-            if (displayName === "Safety Incidents") {
-                displayName = "Safety Incidents (Injuries)";
-            } else if (displayName === "Near Miss") {
+            if (displayName === "Near Miss") {
                 displayName = "Near Miss / Dangerous Occurance";
             }
             
-            const unit = METRIC_UNITS[m.metric_name];
-            if (unit && !displayName.includes(unit)) {
-                displayName = `${displayName} ${unit}`;
-            }
+            const unit = METRIC_UNITS[m.metric_name] || '';
             const isEng = dept === 'Engineering';
             const isStockpileMetric = (
                 m.metric_name === 'Stock Pile Near Pit' ||
@@ -13738,6 +13728,7 @@ function renderSummaryTable(departments) {
             );
 
             html += `<td style="font-weight:500;">${displayName}</td>`;
+            html += `<td style="font-size:0.65rem;color:#666;">${unit}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
@@ -13760,7 +13751,7 @@ function renderSummaryTable(departments) {
 
         // Empty state row if no data
         if (sorted.length === 0) {
-            html += `<tr><td class="summary-area-cell area-${deptKey}">${deptLabel}</td><td colspan="17" class="text-muted" style="text-align:center;">No data for this date</td></tr>`;
+            html += `<tr><td class="summary-area-cell area-${deptKey}">${deptLabel}</td><td colspan="18" class="text-muted" style="text-align:center;">No data for this date</td></tr>`;
         }
     }
 
