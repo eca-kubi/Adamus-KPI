@@ -1350,11 +1350,15 @@ def get_summary_dashboard(
     trend_start = target_date - timedelta(days=6)
     query_start = min(month_start, trend_start)
 
-    # Fetch all records from query_start to target_date
+    # Fetch only records for visible departments in the date window.
+    # Filtering in the database avoids pulling every department's rows into the
+    # application when a user can only see a subset, and makes the summary
+    # dashboard scale as data volumes grow.
     all_records = session.exec(
         select(KPIRecord).where(
             KPIRecord.date >= query_start,
-            KPIRecord.date <= target_date
+            KPIRecord.date <= target_date,
+            KPIRecord.department.in_(visible_departments)
         )
     ).all()
 
