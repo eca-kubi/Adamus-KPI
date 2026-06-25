@@ -143,6 +143,26 @@ window.restoreFormDraft = restoreFormDraft;
 window.clearFormDraft = clearFormDraft;
 
 /**
+ * Set a form input value, cleaning formatted strings (e.g. "85%") for
+ * number inputs so the browser accepts them.
+ */
+function setFormInputValue(input, value) {
+    if (!input) return false;
+    if (value === undefined || value === null || value === '' || value === '-') {
+        input.value = '';
+        return true;
+    }
+    if (input.type === 'number') {
+        const cleaned = String(value).replace(/,/g, '').replace('%', '').trim();
+        const num = parseFloat(cleaned);
+        input.value = isNaN(num) ? '' : num;
+        return true;
+    }
+    input.value = value;
+    return true;
+}
+
+/**
  * Auto-populate a daily input form with data from an existing record for the selected date.
  * Populates ONLY raw input fields; calculated fields (MTD, variance, outlook) are left to
  * the existing calculation listeners which will fire afterward.
@@ -169,12 +189,7 @@ async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap) {
             for (const [dataKey, elementId] of Object.entries(fieldMap)) {
                 const el = document.getElementById(elementId);
                 if (!el) continue;
-                const val = existingRecord.data[dataKey];
-                if (val !== undefined && val !== null && val !== '' && val !== '-') {
-                    el.value = val;
-                } else {
-                    el.value = '';
-                }
+                setFormInputValue(el, existingRecord.data[dataKey]);
             }
             return existingRecord;
         }
@@ -4486,10 +4501,18 @@ function renderMiningBlastHoleForm(dept, metricName, card) {
     date.input.addEventListener('change', async () => {
         await autoPopulateDailyForm(dept, metricName, date.input.value, {
             daily_actual: `input-${dept}-daily-act`,
-            daily_forecast: `input-${dept}-daily-fcst`
+            daily_forecast: `input-${dept}-daily-fcst`,
+            mtd_actual: `input-${dept}-mtd-act`,
+            mtd_forecast: `input-${dept}-mtd-fcst`,
+            outlook: `input-${dept}-outlook`,
+            full_forecast: `input-${dept}-full-fcst`,
+            full_budget: `input-${dept}-full-budg`
         });
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
+        outlook.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     date.input.addEventListener('change', calculateMTD);
@@ -10314,7 +10337,7 @@ window.editRecord = (id) => {
                     for (const id of possibleIds) {
                         const input = document.getElementById(id);
                         if (input) {
-                            input.value = val;
+                            setFormInputValue(input, val);
                             input.dispatchEvent(new Event('input', { bubbles: true }));
                             // Break after finding one match, assuming only one exists per key
                             break;
