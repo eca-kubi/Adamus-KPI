@@ -13239,9 +13239,12 @@ window.renderSummaryDashboardPage = async function () {
     switchToMainLayout();
     renderSidebar();
 
-    const today = new Date().toISOString().slice(0, 10);
-    const selectedDate = STATE.summaryDate || today;
-    
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    const selectedDate = STATE.summaryDate || yesterdayStr;
+
     // Default to the correct date in the state if not set
     if (!STATE.summaryDate) {
         STATE.summaryDate = selectedDate;
