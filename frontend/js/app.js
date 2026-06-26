@@ -13102,7 +13102,7 @@ const METRIC_UNITS = {
     "Productivity - Dump Trucks": "bcm/hr",
     "Availability - Tipper Trucks": "%",
     "Utilization - Tipper Trucks": "%",
-    "Productivity - Tipper Trucks": "t/hr",
+    "Productivity - Tipper Trucks": "bcm/hr",
     "Availability - Drill Rigs": "%",
     "Utilization - Drill Rigs": "%",
     "Productivity - Drill Rigs": "m/hr",
