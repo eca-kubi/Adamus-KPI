@@ -22,7 +22,7 @@ depends_on: Union[str, Sequence[str], None] = None
 DEPARTMENT_METRICS = {
     "Milling_CIL": ["Fixed Inputs", "Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"],
     "Geology": ["Fixed Inputs", "Exploration Drilling", "Grade Control Drilling", "Toll"],
-    "Mining": ["Fixed Inputs", "Ore Mined", "Grade - Ore Mined", "Total Material Moved", "Blast Hole Drilling"],
+    "Mining": ["Fixed Inputs", "Ore Mined", "Grade - Ore Mined", "Total Material Mined", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
     "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage"],
     "Engineering": ["Fixed Inputs", "Light Vehicles", "Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Pumps", "Drill Rigs"]

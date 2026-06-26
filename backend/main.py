@@ -459,7 +459,7 @@ class ResetPasswordRequest(BaseModel):
 DEPARTMENT_METRICS = {
     "Milling_CIL": ["Fixed Inputs", "Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Geology": ["Fixed Inputs", "Exploration Drilling", "Grade Control Drilling", "Toll"],
-    "Mining": ["Fixed Inputs", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Total Material Moved", "Blast Hole Drilling"],
+    "Mining": ["Fixed Inputs", "Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
     "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
     "Engineering": ["Fixed Inputs", "Light Vehicles", "Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Pumps", "Drill Rigs"]
@@ -1197,7 +1197,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             outlook = mtd_actual + ((full_fcst - mtd_actual) / current_day)
         elif department == "Mining" and metric_name == "Ore Mined":
             outlook = mtd_actual + (full_fcst / total_days) * remaining_days
-        elif department == "Mining" and metric_name == "Total Material Moved":
+        elif department == "Mining" and metric_name == "Total Material Mined":
             if remaining_days <= 0:
                 outlook = mtd_actual
             else:
@@ -1535,7 +1535,7 @@ def get_summary_dashboard(
                 outlook = mtd_actual + ((full_fcst - mtd_actual) / current_day) if mtd_actual is not None else None
             elif dept == "Mining" and metric_name == "Ore Mined":
                 outlook = mtd_actual + (full_fcst / total_days) * remaining_days if mtd_actual is not None else None
-            elif dept == "Mining" and metric_name == "Total Material Moved":
+            elif dept == "Mining" and metric_name == "Total Material Mined":
                 if remaining_days <= 0:
                     outlook = mtd_actual
                 else:

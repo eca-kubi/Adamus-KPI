@@ -24,7 +24,7 @@ DEPARTMENTS = {
         "Ore Crushed", "Grade - Ore Crushed"
     ],
     "Mining": [
-        "Ore Mined", "Ore Mined Grade", "Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Total Material Moved", "Blast Hole Drilling"
+        "Ore Mined", "Ore Mined Grade", "Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Total Material Mined", "Blast Hole Drilling"
     ],
     "Geology": [
         "Grade Control Drilling", "Toll", "Exploration Drilling"

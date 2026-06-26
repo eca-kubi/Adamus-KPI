@@ -251,6 +251,7 @@ const DEPT_METRICS = {
     ],
     "Mining": [
         "Fixed Inputs",
+        "Total Material Mined",
         "Ore Mined",
         "Ore Mined Grade",
         "Rehandle",
@@ -271,7 +272,6 @@ const DEPT_METRICS = {
         "Availability - Drill Rigs",
         "Utilization - Drill Rigs",
         "Productivity - Drill Rigs",
-        "Total Material Moved",
         "Blast Hole Drilling"
     ],
     "Crushing": [
@@ -385,7 +385,7 @@ const IMPORT_CONFIGS = {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
         keys: ['date', 'daily_actual', 'daily_forecast']
     },
-    'Total Material Moved': {
+    'Total Material Mined': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual(bcm)', 'Daily Forecast(bcm)', 'Outlook', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
     },
@@ -1565,7 +1565,7 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if (metric === "Total Material Moved") {
+        } else if (metric === "Total Material Mined") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -1819,7 +1819,7 @@ function renderKPIForm(dept, metricName) {
         metricName === "Utilization - Drill Rigs"
     )) {
         renderMiningPctMetricForm(dept, metricName, card);
-    } else if (dept === "Mining" && metricName === "Total Material Moved") {
+    } else if (dept === "Mining" && metricName === "Total Material Mined") {
         renderMiningMaterialForm(dept, metricName, card);
     } else if (dept === "Mining" && (
         metricName === "Blast Hole Drilling" ||
@@ -11235,8 +11235,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Total Material Moved
-        if (STATE.currentMetric === 'Total Material Moved') {
+        // Handling for Total Material Mined
+        if (STATE.currentMetric === 'Total Material Mined') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             thead.innerHTML = `
@@ -13096,7 +13096,7 @@ const METRIC_UNITS = {
     "Utilization - Dump Trucks": "%",
     "Availability - Excavators": "%",
     "Utilization - Excavators": "%",
-    "Total Material Moved": "bcm",
+    "Total Material Mined": "bcm",
     "Blast Hole Drilling": "m",
     "Productivity - Excavators": "bcm/hr",
     "Productivity - Dump Trucks": "bcm/hr",
@@ -13130,7 +13130,7 @@ const SUMMARY_METRIC_ORDER = {
     "OHS": ["Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
     "Milling_CIL": ["Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
-    "Mining": ["Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Total Material Moved", "Blast Hole Drilling"],
+    "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
     "Engineering": ["Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Pumps", "Drill Rigs"]
 };
