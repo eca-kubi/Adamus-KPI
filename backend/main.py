@@ -1784,6 +1784,48 @@ def _find_existing_record_for_upsert(session: Session, department: str, record: 
     return session.exec(stmt).first()
 
 
+def _validate_previous_day_submitted(session: Session, department: str, metric_name: str, record_date: date) -> Optional[str]:
+    """Validate that the previous day has a daily record for the same department+metric.
+
+    Returns an error message string if validation fails, or ``None`` if it passes.
+    Skips validation when no prior daily records exist at all for this
+    department+metric (i.e. the very first entry is always allowed).
+    """
+    previous_day = record_date - timedelta(days=1)
+
+    # Check if any daily record exists for this department+metric before record_date.
+    # If none exist, this is the first entry — allow it.
+    any_prior = session.exec(
+        select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.metric_name == metric_name,
+            KPIRecord.date < record_date,
+            or_(KPIRecord.subtype == 'daily_input', KPIRecord.subtype.is_(None)),
+        )
+    ).first()
+
+    if any_prior is None:
+        return None  # First-ever entry for this metric — allowed
+
+    # Now check if the immediate previous day has a record
+    prev_day_record = session.exec(
+        select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.metric_name == metric_name,
+            KPIRecord.date == previous_day,
+            or_(KPIRecord.subtype == 'daily_input', KPIRecord.subtype.is_(None)),
+        )
+    ).first()
+
+    if prev_day_record is None:
+        return (
+            f"Previous day ({previous_day.isoformat()}) has no entry for '{metric_name}'. "
+            "Please submit the previous day's data before entering the current day."
+        )
+
+    return None
+
+
 def _deduplicate_daily_records(session: Session, department: str, record_date: date, metric_name: str, keep_id: int) -> None:
     """Remove duplicate daily rows for the same department/date/metric.
 
@@ -1816,6 +1858,14 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
         # 1. Force date conversion if it's a string (fixes SQLite error)
         if isinstance(record.date, str):
             record.date = datetime.strptime(record.date, "%Y-%m-%d").date()
+
+        # 2. Validate previous-day submission for daily records
+        if record.subtype != 'fixed_input':
+            prev_day_error = _validate_previous_day_submitted(
+                session, department, record.metric_name, record.date
+            )
+            if prev_day_error:
+                raise HTTPException(status_code=400, detail=prev_day_error)
 
         # Check for existing record to prevent duplicates (Upsert logic).
         # Daily records created before the subtype column was fully populated
@@ -1869,6 +1919,8 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 session.refresh(record)
                 
             return record
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("ERROR creating KPI record")
         raise HTTPException(status_code=500, detail="An internal server error occurred. Please contact support.")
@@ -1890,9 +1942,50 @@ def import_kpi_records(
     count = 0
     errors = []
     mutated_keys = set()
-    
+
+    # Pre-validate: ensure previous-day records exist for daily imports.
+    # Build a set of (metric_name, date) present in this import batch
+    # so that records within the same batch can satisfy each other.
+    batch_dates: Dict[str, set] = {}
+    for rec in records:
+        if rec.subtype != 'fixed_input':
+            batch_dates.setdefault(rec.metric_name, set()).add(rec.date)
+
     for i, rec in enumerate(records):
         try:
+            # Validate previous-day submission for daily records.
+            # Check against DB *and* records already seen in this batch.
+            if rec.subtype != 'fixed_input':
+                rec_date = rec.date
+                if isinstance(rec_date, str):
+                    rec_date = datetime.strptime(rec_date, "%Y-%m-%d").date()
+                prev_day = rec_date - timedelta(days=1)
+                # Check DB for any prior record at all
+                any_prior_db = session.exec(
+                    select(KPIRecord).where(
+                        KPIRecord.department == department,
+                        KPIRecord.metric_name == rec.metric_name,
+                        KPIRecord.date < rec_date,
+                        or_(KPIRecord.subtype == 'daily_input', KPIRecord.subtype.is_(None)),
+                    )
+                ).first()
+                prev_in_batch = prev_day in batch_dates.get(rec.metric_name, set())
+                prev_in_db = any_prior_db is not None and session.exec(
+                    select(KPIRecord).where(
+                        KPIRecord.department == department,
+                        KPIRecord.metric_name == rec.metric_name,
+                        KPIRecord.date == prev_day,
+                        or_(KPIRecord.subtype == 'daily_input', KPIRecord.subtype.is_(None)),
+                    )
+                ).first() is not None
+
+                if any_prior_db is not None and not prev_in_db and not prev_in_batch:
+                    errors.append(
+                        f"Row {i+1}: Previous day ({prev_day.isoformat()}) has no entry for "
+                        f"'{rec.metric_name}'. Please include the previous day's data in the import."
+                    )
+                    continue
+
             # Upsert logic. Treat NULL subtype and 'daily_input' as equivalent
             # for daily records so legacy rows are updated, not duplicated.
             existing = _find_existing_record_for_upsert(session, department, rec)
