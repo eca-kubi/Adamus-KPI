@@ -13819,8 +13819,9 @@ function renderSummaryTable(departments) {
 
         // Department section header row
         html += `<tr class="summary-dept-hdr dept-hdr-${deptKey}">
-            <td>Area</td><td>KPI</td><td>Unit</td><td>Daily Actual</td><td>Daily Forecast</td><td>Variance</td><td>Status</td><td>${secLabel}</td>
+            <td>Area</td><td>KPI</td><td>Unit</td><td>${secLabel}</td>
             <td>${secLabel2}</td><td>${isMilling ? 'Day-2 Var' : ''}</td>
+            <td>Daily Actual</td><td>Daily Forecast</td><td>Variance</td><td>Status</td>
             <td>MTD Actual</td><td>MTD Forecast</td><td>Variance</td><td>Status</td>
             <td>Outlook (a)</td><td>Forecast (b)</td><td>Budget (c)</td><td>Variance (a-b)</td><td>Status</td>
             <td>Last 7 Days Trend</td>
@@ -13891,13 +13892,13 @@ function renderSummaryTable(departments) {
             // groupMember rows intentionally omit the KPI cell because it is
             // spanned from the preceding base-metric row.
             html += `<td style="font-size:0.65rem;color:#666;">${unit}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name)}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name)}</td>`;
+            html += `<td class="${isMilling ? svarClass(d.day2_var) : 'num-cell'}">${isMilling ? fmtVal(d.day2_var, isOHS) : ''}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name)}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name)}</td>`;
-            html += `<td class="${isMilling ? svarClass(d.day2_var) : 'num-cell'}">${isMilling ? fmtVal(d.day2_var, isOHS) : ''}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_actual, isOHS))}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_forecast, isOHS))}</td>`;
             html += `<td class="${(isStockpileMetric || isRuntimeThroughput) ? 'svar-na' : svarClass(v2)}">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(v2, isOHS))}</td>`;
@@ -14005,15 +14006,16 @@ function renderCommentsTable(departments, dateStr) {
         csvBtn.onclick = () => exportCommentsCSV(rows, dateStr);
     }
 
-    // Build table — columns: Area | KPI | Daily Actual | Daily Forecast | Variance | Status | Sec | Sec2 | Comments
+    // Build table — columns: Area | KPI | Sec | Sec2 | Daily Actual | Daily Forecast | Variance | Status | Comments
     let html = `
         <table class="summary-table">
         <thead>
             <tr class="summary-dept-hdr">
                 <th>Area</th><th>KPI</th>
+                <th></th><th></th>
                 <th>Daily Actual</th>
                 <th>Daily Forecast</th>
-                <th>Variance</th><th>Status</th><th></th><th></th>
+                <th>Variance</th><th>Status</th>
                 <th style="min-width:200px;">Comments</th>
             </tr>
         </thead>
@@ -14041,12 +14043,12 @@ function renderCommentsTable(departments, dateStr) {
             lastDept = dept;
         }
         html += `<td style="font-weight:500;">${displayName}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
         html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         html += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
         html += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
         html += '</tr>';
     }
@@ -14068,12 +14070,12 @@ function renderCommentsTable(departments, dateStr) {
         exportRowsHtml += '<tr>';
         exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
         exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
         exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
         exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         exportRowsHtml += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         exportRowsHtml += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
         exportRowsHtml += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
         exportRowsHtml += '</tr>';
     }
@@ -14082,9 +14084,10 @@ function renderCommentsTable(departments, dateStr) {
         <thead>
             <tr class="summary-dept-hdr">
                 <th>Area</th><th>KPI</th>
+                <th></th><th></th>
                 <th>Daily Actual</th>
                 <th>Daily Forecast</th>
-                <th>Variance</th><th>Status</th><th></th><th></th>
+                <th>Variance</th><th>Status</th>
                 <th style="min-width:200px;">Comments</th>
             </tr>
         </thead>
