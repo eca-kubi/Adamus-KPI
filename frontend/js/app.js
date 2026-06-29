@@ -193,6 +193,13 @@ async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap) {
             }
             return existingRecord;
         }
+
+        // No record found for this date — clear all mapped fields
+        for (const [, elementId] of Object.entries(fieldMap)) {
+            const el = document.getElementById(elementId);
+            if (!el) continue;
+            setFormInputValue(el, '');
+        }
         return null;
     } catch (e) {
         console.warn('autoPopulateDailyForm failed', e);
@@ -6745,6 +6752,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
 
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    dAct.input.required = true;
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     dFcst.input.value = '0';
     // dFcst.input.readOnly = true; 
@@ -6951,6 +6959,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         const dateVal = date.input.value;
         if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
+        if (dAct.input.value === '' || dAct.input.value === null) { DOM.showToast("Daily Actual is required", "error"); return; }
 
         const payload = {
             daily_actual: parseFloat(dAct.input.value) || 0,
@@ -7030,6 +7039,7 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
 
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    dAct.input.required = true;
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     dFcst.input.value = '0'; // Default 0
 
@@ -7263,6 +7273,10 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
             DOM.showToast("Please select a date.", "error");
             return;
         }
+        if (dAct.input.value === '' || dAct.input.value === null) {
+            DOM.showToast("Daily Actual is required.", "error");
+            return;
+        }
 
         const payload = {
             daily_actual: parseFloat(dAct.input.value) || 0,
@@ -7286,22 +7300,27 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
             data: payload
         };
 
-        await saveKPIRecord(dept, record);
-        DOM.showToast("Environmental Incident Saved!", "success");
-        loadRecentRecords(dept);
+        try {
+            await saveKPIRecord(dept, record);
+            DOM.showToast("Environmental Incident Saved!", "success");
+            loadRecentRecords(dept);
 
-        // Clear Inputs
-        date.input.value = '';
-        dAct.input.value = '';
-        dFcst.input.value = '0';
-        dVar.input.value = '';
-        mAct.input.value = '';
-        mFcst.input.value = '';
-        mVar.input.value = '';
-        outlook.input.value = '';
-        fullFcst.input.value = '';
-        fullBudg.input.value = '';
-        budgVar.input.value = '';
+            // Clear Inputs
+            date.input.value = '';
+            dAct.input.value = '';
+            dFcst.input.value = '0';
+            dVar.input.value = '';
+            mAct.input.value = '';
+            mFcst.input.value = '';
+            mVar.input.value = '';
+            outlook.input.value = '';
+            fullFcst.input.value = '';
+            fullBudg.input.value = '';
+            budgVar.input.value = '';
+        } catch (e) {
+            console.error(e);
+            showSaveError(e, "Failed to save record");
+        }
     });
     btnContainer.appendChild(saveBtn);
     card.appendChild(btnContainer);
@@ -7332,6 +7351,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
 
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    dAct.input.required = true;
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     dFcst.input.value = '0'; // Default 0
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -7556,6 +7576,10 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     const saveBtn = DOM.createButton("Save Record", async () => {
         if (!date.input.value) {
             DOM.showToast("Please select a date.", "error");
+            return;
+        }
+        if (dAct.input.value === '' || dAct.input.value === null) {
+            DOM.showToast("Daily Actual is required.", "error");
             return;
         }
 
