@@ -2363,7 +2363,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
         rigs.container.classList.add('kpi-hidden-field');
     }
 
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
 
     // Row 2
     let dFcst;
@@ -2695,7 +2695,7 @@ function renderGeologyTollForm(dept, metricName, card) {
     const dryTonnes = DOM.createInputGroup("Dry Tonnes", `input-${dept}-wet-tonnes`, "number");
     dryTonnes.input.readOnly = true;
 
-    const dAct = DOM.createInputGroup("Daily Actual (Wet Tonnes)", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual (Wet Tonnes)", `input-${dept}-daily-act`, "number", '', true);
 
     // Auto-calculate Dry Tonnes from Daily Actual (Wet Tonnes) (Dry Tonnes = Daily Actual * 0.85)
     dAct.input.addEventListener('input', () => {
@@ -3056,7 +3056,7 @@ function renderMiningOreForm(dept, metricName, card) {
     // date.input.valueAsDate = new Date();
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -3304,8 +3304,8 @@ function renderMiningGradeForm(dept, metricName, card) {
     // date.input.valueAsDate = new Date();
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
-    const dActGrade = DOM.createInputGroup("Daily Actual(g/t)", `input-${dept}-daily-act-gt`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
+    const dActGrade = DOM.createInputGroup("Daily Actual(g/t)", `input-${dept}-daily-act-gt`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -3524,8 +3524,8 @@ function renderMiningGradeRehandleForm(dept, metricName, card) {
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number");
-    const dActGrade = DOM.createInputGroup("Daily Actual (g/t)", `input-${dept}-daily-act-gt`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number", '', true);
+    const dActGrade = DOM.createInputGroup("Daily Actual (g/t)", `input-${dept}-daily-act-gt`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast (g/t)", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -3695,7 +3695,7 @@ function renderMiningRehandleForm(dept, metricName, card) {
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast (t)", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -3839,7 +3839,7 @@ function renderMiningStockPileForm(dept, metricName, card) {
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast (t)", `input-${dept}-daily-fcst`, "number");
     dFcst.input.value = "0";
     dFcst.input.readOnly = true;
@@ -3958,8 +3958,8 @@ function renderMiningGradeStockPileForm(dept, metricName, card) {
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number");
-    const dActGrade = DOM.createInputGroup("Daily Actual (g/t)", `input-${dept}-daily-act-gt`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number", '', true);
+    const dActGrade = DOM.createInputGroup("Daily Actual (g/t)", `input-${dept}-daily-act-gt`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast (g/t)", `input-${dept}-daily-fcst`, "number");
     dFcst.input.value = "0";
     dFcst.input.readOnly = true;
@@ -4085,7 +4085,7 @@ function renderMiningPctMetricForm(dept, metricName, card) {
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual (%)", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual (%)", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast (%)", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -4192,7 +4192,7 @@ function renderMiningMaterialForm(dept, metricName, card) {
     // date.input.valueAsDate = new Date();
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual(bcm)", `input-${dept}-daily-act-bcm`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual(bcm)", `input-${dept}-daily-act-bcm`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(bcm)", `input-${dept}-daily-fcst-bcm`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -4447,7 +4447,7 @@ function renderMiningBlastHoleForm(dept, metricName, card) {
     // date.input.valueAsDate = new Date();
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -4702,8 +4702,8 @@ function renderCrushingGradeForm(dept, metricName, card) {
     // date.input.valueAsDate = new Date();
 
     // Row 2
-    const dActT = DOM.createInputGroup("Daily Actual(t)", `input-${dept}-daily-act-t`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dActT = DOM.createInputGroup("Daily Actual(t)", `input-${dept}-daily-act-t`, "number", '', true);
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -4939,7 +4939,7 @@ function renderCrushingOreForm(dept, metricName, card) {
     // date.input.valueAsDate = new Date();
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -5146,7 +5146,7 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -5397,7 +5397,7 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -5658,7 +5658,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -5912,8 +5912,8 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dActT = DOM.createInputGroup("Daily Actual(t)", `input-${dept}-daily-act-t`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dActT = DOM.createInputGroup("Daily Actual(t)", `input-${dept}-daily-act-t`, "number", '', true);
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -6214,7 +6214,7 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -6543,7 +6543,7 @@ function renderMillingRuntimeForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -6764,7 +6764,7 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     };
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     dAct.input.required = true;
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     dFcst.input.value = '0';
@@ -7051,7 +7051,7 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     dAct.input.required = true;
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     dFcst.input.value = '0'; // Default 0
@@ -7363,7 +7363,7 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     dAct.input.required = true;
     const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
     dFcst.input.value = '0'; // Default 0
@@ -7661,7 +7661,7 @@ function renderEngineeringLightVehiclesForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text");
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -7906,7 +7906,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text");
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -8151,7 +8151,7 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text");
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -8413,7 +8413,7 @@ function renderEngineeringAnxExcavatorsForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text");
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -8672,7 +8672,7 @@ function renderEngineeringDumpTrucksForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text");
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -8921,7 +8921,7 @@ function renderEngineeringArtDumpTrucksForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text"); // Changed to text
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -9163,7 +9163,7 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text"); // Changed to text
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -9405,7 +9405,7 @@ function renderEngineeringGradersForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text"); // Changed to text
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -9647,7 +9647,7 @@ function renderEngineeringDozersForm(dept, metricName, card) {
 
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text"); // Changed to text
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -9801,7 +9801,7 @@ function renderEngineeringCrusherForm(dept, metricName, card) {
     date.input.valueAsDate = new Date();
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -10009,7 +10009,7 @@ function renderEngineeringMillForm(dept, metricName, card) {
     date.input.valueAsDate = new Date();
 
     // Row 2
-    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "number");
+    const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "number", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
@@ -10206,7 +10206,7 @@ function renderStandardKPIForm(dept, metricName, card) {
     const dateGroup = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
     dateGroup.input.valueAsDate = new Date();
 
-    const dailyActual = DOM.createInputGroup("Daily Actual", `input-${dept}-actual`, "number");
+    const dailyActual = DOM.createInputGroup("Daily Actual", `input-${dept}-actual`, "number", '', true);
     const dailyForecast = DOM.createInputGroup("Daily Forecast", `input-${dept}-forecast`, "number");
     const varianceGroup = DOM.createInputGroup("Variance (%)", `input-${dept}-var`, "text");
     varianceGroup.input.readOnly = true;

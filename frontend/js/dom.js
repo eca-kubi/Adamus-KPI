@@ -5,7 +5,7 @@ const DOM = {
     /**
      * Create a Bootstrap-styled input group with label
      */
-    createInputGroup: (labelText, id, type = 'text', placeholder = '') => {
+    createInputGroup: (labelText, id, type = 'text', placeholder = '', required = false) => {
         const div = document.createElement('div');
         div.className = 'mb-3 text-start';
 
@@ -32,6 +32,9 @@ const DOM = {
         }
         input.className = 'form-control form-control-lg';
         input.autocomplete = type === 'password' ? 'current-password' : 'off';
+        if (required) {
+            input.required = true;
+        }
 
         div.appendChild(label);
         div.appendChild(input);

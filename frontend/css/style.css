@@ -190,6 +190,15 @@ h6 {
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+/* Required field indicator */
+.form-control:required {
+    border-left: 3px solid var(--bs-primary);
+}
+
+.form-control:required:placeholder-shown {
+    border-left-color: var(--bs-warning, #ffc107);
+}
+
 /* Links */
 a {
     color: var(--bs-primary);
@@ -1303,4 +1312,4 @@ a:hover {
     color: #444;
     line-height: 1.4;
 }
-
+
