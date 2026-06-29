@@ -1246,17 +1246,30 @@ function logout() {
 
 function sidebarNavigate(callback) {
     const sidebar = document.getElementById('sidebar');
+    const isMobile = window.innerWidth <= 767;
+
     if (sidebar.classList.contains('collapsed')) {
         sidebar.classList.remove('collapsed');
-        return; // Don't navigate, just expand
+        if (isMobile) return; // Don't navigate, just expand
+        // On desktop, expanding from collapsed should still navigate
     }
+
     if (callback) callback();
+
+    // On mobile, collapse the sidebar after navigation
+    if (isMobile) {
+        sidebar.classList.remove('show');
+    }
 }
 
 window.expandSidebarExplicit = function() {
     const sidebar = document.getElementById('sidebar');
     if (sidebar) {
+        const isMobile = window.innerWidth <= 767;
         sidebar.classList.remove('collapsed');
+        if (isMobile) {
+            sidebar.classList.add('show');
+        }
     }
 };
 
