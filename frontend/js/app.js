@@ -298,16 +298,15 @@ const DEPT_METRICS = {
         "Light Vehicles",
         "Tipper Trucks",
         "Prime Excavators",
-        "Ancillary Excavators",
-        "Dump Truck (CAT 777E)",
-        "Dump Truck (Liebherr T236)",
-        "Articulated Dump Trucks",
+        "Anx Excavators",
+        "Dump Trucks",
+        "ART Dump Trucks",
         "Wheel Loaders",
         "Graders",
         "Dozers",
         "Crusher",
         "Mill",
-        "Dewatering Pumps",
+        "Pumps",
         "Drill Rigs"
     ]
 };
@@ -426,8 +425,8 @@ const IMPORT_CONFIGS = {
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
     },
     'Plant Feed Grade': {
-        headers: ['Date (YYYY-MM-DD)', 'Daily Actual(t)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
-        keys: ['date', 'daily_act_tonnes', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual(t)', 'Daily Forecast(t)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
+        keys: ['date', 'daily_act_tonnes', 'daily_forecast_tonnes', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
     },
     'Gold Contained': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
@@ -480,7 +479,7 @@ const IMPORT_CONFIGS = {
 };
 
 // Engineering metrics mapping
-['Light Vehicles', 'Tipper Trucks', 'Dewatering Pumps', 'Drill Rigs', 'Prime Excavators', 'Ancillary Excavators', 'Dump Truck (CAT 777E)', 'Dump Truck (Liebherr T236)', 'Articulated Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
+['Light Vehicles', 'Tipper Trucks', 'Pumps', 'Drill Rigs', 'Prime Excavators', 'Anx Excavators', 'Dump Trucks', 'ART Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
     IMPORT_CONFIGS[m] = {
         headers: ['Date (YYYY-MM-DD)', 'Qty Available', 'Daily Actual(%)', 'Daily Forecast(%)', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'qty_available', 'daily_actual', 'daily_forecast', 'full_forecast', 'full_budget']
@@ -1668,6 +1667,7 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
                 <th style="padding: 12px; text-align: left;">Daily Actual(t)</th>
+                <th style="padding: 12px; text-align: left;">Daily Forecast(t)</th>
                 <th style="padding: 12px; text-align: left;">Daily Actual</th>
                 <th style="padding: 12px; text-align: left;">Daily Forecast</th>
                 <th style="padding: 12px; text-align: left;">Daily Var %</th>
@@ -1684,7 +1684,7 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if ((metric === "Dewatering Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Ancillary Excavators" || metric === "Dump Truck (CAT 777E)" || metric === "Dump Truck (Liebherr T236)" || metric === "Articulated Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
+        } else if ((metric === "Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Anx Excavators" || metric === "Dump Trucks" || metric === "ART Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -1874,15 +1874,15 @@ function renderKPIForm(dept, metricName) {
         renderOHSPropertyDamageForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Light Vehicles") {
         renderEngineeringLightVehiclesForm(dept, metricName, card);
-    } else if (dept === "Engineering" && (metricName === "Tipper Trucks" || metricName === "Dewatering Pumps" || metricName === "Drill Rigs")) {
+    } else if (dept === "Engineering" && (metricName === "Tipper Trucks" || metricName === "Pumps" || metricName === "Drill Rigs")) {
         renderEngineeringTipperTrucksForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Prime Excavators") {
         renderEngineeringPrimeExcavatorsForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "Ancillary Excavators") {
+    } else if (dept === "Engineering" && metricName === "Anx Excavators") {
         renderEngineeringAnxExcavatorsForm(dept, metricName, card);
-    } else if (dept === "Engineering" && (metricName === "Dump Truck (CAT 777E)" || metricName === "Dump Truck (Liebherr T236)")) {
+    } else if (dept === "Engineering" && metricName === "Dump Trucks") {
         renderEngineeringDumpTrucksForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "Articulated Dump Trucks") {
+    } else if (dept === "Engineering" && metricName === "ART Dump Trucks") {
         renderEngineeringArtDumpTrucksForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Wheel Loaders") {
         renderEngineeringWheelLoadersForm(dept, metricName, card);
@@ -5930,8 +5930,9 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
 
     // Row 2
     const dActT = DOM.createInputGroup("Daily Actual(t)", `input-${dept}-daily-act-t`, "number", '', true);
+    const dFcstT = DOM.createInputGroup("Daily Forecast(t)", `input-${dept}-daily-fcst-t`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number", '', true);
     const dVar = DOM.createInputGroup("Var1 %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -5945,14 +5946,19 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
 
     // Row 4
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
+    mAct.input.readOnly = true;
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
+    mFcst.input.readOnly = true;
     const mVar = DOM.createInputGroup("Var2 %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
     // Row 5
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
+    outlook.input.readOnly = true;
+    // Full Forecast: for Plant Feed Grade, always mirrors Daily Forecast (read-only)
     const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
+    fullFcst.input.readOnly = true;
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
     const budgVar = DOM.createInputGroup("Var3 %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
@@ -5960,8 +5966,8 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Spacers
-    add(dActT); add(dAct); add(dFcst); add(dVar);
-    add(day2); add(day2Forecast); add(day2Var); grid.appendChild(document.createElement('div')); // Spacer
+    add(dAct); add(dFcst); add(dVar); add(day2);
+    add(day2Forecast); add(day2Var); add(dActT); add(dFcstT);
     add(mAct); add(mFcst); add(mVar); grid.appendChild(document.createElement('div')); // Spacer
     add(outlook); add(fullFcst); add(fullBudg); add(budgVar);
 
@@ -5972,53 +5978,51 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     date.input.addEventListener('change', async () => {
         await autoPopulateDailyForm(dept, metricName, date.input.value, {
             daily_act_tonnes: `input-${dept}-daily-act-t`,
+            daily_forecast_tonnes: `input-${dept}-daily-fcst-t`,
             daily_actual: `input-${dept}-daily-act`,
             daily_forecast: `input-${dept}-daily-fcst`,
             day2: `input-${dept}-day2`,
             day2_forecast: `input-${dept}-day2-forecast`
         });
         dActT.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcstT.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
         day2.input.dispatchEvent(new Event('input', { bubbles: true }));
         day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // 1. Fetch Full Forecast (b) from Fixed Inputs when Date changes
+    // Full Forecast for Plant Feed Grade always mirrors Daily Forecast
+    dFcst.input.addEventListener('input', () => {
+        fullFcst.input.value = dFcst.input.value;
+        fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Fetch Full Budget from Fixed Inputs when Date changes
     date.input.addEventListener('change', async () => {
         const dateVal = date.input.value;
         if (!dateVal) return;
 
-        // Extract "YYYY-MM" to match Fixed Inputs "Target Month" (which defaults to full YYYY-MM-DD string with "-01")
-        // Fixed Input logic in this app usually stores full dates like '2023-10-01'.
         const d = new Date(dateVal);
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');
         const targetMonthStr = `${y}-${m}-01`;
 
         try {
-            // We need to search the 'fixed_inputs' for a matching record
-            // Since Fixed Inputs are often just records with subtype='fixed_input', we check that.
             const records = await fetchKPIRecords(dept);
 
             const fixedRecord = records.find(r =>
                 r.subtype === 'fixed_input' &&
-                r.metric_name === metricName && // 'Plant Feed Grade'
+                r.metric_name === metricName &&
                 r.date === targetMonthStr
             );
 
             if (fixedRecord && fixedRecord.data) {
-                if (fixedRecord.data.full_forecast !== undefined) {
-                    fullFcst.input.value = fixedRecord.data.full_forecast;
-                    // Dispatch input event to trigger any variance listeners
-                    fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
                 if (fixedRecord.data.full_budget !== undefined) {
                     fullBudg.input.value = fixedRecord.data.full_budget;
                     fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
                 }
             } else {
-                fullFcst.input.value = ''; // Clear if not found
                 fullBudg.input.value = '';
             }
 
@@ -6036,16 +6040,14 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     });
 
     // 2. MTD Actual Calculation (Weighted Average)
-    // Formula: Sum(Daily Actual * Daily Forecast) / Sum(Daily Actual)
+    // MTD Actual: Weighted average of daily_actual grade by daily_act_tonnes.
+    // Formula: Sum(Daily Actual Grade * Daily Actual Tonnes) / Sum(Daily Actual Tonnes)
     const calculateMTD = async () => {
         const dateVal = date.input.value;
         if (!dateVal) return;
 
-        const curValAct = parseFloat(dAct.input.value) || 0;
-        const curValFcst = parseFloat(dFcst.input.value) || 0;
-
-        // If current inputs are empty/zero, should we calculate? 
-        // User says "add all values... to value in placeholder". If placeholder is empty, add 0.
+        const curGrade = parseFloat(dAct.input.value) || 0;
+        const curTonnes = parseFloat(dActT.input.value) || 0;
 
         const d = new Date(dateVal);
         const y = d.getFullYear();
@@ -6067,23 +6069,17 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             let denominator = 0;
 
             monthRecords.forEach(r => {
-                const da = parseFloat(r.data.daily_actual) || 0;
-                const df = parseFloat(r.data.daily_forecast) || 0;
-
-                // "Multiple them... then add to result"
-                const product = da * df;
-                numerator += product;
-
-                // "add all values in Daily Actual column"
-                denominator += da;
+                const grade = parseFloat(r.data.daily_actual) || 0;
+                const tonnes = parseFloat(r.data.daily_act_tonnes) || 0;
+                numerator += grade * tonnes;
+                denominator += tonnes;
             });
 
             // Add current inputs
-            numerator += (curValAct * curValFcst);
-            denominator += curValAct;
+            numerator += curGrade * curTonnes;
+            denominator += curTonnes;
 
             if (denominator !== 0) {
-                // "final results will semi results/sum"
                 const res = numerator / denominator;
                 mAct.input.value = res.toFixed(2);
                 mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -6096,10 +6092,69 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
         }
     };
 
-    // Trigger calculation on inputs
+    // Trigger MTD Actual calculation when grade or tonnes change
     dAct.input.addEventListener('input', calculateMTD);
-    dFcst.input.addEventListener('input', calculateMTD);
+    dActT.input.addEventListener('input', calculateMTD);
     date.input.addEventListener('change', calculateMTD);
+
+    // 2b. MTD Forecast Calculation
+    // Formula: MTD Forecast = GC_MTD_Forecast / (Accrued sum of Daily Forecast tonnes * 31.1035)
+    const calculateMTDForecast = async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) return;
+
+        const d = new Date(dateVal);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const monthPrefix = `${y}-${m}`;
+
+        try {
+            const records = await fetchKPIRecords(dept);
+
+            // 1. Sum Gold Contained daily_forecast for the month up to selected date
+            const gcRecords = records.filter(r =>
+                r.metric_name === 'Gold Contained' &&
+                r.subtype !== 'fixed_input' &&
+                r.date && r.date.startsWith(monthPrefix) &&
+                r.date <= dateVal
+            );
+            let gcMtdForecast = 0;
+            gcRecords.forEach(r => {
+                gcMtdForecast += parseFloat(r.data.daily_forecast) || 0;
+            });
+
+            // 2. Sum Plant Feed Grade daily_forecast_tonnes for month up to selected date (exclude current to avoid double-count)
+            const pfgRecords = records.filter(r =>
+                r.metric_name === metricName &&
+                r.subtype !== 'fixed_input' &&
+                r.date && r.date.startsWith(monthPrefix) &&
+                r.date < dateVal
+            );
+            let sumFcstTonnes = 0;
+            pfgRecords.forEach(r => {
+                sumFcstTonnes += parseFloat(r.data.daily_forecast_tonnes) || 0;
+            });
+            // Add current input
+            sumFcstTonnes += parseFloat(dFcstT.input.value) || 0;
+
+            if (sumFcstTonnes !== 0 && gcMtdForecast !== 0) {
+                const result = (gcMtdForecast / sumFcstTonnes) * 31.1035;
+                mFcst.input.value = result.toFixed(2);
+                mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                mFcst.input.value = '';
+            }
+
+        } catch (e) {
+            console.error("MTD Forecast Calc Error:", e);
+        }
+    };
+
+    // Trigger MTD Forecast calculation
+    dFcstT.input.addEventListener('input', calculateMTDForecast);
+    dAct.input.addEventListener('input', calculateMTDForecast);
+    dFcst.input.addEventListener('input', calculateMTDForecast);
+    date.input.addEventListener('change', calculateMTDForecast);
 
     // Mirror MTD Actual to Outlook
     mAct.input.addEventListener('input', () => {
@@ -6161,6 +6216,10 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
         const dateVal = date.input.value;
         if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
 
+        // Build the payload.  DO NOT include computed fields (mtd_actual,
+        // mtd_forecast, var1, var2, var3, outlook, day2_var) — the backend
+        // ALWAYS recomputes them via recalculate_metric_month so sending
+        // them is redundant and risks persisting stale frontend values.
         const record = {
             subtype: 'daily_input',
             date: dateVal,
@@ -6168,31 +6227,27 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             metric_name: metricName,
             data: {
                 daily_act_tonnes: parseOptionalFloatFE(dActT.input.value),
+                daily_forecast_tonnes: parseOptionalFloatFE(dFcstT.input.value),
                 daily_actual: parseOptionalFloatFE(dAct.input.value),
                 daily_forecast: parseOptionalFloatFE(dFcst.input.value),
-                var1: dVar.input.value,
                 day2: parseOptionalFloatFE(day2.input.value),
                 day2_forecast: parseOptionalFloatFE(day2Forecast.input.value),
-                day2_var: day2Var.input.value,
-                mtd_actual: parseOptionalFloatFE(mAct.input.value),
-                mtd_forecast: parseOptionalFloatFE(mFcst.input.value),
-                var2: mVar.input.value,
-                outlook: parseOptionalFloatFE(outlook.input.value),
                 full_forecast: parseOptionalFloatFE(fullFcst.input.value),
-                full_budget: parseOptionalFloatFE(fullBudg.input.value),
-                var3: budgVar.input.value
+                full_budget: parseOptionalFloatFE(fullBudg.input.value)
             }
         };
 
         try {
             await saveKPIRecord(dept, record);
             DOM.showToast("Record saved!");
-            loadRecentRecords(dept);
+            // Refresh the table so the backend-computed MTD/variance/outlook
+            // values are displayed immediately.
+            await loadRecentRecords(dept);
 
-            // Clear form? Or keep values? Usually clear or reset standard daily fields.
-            // Clearing helps prevent double entry.
+            // Clear form to prevent accidental double entry.
             date.input.value = '';
             dActT.input.value = '';
+            dFcstT.input.value = '';
             dAct.input.value = '';
             dFcst.input.value = '';
             dVar.input.value = '';
@@ -10361,14 +10416,27 @@ window.editRecord = (id) => {
         }
 
         // Data Mapping: Key -> Possible IDs
+        // IMPORTANT: mtd_actual / mtd_forecast are intentionally OMITTED — they are
+        // computed fields that must always be recalculated, never restored from storage.
+        //
+        // Fields that trigger async recalculations (calculateMTD, calculateMTDForecast)
+        // via their 'input' listeners are listed in SKIP_INPUT_EVENT_KEYS.  For those
+        // fields we suppress the 'input' event dispatch because firing an async
+        // recalculation while the form is still being populated leads to race
+        // conditions (e.g. daily_forecast hasn't been set yet when daily_actual
+        // fires).  Instead a single 'change' event on the date input at the end
+        // triggers all recalculations with the fully-populated form.
+        const SKIP_INPUT_EVENT_KEYS = new Set([
+            'daily_actual', 'daily_forecast',
+            'daily_act_tonnes', 'daily_forecast_tonnes'
+        ]);
         const mappings = {
             daily_actual: [`input-${dept}-daily-act`, `input-${dept}-daily-act-pct`, `input-${dept}-actual`],
             daily_act_tonnes: [`input-${dept}-daily-act-tonnes`, `input-${dept}-daily-act-t`],
+            daily_forecast_tonnes: [`input-${dept}-daily-fcst-tonnes`, `input-${dept}-daily-fcst-t`],
             daily_act_grade: [`input-${dept}-daily-act-gt`],
             daily_forecast: [`input-${dept}-daily-fcst`, `input-${dept}-daily-fcst-pct`, `input-${dept}-forecast`],
             var1: [`input-${dept}-daily-var`, `input-${dept}-var`],
-            mtd_actual: [`input-${dept}-mtd-act`],
-            mtd_forecast: [`input-${dept}-mtd-fcst`],
             var2: [`input-${dept}-mtd-var`],
             outlook: [`input-${dept}-outlook`],
             full_forecast: [`input-${dept}-full-fcst`, `input-${dept}-full-forecast`],
@@ -10392,13 +10460,27 @@ window.editRecord = (id) => {
                         const input = document.getElementById(id);
                         if (input) {
                             setFormInputValue(input, val);
-                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                            // Suppress 'input' events for fields whose listeners
+                            // trigger async recalculations — these will race with
+                            // each other while the form is still being populated.
+                            // A single 'change' on the date input at the end
+                            // triggers everything with complete data.
+                            if (!SKIP_INPUT_EVENT_KEYS.has(key)) {
+                                input.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
                             // Break after finding one match, assuming only one exists per key
                             break;
                         }
                     }
                 }
             }
+        }
+
+        // Dispatch a 'change' event on the date input so that all attached
+        // listeners (MTD recalculation, fixed-input loading, day-2 logic, etc.)
+        // fire with the fully-populated form and without race conditions.
+        if (dateInput) {
+            dateInput.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         DOM.showToast("Record loaded for editing");
@@ -11497,10 +11579,11 @@ async function loadRecentRecords(dept) {
         if (STATE.currentMetric === 'Plant Feed Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
-            // Date | D.Act(t) | D.Act | D.Fcst | Var% | Status | Day-2 | Day-2 Fcst | MTD.Act | MTD.Fcst | Var% | Status | Outlook | F.Fcst | F.Budg | Var% | Status | Input By | Action
+            // Date | D.Act(t) | D.Fcst(t) | D.Act | D.Fcst | Var% | Status | Day-2 | Day-2 Fcst | MTD.Act | MTD.Fcst | Var% | Status | Outlook | F.Fcst | F.Budg | Var% | Status | Input By | Action
             thead.innerHTML = `
                 <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
                 <th style="padding: 12px; text-align: left;">D.Act(t)</th>
+                <th style="padding: 12px; text-align: left;">D.Fcst(t)</th>
                 <th style="padding: 12px; text-align: left;">D.Act</th>
                 <th style="padding: 12px; text-align: left;">D.Fcst</th>
                 <th style="padding: 12px; text-align: left;">Var%</th>
@@ -11521,7 +11604,7 @@ async function loadRecentRecords(dept) {
             `;
 
             if (filteredRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="19" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="20" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
                 return;
             }
 
@@ -11538,6 +11621,7 @@ async function loadRecentRecords(dept) {
                 tr.innerHTML = `
                     <td style="padding: 12px;">${dateDisplay}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_act_tonnes)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast_tonnes)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
@@ -11828,8 +11912,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Ancillary Excavators OR Dump Truck (CAT 777E) OR Dump Truck (Liebherr T236) OR Articulated Dump Trucks OR Wheel Loaders OR Graders (Identical columns)
-        if (STATE.currentMetric === 'Ancillary Excavators' || STATE.currentMetric === 'Dump Truck (CAT 777E)' || STATE.currentMetric === 'Dump Truck (Liebherr T236)' || STATE.currentMetric === 'Articulated Dump Trucks' || STATE.currentMetric === 'Wheel Loaders' || STATE.currentMetric === 'Graders') {
+        // Handling for Anx Excavators OR Dump Trucks OR ART Dump Trucks OR Wheel Loaders OR Graders (Identical columns)
+        if (STATE.currentMetric === 'Anx Excavators' || STATE.currentMetric === 'Dump Trucks' || STATE.currentMetric === 'ART Dump Trucks' || STATE.currentMetric === 'Wheel Loaders' || STATE.currentMetric === 'Graders') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | Qty Avail | D.Act(%) | D.Fcst(%) | Var% | MTD.Act | MTD.Fcst | Var% | F.Fcst | F.Budg | Action
@@ -13167,17 +13251,16 @@ const METRIC_UNITS = {
     // Engineering
     "Tipper Trucks": "%",
     "Prime Excavators": "%",
-    "Ancillary Excavators": "%",
-    "Dump Truck (CAT 777E)": "%",
-    "Dump Truck (Liebherr T236)": "%",
-    "Articulated Dump Trucks": "%",
+    "Anx Excavators": "%",
+    "Dump Trucks": "%",
+    "ART Dump Trucks": "%",
     "Wheel Loaders": "%",
     "Graders": "%",
     "Dozers": "%",
     "Crusher": "%",
     "Mill": "%",
     "Light Vehicles": "%",
-    "Dewatering Pumps": "%",
+    "Pumps": "%",
     "Drill Rigs": "%"
 };
 
@@ -13187,7 +13270,7 @@ const SUMMARY_METRIC_ORDER = {
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
-    "Engineering": ["Prime Excavators", "Ancillary Excavators", "Articulated Dump Trucks", "Drill Rigs", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Dozers", "Graders", "Wheel Loaders", "Dewatering Pumps"]
+    "Engineering": ["Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Pumps", "Drill Rigs"]
 };
 
 // Mining base metric -> associated grade metric. On the summary dashboard the
