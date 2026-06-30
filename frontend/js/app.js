@@ -298,15 +298,16 @@ const DEPT_METRICS = {
         "Light Vehicles",
         "Tipper Trucks",
         "Prime Excavators",
-        "Anx Excavators",
-        "Dump Trucks",
-        "ART Dump Trucks",
+        "Ancillary Excavators",
+        "Dump Truck (CAT 777E)",
+        "Dump Truck (Liebherr T236)",
+        "Articulated Dump Trucks",
         "Wheel Loaders",
         "Graders",
         "Dozers",
         "Crusher",
         "Mill",
-        "Pumps",
+        "Dewatering Pumps",
         "Drill Rigs"
     ]
 };
@@ -479,7 +480,7 @@ const IMPORT_CONFIGS = {
 };
 
 // Engineering metrics mapping
-['Light Vehicles', 'Tipper Trucks', 'Pumps', 'Drill Rigs', 'Prime Excavators', 'Anx Excavators', 'Dump Trucks', 'ART Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
+['Light Vehicles', 'Tipper Trucks', 'Dewatering Pumps', 'Drill Rigs', 'Prime Excavators', 'Ancillary Excavators', 'Dump Truck (CAT 777E)', 'Dump Truck (Liebherr T236)', 'Articulated Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
     IMPORT_CONFIGS[m] = {
         headers: ['Date (YYYY-MM-DD)', 'Qty Available', 'Daily Actual(%)', 'Daily Forecast(%)', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'qty_available', 'daily_actual', 'daily_forecast', 'full_forecast', 'full_budget']
@@ -1683,7 +1684,7 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if ((metric === "Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Anx Excavators" || metric === "Dump Trucks" || metric === "ART Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
+        } else if ((metric === "Dewatering Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Ancillary Excavators" || metric === "Dump Truck (CAT 777E)" || metric === "Dump Truck (Liebherr T236)" || metric === "Articulated Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -1873,15 +1874,15 @@ function renderKPIForm(dept, metricName) {
         renderOHSPropertyDamageForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Light Vehicles") {
         renderEngineeringLightVehiclesForm(dept, metricName, card);
-    } else if (dept === "Engineering" && (metricName === "Tipper Trucks" || metricName === "Pumps" || metricName === "Drill Rigs")) {
+    } else if (dept === "Engineering" && (metricName === "Tipper Trucks" || metricName === "Dewatering Pumps" || metricName === "Drill Rigs")) {
         renderEngineeringTipperTrucksForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Prime Excavators") {
         renderEngineeringPrimeExcavatorsForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "Anx Excavators") {
+    } else if (dept === "Engineering" && metricName === "Ancillary Excavators") {
         renderEngineeringAnxExcavatorsForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "Dump Trucks") {
+    } else if (dept === "Engineering" && (metricName === "Dump Truck (CAT 777E)" || metricName === "Dump Truck (Liebherr T236)")) {
         renderEngineeringDumpTrucksForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "ART Dump Trucks") {
+    } else if (dept === "Engineering" && metricName === "Articulated Dump Trucks") {
         renderEngineeringArtDumpTrucksForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Wheel Loaders") {
         renderEngineeringWheelLoadersForm(dept, metricName, card);
@@ -5673,13 +5674,19 @@ function renderMillingRecoveryForm(dept, metricName, card) {
 
     // Row 4
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
+    mAct.input.readOnly = true;
+    mAct.input.classList.add('bg-light');
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
+    mFcst.input.readOnly = true;
+    mFcst.input.classList.add('bg-light');
     const mVar = DOM.createInputGroup("Var2 %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
     // Row 5
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "text");
+    outlook.input.readOnly = true;
+    outlook.input.classList.add('bg-light');
     const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "text");
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "text");
 
@@ -5705,131 +5712,141 @@ function renderMillingRecoveryForm(dept, metricName, card) {
         mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    const handleDateChange = async () => {
-        const dateVal = date.input.value;
-        if (!dateVal) return;
-
-        // Auto-populate raw input fields from existing daily record (if any)
-        await autoPopulateDailyForm(dept, metricName, dateVal, {
-            daily_actual: `input-${dept}-daily-act`,
-            daily_forecast: `input-${dept}-daily-fcst`
-        });
-
-        // Trigger variance listeners for auto-populated values
-        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
-        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
-
+    // Populate derived fields (MTD Actual, Outlook) from Gold Recovery & Gold Contained
+    const populateRecoveryDerivedFields = (records, dateVal) => {
         const d = new Date(dateVal);
         const year = d.getFullYear();
         const month = d.getMonth() + 1;
         const targetMonth = `${year}-${String(month).padStart(2, '0')}-01`;
 
-        try {
-            const records = await fetchKPIRecords(dept);
+        const isSameDate = (rDate, target) => {
+            if (!rDate) return false;
+            return rDate === target || rDate.startsWith(target);
+        };
 
-            // Helper for date comparison (handle potential timestamps)
-            const isSameDate = (rDate, target) => {
-                if (!rDate) return false;
-                return rDate === target || rDate.startsWith(target);
-            };
+        // Fetch Full Forecast from Fixed Inputs
+        const fixedRecord = records.find(r =>
+            r.subtype === 'fixed_input' &&
+            r.metric_name === metricName &&
+            r.date === targetMonth
+        );
 
-            // Fetch Full Forecast from Fixed Inputs
-            const fixedRecord = records.find(r =>
-                r.subtype === 'fixed_input' &&
+        if (fixedRecord && fixedRecord.data) {
+            const ff = fixedRecord.data.full_forecast;
+            fullFcst.input.value = (ff !== undefined && ff !== null && ff !== '') ? ff + '%' : '';
+            fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            const fb = fixedRecord.data.full_budget;
+            fullBudg.input.value = (fb !== undefined && fb !== null && fb !== '') ? fb + '%' : '';
+            fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            fullFcst.input.value = '';
+            fullBudg.input.value = '';
+        }
+
+        // Find Gold Recovery & Gold Contained records for this date
+        const grRecord = records.find(r =>
+            r.metric_name === 'Gold Recovery' &&
+            r.subtype !== 'fixed_input' &&
+            isSameDate(r.date, dateVal)
+        );
+
+        const gcRecord = records.find(r =>
+            r.metric_name === 'Gold Contained' &&
+            r.subtype !== 'fixed_input' &&
+            isSameDate(r.date, dateVal)
+        );
+
+        // Compute MTD running sums from all GR/GC daily records up to the selected date
+        // (more robust than relying on stored mtd_actual, which may be stale)
+        const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+        const grRunning = records
+            .filter(r => r.metric_name === 'Gold Recovery' && r.subtype !== 'fixed_input' && r.date >= monthStart && r.date <= dateVal)
+            .reduce((sum, r) => sum + (parseFloat(r.data?.daily_actual) || 0), 0);
+        const gcRunning = records
+            .filter(r => r.metric_name === 'Gold Contained' && r.subtype !== 'fixed_input' && r.date >= monthStart && r.date <= dateVal)
+            .reduce((sum, r) => sum + (parseFloat(r.data?.daily_actual) || 0), 0);
+
+        console.log("Recovery derived fields:", { dateVal, grFound: !!grRecord, gcFound: !!gcRecord,
+            grMtd: grRecord?.data?.mtd_actual, gcMtd: gcRecord?.data?.mtd_actual,
+            grRunning, gcRunning });
+
+        if (gcRunning !== 0) {
+            const result = (grRunning / gcRunning) * 100;
+            const formattedResult = result.toFixed(2);
+
+            mAct.input.value = formattedResult;
+            outlook.input.value = formattedResult + '%';
+
+            mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+            outlook.input.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            mAct.input.value = '';
+            outlook.input.value = '';
+        }
+
+        // Day-2: find previous day's Recovery record
+        if (d.getDate() === 1) {
+            day2.input.value = '';
+            day2Forecast.input.value = '';
+        } else {
+            const prevDate = new Date(d);
+            prevDate.setDate(d.getDate() - 1);
+
+            const pY = prevDate.getFullYear();
+            const pM = String(prevDate.getMonth() + 1).padStart(2, '0');
+            const pD = String(prevDate.getDate()).padStart(2, '0');
+            const prevDateStr = `${pY}-${pM}-${pD}`;
+
+            const prevRecord = records.find(r =>
                 r.metric_name === metricName &&
-                r.date === targetMonth
-            );
-
-            if (fixedRecord && fixedRecord.data) {
-                const ff = fixedRecord.data.full_forecast;
-                fullFcst.input.value = (ff !== undefined && ff !== null && ff !== '') ? ff + '%' : '';
-                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
-
-                const fb = fixedRecord.data.full_budget;
-                fullBudg.input.value = (fb !== undefined && fb !== null && fb !== '') ? fb + '%' : '';
-                fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-
-            // Find Gold Recovery Record for this date (exclude fixed_inputs which share the 1st of month date)
-            const grRecord = records.find(r =>
-                r.metric_name === 'Gold Recovery' &&
                 r.subtype !== 'fixed_input' &&
-                isSameDate(r.date, dateVal)
+                isSameDate(r.date, prevDateStr)
             );
 
-            // Find Gold Contained Record for this date
-            const gcRecord = records.find(r =>
-                r.metric_name === 'Gold Contained' &&
-                r.subtype !== 'fixed_input' &&
-                isSameDate(r.date, dateVal)
-            );
-
-            console.log("Outlook Calc Debug:", { dateVal, grRecord, gcRecord });
-
-            if (grRecord && gcRecord && grRecord.data && gcRecord.data) {
-                const grMtd = parseFloat(grRecord.data.mtd_actual) || 0;
-                const gcMtd = parseFloat(gcRecord.data.mtd_actual) || 0;
-
-                if (gcMtd !== 0) {
-                    // (Gold Recovery / Gold Contained) * 100
-                    const result = (grMtd / gcMtd) * 100;
-                    const formattedResult = result.toFixed(2);
-
-                    outlook.input.value = formattedResult + '%';
-                    // Mirror to MTD Actual (numeric value for input type="number" if strict, but let's check input type)
-                    // mAct is initialized as "number". So we should pass the raw number.
-                    // But Recovery is usually displayed as %. 
-                    // If input type is number, it won't take "95.42%".
-                    // If we derived it, we should probably set the numeric value.
-
-                    mAct.input.value = formattedResult; // input type="number" from definition
-
-                    // Trigger change for listeners
-                    outlook.input.dispatchEvent(new Event('input', { bubbles: true }));
-                    mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
-                } else {
-                    outlook.input.value = '';
-                    mAct.input.value = '';
-                }
+            if (prevRecord && prevRecord.data) {
+                day2.input.value = prevRecord.data.daily_actual ?? '';
+                day2Forecast.input.value = prevRecord.data.daily_forecast ?? '';
             } else {
-                outlook.input.value = '';
-                mAct.input.value = '';
-            }
-
-            // 3. Calculate Day-2 Value (Metric: Recovery)
-            if (d.getDate() === 1) {
                 day2.input.value = '';
                 day2Forecast.input.value = '';
-            } else {
-                // Find previous date logic
-                const prevDate = new Date(d);
-                prevDate.setDate(d.getDate() - 1);
-
-                const pY = prevDate.getFullYear();
-                const pM = String(prevDate.getMonth() + 1).padStart(2, '0');
-                const pD = String(prevDate.getDate()).padStart(2, '0');
-                const prevDateStr = `${pY}-${pM}-${pD}`;
-
-                // Look for previous record of THIS metric (Recovery)
-                const prevRecord = records.find(r =>
-                    r.metric_name === metricName &&
-                    r.subtype !== 'fixed_input' &&
-                    isSameDate(r.date, prevDateStr)
-                );
-
-                if (prevRecord && prevRecord.data) {
-                    day2.input.value = prevRecord.data.daily_actual ?? '';
-                    day2Forecast.input.value = prevRecord.data.daily_forecast ?? '';
-                } else {
-                    day2.input.value = '';
-                    day2Forecast.input.value = '';
-                }
             }
-            day2.input.dispatchEvent(new Event('input', { bubbles: true }));
-            day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        day2.input.dispatchEvent(new Event('input', { bubbles: true }));
+        day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
 
+    const handleDateChange = async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) return;
+
+        try {
+            // Fetch all department records once and reuse for both auto-population and derived fields
+            const records = await fetchKPIRecords(dept);
+
+            // Auto-populate raw input fields from existing daily record (if any)
+            const existingRecord = records.find(r =>
+                r.metric_name === metricName &&
+                r.date === dateVal &&
+                r.subtype !== 'fixed_input'
+            );
+
+            if (existingRecord && existingRecord.data) {
+                setFormInputValue(document.getElementById(`input-${dept}-daily-act`), existingRecord.data.daily_actual);
+                setFormInputValue(document.getElementById(`input-${dept}-daily-fcst`), existingRecord.data.daily_forecast);
+            } else {
+                setFormInputValue(document.getElementById(`input-${dept}-daily-act`), '');
+                setFormInputValue(document.getElementById(`input-${dept}-daily-fcst`), '');
+            }
+
+            // Trigger variance listeners for auto-populated values
+            dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+            dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // Populate derived fields (MTD Actual, Outlook, Day-2, Full Forecast/Budget)
+            populateRecoveryDerivedFields(records, dateVal);
         } catch (e) {
-            console.error("Error fetching dependencies for Recovery:", e);
+            console.error("Error in Recovery date change handler:", e);
         }
     };
 
@@ -11450,14 +11467,14 @@ async function loadRecentRecords(dept) {
 
                 tr.innerHTML = `
                     <td style="padding: 12px;">${dateDisplay}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}%</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}%</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2)}%</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.day2_forecast)}%</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}%</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}%</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.outlook)}%</td>
@@ -11811,8 +11828,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Anx Excavators OR Dump Trucks OR ART Dump Trucks OR Wheel Loaders OR Graders (Identical columns)
-        if (STATE.currentMetric === 'Anx Excavators' || STATE.currentMetric === 'Dump Trucks' || STATE.currentMetric === 'ART Dump Trucks' || STATE.currentMetric === 'Wheel Loaders' || STATE.currentMetric === 'Graders') {
+        // Handling for Ancillary Excavators OR Dump Truck (CAT 777E) OR Dump Truck (Liebherr T236) OR Articulated Dump Trucks OR Wheel Loaders OR Graders (Identical columns)
+        if (STATE.currentMetric === 'Ancillary Excavators' || STATE.currentMetric === 'Dump Truck (CAT 777E)' || STATE.currentMetric === 'Dump Truck (Liebherr T236)' || STATE.currentMetric === 'Articulated Dump Trucks' || STATE.currentMetric === 'Wheel Loaders' || STATE.currentMetric === 'Graders') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | Qty Avail | D.Act(%) | D.Fcst(%) | Var% | MTD.Act | MTD.Fcst | Var% | F.Fcst | F.Budg | Action
@@ -13150,16 +13167,17 @@ const METRIC_UNITS = {
     // Engineering
     "Tipper Trucks": "%",
     "Prime Excavators": "%",
-    "Anx Excavators": "%",
-    "Dump Trucks": "%",
-    "ART Dump Trucks": "%",
+    "Ancillary Excavators": "%",
+    "Dump Truck (CAT 777E)": "%",
+    "Dump Truck (Liebherr T236)": "%",
+    "Articulated Dump Trucks": "%",
     "Wheel Loaders": "%",
     "Graders": "%",
     "Dozers": "%",
     "Crusher": "%",
     "Mill": "%",
     "Light Vehicles": "%",
-    "Pumps": "%",
+    "Dewatering Pumps": "%",
     "Drill Rigs": "%"
 };
 
@@ -13169,7 +13187,7 @@ const SUMMARY_METRIC_ORDER = {
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
-    "Engineering": ["Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Pumps", "Drill Rigs"]
+    "Engineering": ["Prime Excavators", "Ancillary Excavators", "Articulated Dump Trucks", "Drill Rigs", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Dozers", "Graders", "Wheel Loaders", "Dewatering Pumps"]
 };
 
 // Mining base metric -> associated grade metric. On the summary dashboard the

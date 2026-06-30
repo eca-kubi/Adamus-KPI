@@ -30,9 +30,9 @@ DEPARTMENTS = {
         "Grade Control Drilling", "Toll", "Exploration Drilling"
     ],
     "Engineering": [
-        "Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", 
-        "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles",
-        "Pumps", "Drill Rigs"
+        "Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", 
+        "Articulated Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles",
+        "Dewatering Pumps", "Drill Rigs"
     ]
 }
 

@@ -462,7 +462,7 @@ DEPARTMENT_METRICS = {
     "Mining": ["Fixed Inputs", "Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
     "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
-    "Engineering": ["Fixed Inputs", "Light Vehicles", "Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Pumps", "Drill Rigs"]
+    "Engineering": ["Fixed Inputs", "Light Vehicles", "Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Articulated Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Dewatering Pumps", "Drill Rigs"]
 }
 
 def get_allowed_metrics_for_departments(departments: List[str]) -> List[str]:
@@ -1102,7 +1102,30 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
     running_act = 0.0
     running_weights = 0.0
     running_weighted_sum = 0.0
-    
+
+    # For Recovery metric, pre-fetch Gold Recovery and Gold Contained daily records
+    # so we can compute Recovery MTD Actual = (GR MTD / GC MTD) * 100
+    gr_records: list[KPIRecord] = []
+    gc_records: list[KPIRecord] = []
+    if department == "Milling_CIL" and metric_name == "Recovery":
+        gr_stmt = select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.date >= month_start,
+            KPIRecord.date < next_month_start,
+            KPIRecord.metric_name == "Gold Recovery",
+            or_(KPIRecord.subtype != 'fixed_input', KPIRecord.subtype == None)
+        ).order_by(KPIRecord.date)
+        gr_records = list(session.exec(gr_stmt).all())
+
+        gc_stmt = select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.date >= month_start,
+            KPIRecord.date < next_month_start,
+            KPIRecord.metric_name == "Gold Contained",
+            or_(KPIRecord.subtype != 'fixed_input', KPIRecord.subtype == None)
+        ).order_by(KPIRecord.date)
+        gc_records = list(session.exec(gc_stmt).all())
+
     for idx, r in enumerate(daily_records):
         d = dict(r.data)
         
@@ -1138,6 +1161,8 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
         if is_ohs_dept:
             mtd_forecast = full_fcst
         elif department == "Mining" and metric_name in ("Rehandle Grade", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+            mtd_forecast = daily_fcst
+        elif department == "Milling_CIL" and metric_name == "Recovery":
             mtd_forecast = daily_fcst
         else:
             running_fcst += daily_fcst
@@ -1175,6 +1200,12 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             running_weighted_sum += (daily_act * daily_fcst)
             running_weights += daily_act
             mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
+        elif department == "Milling_CIL" and metric_name == "Recovery":
+            # Recovery MTD Actual = (Gold Recovery MTD Actual / Gold Contained MTD Actual) * 100
+            # Look up Gold Recovery and Gold Contained daily records up to this date
+            gr_running = sum(parse_float(gr_r.data.get('daily_actual')) for gr_r in gr_records if gr_r.date <= r.date)
+            gc_running = sum(parse_float(gc_r.data.get('daily_actual')) for gc_r in gc_records if gc_r.date <= r.date)
+            mtd_actual = (gr_running / gc_running) * 100 if gc_running != 0 else 0.0
         else:
             running_act += daily_act
             mtd_actual = running_act
@@ -1202,7 +1233,9 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 outlook = mtd_actual
             else:
                 outlook = mtd_actual + (full_fcst - mtd_actual) / remaining_days
-        elif department == "Milling_CIL" and metric_name in ["Gold Contained", "Gold Recovery", "Recovery", "Tonnes Treated"]:
+        elif department == "Milling_CIL" and metric_name == "Recovery":
+            outlook = mtd_actual
+        elif department == "Milling_CIL" and metric_name in ["Gold Contained", "Gold Recovery", "Tonnes Treated"]:
             outlook = (mtd_actual / current_day) * total_days if current_day > 0 else 0.0
         elif department == "Crushing" and metric_name == "Ore Crushed":
             outlook = (mtd_actual / current_day) * total_days if current_day > 0 else 0.0
@@ -1484,6 +1517,8 @@ def get_summary_dashboard(
                 mtd_forecast = full_fcst
             elif dept == "Mining" and metric_name in ("Rehandle Grade", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
                 mtd_forecast = parse_optional_float(target_rec.data.get('daily_forecast')) if (target_rec and target_rec.data.get('daily_forecast') is not None) else None
+            elif dept == "Milling_CIL" and metric_name == "Recovery":
+                mtd_forecast = parse_optional_float(daily_forecast) if daily_forecast is not None else None
             else:
                 mtd_forecast = sum_or_none(parse_optional_float(r.data.get('daily_forecast')) for r in daily_records)
 
@@ -1515,6 +1550,13 @@ def get_summary_dashboard(
                 sum_prod = sum_or_none(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
                 sum_weights = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in daily_records)
                 mtd_actual = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
+            elif dept == "Milling_CIL" and metric_name == "Recovery":
+                # Recovery MTD Actual = (Gold Recovery MTD Actual / Gold Contained MTD Actual) * 100
+                gr_daily = [r for r in dept_records if r.metric_name == "Gold Recovery" and r.subtype != 'fixed_input' and r.date >= month_start and r.date <= target_date]
+                gc_daily = [r for r in dept_records if r.metric_name == "Gold Contained" and r.subtype != 'fixed_input' and r.date >= month_start and r.date <= target_date]
+                gr_mtd = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in gr_daily)
+                gc_mtd = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in gc_daily)
+                mtd_actual = (gr_mtd / gc_mtd) * 100 if (gr_mtd is not None and gc_mtd is not None and gc_mtd != 0) else None
             else:
                 mtd_actual = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in daily_records)
 
@@ -1540,7 +1582,9 @@ def get_summary_dashboard(
                     outlook = mtd_actual
                 else:
                     outlook = mtd_actual + (full_fcst - mtd_actual) / remaining_days if (mtd_actual is not None) else None
-            elif dept == "Milling_CIL" and metric_name in ["Gold Contained", "Gold Recovery", "Recovery", "Tonnes Treated"]:
+            elif dept == "Milling_CIL" and metric_name == "Recovery":
+                outlook = mtd_actual
+            elif dept == "Milling_CIL" and metric_name in ["Gold Contained", "Gold Recovery", "Tonnes Treated"]:
                 outlook = (mtd_actual / current_day) * total_days if (mtd_actual is not None and current_day > 0) else None
             elif dept == "Crushing" and metric_name == "Ore Crushed":
                 outlook = (mtd_actual / current_day) * total_days if (mtd_actual is not None and current_day > 0) else None
@@ -1896,6 +1940,9 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 rec_date = datetime.strptime(rec_date, "%Y-%m-%d").date()
             if existing.metric_name != "Fixed Inputs":
                 recalculate_metric_month(department, existing.metric_name, rec_date.year, rec_date.month, session)
+                # If Gold Recovery or Gold Contained changed, also recalculate Recovery
+                if department == "Milling_CIL" and existing.metric_name in ("Gold Recovery", "Gold Contained"):
+                    recalculate_metric_month(department, "Recovery", rec_date.year, rec_date.month, session)
                 session.commit()
                 session.refresh(existing)
                 
@@ -1915,6 +1962,9 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 rec_date = datetime.strptime(rec_date, "%Y-%m-%d").date()
             if record.metric_name != "Fixed Inputs":
                 recalculate_metric_month(department, record.metric_name, rec_date.year, rec_date.month, session)
+                # If Gold Recovery or Gold Contained changed, also recalculate Recovery
+                if department == "Milling_CIL" and record.metric_name in ("Gold Recovery", "Gold Contained"):
+                    recalculate_metric_month(department, "Recovery", rec_date.year, rec_date.month, session)
                 session.commit()
                 session.refresh(record)
                 
@@ -2024,11 +2074,21 @@ def import_kpi_records(
     session.commit()
     
     # Recalculate mutated metric months
+    recovery_months = set()
     for m_name, y, m in mutated_keys:
         try:
             recalculate_metric_month(department, m_name, y, m, session)
+            if department == "Milling_CIL" and m_name in ("Gold Recovery", "Gold Contained"):
+                recovery_months.add((y, m))
         except Exception as e:
             print(f"Error recalculating imported metric {m_name} in {y}-{m}: {e}")
+
+    # Recalculate Recovery for any months where Gold Recovery or Gold Contained changed
+    for y, m in recovery_months:
+        try:
+            recalculate_metric_month(department, "Recovery", y, m, session)
+        except Exception as e:
+            print(f"Error recalculating Recovery after import in {y}-{m}: {e}")
             
     if mutated_keys:
         session.commit()
@@ -2084,6 +2144,9 @@ def delete_kpi_record(record_id: int, session: Session = Depends(get_session), _
     if metric_name != "Fixed Inputs":
         try:
             recalculate_metric_month(dept, metric_name, rec_date.year, rec_date.month, session)
+            # If Gold Recovery or Gold Contained deleted, also recalculate Recovery
+            if dept == "Milling_CIL" and metric_name in ("Gold Recovery", "Gold Contained"):
+                recalculate_metric_month(dept, "Recovery", rec_date.year, rec_date.month, session)
             session.commit()
         except Exception as e:
             print(f"Error recalculating metric month after deletion: {e}")
@@ -2235,6 +2298,9 @@ def cascade_fixed_input(
         # Recalculate metric month to ensure MTD, Outlook, and variances are correct
         try:
             recalculate_metric_month(department, payload.metric_name, year, month, session)
+            # If Gold Recovery or Gold Contained cascade, also recalculate Recovery
+            if department == "Milling_CIL" and payload.metric_name in ("Gold Recovery", "Gold Contained"):
+                recalculate_metric_month(department, "Recovery", year, month, session)
             session.commit()
         except Exception as e:
             print(f"Error recalculating metric month after cascade: {e}")
