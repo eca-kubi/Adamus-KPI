@@ -1674,6 +1674,10 @@ def get_summary_dashboard(
                 else:
                     var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
 
+            # Compute day2_var for all non-Engineering departments
+            if dept != "Engineering":
+                day2_var = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
+
             if metric_name in ("Runtime", "Throughput") or dept == "Engineering":
                 data = {
                     "daily_actual": daily_actual,
@@ -1745,7 +1749,7 @@ def get_summary_dashboard(
             if day2_forecast is not None:
                 data["day_2_forecast"] = day2_forecast
                 data["day2_forecast"] = day2_forecast
-            if dept == "Milling_CIL":
+            if dept != "Engineering":
                 data["day2_var"] = day2_var
             if target_rec and 'wet_tonnes' in target_rec.data:
                 data["wet_tonnes"] = target_rec.data["wet_tonnes"]
@@ -2245,6 +2249,8 @@ def cascade_fixed_input(
             
             # Helper for variance
             def calc_var(act_val, fcst_val, is_ohs=False, use_act_denom=False):
+                if act_val is None or fcst_val is None or act_val == "-" or fcst_val == "-":
+                    return "-"
                 try:
                     act = float(act_val)
                     fcst = float(fcst_val)
@@ -2289,7 +2295,7 @@ def cascade_fixed_input(
                         var = ((act - fcst) / fcst) * 100
                         return f"{round(var)}%"
                 except (ValueError, TypeError):
-                    return ""
+                    return "-"
 
             is_ohs_dept = department == "OHS"
 

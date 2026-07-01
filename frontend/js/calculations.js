@@ -5,8 +5,12 @@ function calculateVariance(actual, forecast) {
     const act = parseFloat(actual);
     const fc = parseFloat(forecast);
 
-    if (isNaN(act) || isNaN(fc) || fc === 0) {
+    if (isNaN(act) || isNaN(fc)) {
         return '';
+    }
+
+    if (fc === 0) {
+        return act === 0 ? '0%' : '-';
     }
 
     const variance = ((act - fc) / fc) * 100;

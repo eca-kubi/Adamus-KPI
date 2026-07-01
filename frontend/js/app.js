@@ -13780,13 +13780,13 @@ const DEPT_DISPLAY = {
 };
 
 const DEPT_SECONDARY_LABEL = {
-    "OHS": "", "Milling_CIL": "Day-2 Act", "Crushing": "",
-    "Mining": "", "Geology": "", "Engineering": "Qty Available"
+    "OHS": "Day-2 Act", "Milling_CIL": "Day-2 Act", "Crushing": "Day-2 Act",
+    "Mining": "Day-2 Act", "Geology": "Day-2 Act", "Engineering": "Qty Available"
 };
 
 const DEPT_SECONDARY_LABEL2 = {
-    "OHS": "", "Milling_CIL": "Day-2 Fcst", "Crushing": "",
-    "Mining": "", "Geology": "", "Engineering": ""
+    "OHS": "Day-2 Fcst", "Milling_CIL": "Day-2 Fcst", "Crushing": "Day-2 Fcst",
+    "Mining": "Day-2 Fcst", "Geology": "Day-2 Fcst", "Engineering": ""
 };
 
 function summarySparkline(vals, isOHS) {
@@ -13851,17 +13851,16 @@ function fmtVal(v, isOHS = false) {
 }
 
 function getSecondaryVal(dept, data, metric) {
-    if (dept === 'Milling_CIL') return fmtVal(data.day2 ?? data.day_2 ?? '');
     if (dept === 'Engineering') {
         if (metric === 'Crusher' || metric === 'Mill') return '-';
         return fmtVal(data.qty_available ?? '');
     }
-    return '';
+    return fmtVal(data.day2 ?? data.day_2 ?? '');
 }
 
 function getSecondaryVal2(dept, data, metric) {
-    if (dept === 'Milling_CIL') return fmtVal(data.day2_forecast ?? data.day_2_forecast ?? '');
-    return '';
+    if (dept === 'Engineering') return '';
+    return fmtVal(data.day2_forecast ?? data.day_2_forecast ?? '');
 }
 
 window.renderSummaryDashboardPage = async function () {
@@ -14433,7 +14432,6 @@ function renderSummaryTable(departments) {
         const secLabel = DEPT_SECONDARY_LABEL[dept] || '';
         const secLabel2 = DEPT_SECONDARY_LABEL2[dept] || '';
         const isOHS = dept === 'OHS';
-        const isMilling = dept === 'Milling_CIL';
 
         // Build all metrics in defined order, showing empty rows when no data exists
         const order = SUMMARY_METRIC_ORDER[dept] || [];
@@ -14447,10 +14445,12 @@ function renderSummaryTable(departments) {
             if (!sorted.find(s => s.metric_name === m.metric_name)) sorted.push(m);
         }
 
+        const isNonEng = dept !== 'Engineering';
+
         // Department section header row
         html += `<tr class="summary-dept-hdr dept-hdr-${deptKey}">
-            <td>Area</td><td>KPI</td><td>Unit</td><td>${secLabel2}</td>
-            <td>${isMilling ? secLabel : ''}</td><td>${isMilling ? 'Day-2 Var' : secLabel}</td>
+            <td>Area</td><td>KPI</td><td>Unit</td><td>${isNonEng ? secLabel2 : ''}</td>
+            <td>${isNonEng ? secLabel : ''}</td><td>${isNonEng ? 'Day-2 Var' : secLabel}</td>
             <td>Daily Actual</td><td>Daily Forecast</td><td>Variance</td><td>Status</td>
             <td>MTD Actual</td><td>MTD Forecast</td><td>Variance</td><td>Status</td>
             <td>Outlook (a)</td><td>Forecast (b)</td><td>Budget (c)</td><td>Variance (a-b)</td><td>Status</td>
@@ -14522,10 +14522,10 @@ function renderSummaryTable(departments) {
             html += `<td style="font-size:0.65rem;color:#666;">${unit}</td>`;
             const secVal = isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name);
             const secVal2 = isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name);
-            const showDay2Dash = !isMilling;
-            html += `<td class="num-cell">${showDay2Dash ? '-' : (secVal2 || (isMilling ? '-' : ''))}</td>`;
-            html += `<td class="num-cell">${isMilling ? (secVal || '-') : '-'}</td>`;
-            html += `<td class="${isMilling ? svarClass(d.day2_var) : 'num-cell'}">${isMilling ? fmtVal(d.day2_var, isOHS) : (isEng ? (secVal || '-') : '-')}</td>`;
+            const showDay2 = dept !== 'Engineering';
+            html += `<td class="num-cell">${showDay2 ? (secVal2 || '-') : '-'}</td>`;
+            html += `<td class="num-cell">${showDay2 ? (secVal || '-') : (secVal || '-')}</td>`;
+            html += `<td class="${showDay2 ? svarClass(d.day2_var) : 'num-cell'}">${showDay2 ? (fmtVal(d.day2_var, isOHS) || '-') : (secVal || '-')}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
@@ -14591,7 +14591,6 @@ function renderCommentsTable(departments, dateStr) {
         const secLabel = DEPT_SECONDARY_LABEL[dept] || '';
         const secLabel2 = DEPT_SECONDARY_LABEL2[dept] || '';
         const isOHS = dept === 'OHS';
-        const isMilling = dept === 'Milling_CIL';
 
         const order = SUMMARY_METRIC_ORDER[dept] || [];
         const sorted = [];
@@ -14615,7 +14614,7 @@ function renderCommentsTable(departments, dateStr) {
             if (unit && !displayName.includes(unit)) displayName = `${displayName} ${unit}`;
 
             const v1 = d.var1 ?? '';
-            rows.push({ dept, deptLabel, secLabel, secLabel2, isOHS, isMilling, displayName, metricName: m.metric_name, d, v1, comment });
+            rows.push({ dept, deptLabel, secLabel, secLabel2, isOHS, displayName, metricName: m.metric_name, d, v1, comment });
         }
     }
 
@@ -14673,8 +14672,8 @@ function renderCommentsTable(departments, dateStr) {
             lastDept = dept;
         }
         html += `<td style="font-weight:500;">${displayName}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : (!isMilling && dept !== 'Engineering' ? '-' : getSecondaryVal(dept, d, metricName))}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : (!isMilling ? '-' : getSecondaryVal2(dept, d, metricName))}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal(dept, d, metricName) || '-')}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal2(dept, d, metricName) || '-')}</td>`;
         html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
@@ -14689,7 +14688,7 @@ function renderCommentsTable(departments, dateStr) {
     // all rows reliably when the source is positioned off-screen.
     let exportRowsHtml = '';
     for (const r of rows) {
-        const { dept, deptLabel, isOHS, isMilling, displayName, metricName, d, v1, comment } = r;
+        const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
         const deptKey = dept.toLowerCase();
         const isStockpileMetric = (
             metricName === 'Near Pit Ore Stockpile' ||
@@ -14698,8 +14697,8 @@ function renderCommentsTable(departments, dateStr) {
         exportRowsHtml += '<tr>';
         exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
         exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (!isMilling && dept !== 'Engineering' ? '-' : getSecondaryVal(dept, d, metricName))}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (!isMilling ? '-' : getSecondaryVal2(dept, d, metricName))}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal(dept, d, metricName) || '-')}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal2(dept, d, metricName) || '-')}</td>`;
         exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
         exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         exportRowsHtml += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
