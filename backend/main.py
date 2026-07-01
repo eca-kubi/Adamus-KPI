@@ -462,7 +462,7 @@ DEPARTMENT_METRICS = {
     "Mining": ["Fixed Inputs", "Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
     "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
-    "Engineering": ["Fixed Inputs", "Light Vehicles", "Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Articulated Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Dewatering Pumps", "Drill Rigs"]
+    "Engineering": ["Fixed Inputs", "Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Articulated Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Dewatering Pumps", "Drill Rigs"]
 }
 
 def get_allowed_metrics_for_departments(departments: List[str]) -> List[str]:

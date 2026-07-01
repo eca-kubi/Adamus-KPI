@@ -295,7 +295,6 @@ const DEPT_METRICS = {
     ],
     "Engineering": [
         "Fixed Inputs",
-        "Light Vehicles",
         "Tipper Trucks",
         "Prime Excavators",
         "Ancillary Excavators",
@@ -307,6 +306,7 @@ const DEPT_METRICS = {
         "Dozers",
         "Crusher",
         "Mill",
+        "Light Vehicles",
         "Dewatering Pumps",
         "Drill Rigs"
     ]
@@ -8821,6 +8821,7 @@ function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
     });
 
     // Auto-Calculate MTD Actual (Average) for Anx Excavators
+    const updateMTDActual = async () => {
         const currentDailyValStr = dAct.input.value;
 
         if (!dateVal) return;
