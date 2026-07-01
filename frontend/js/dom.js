@@ -119,14 +119,44 @@ const DOM = {
 
         div.appendChild(groupContainer);
 
+        // "All" checkbox: when checked, enable all other checkboxes; when
+        // unchecked, disable all others.  Also, if every non-"All" checkbox is
+        // manually selected, auto-check "All"; if any is deselected, auto-uncheck "All".
+        const allCheckbox = checkboxes.find(c => c.value === 'All');
+        const otherCheckboxes = checkboxes.filter(c => c.value !== 'All');
+
+        if (allCheckbox) {
+            allCheckbox.addEventListener('change', () => {
+                const checked = allCheckbox.checked;
+                otherCheckboxes.forEach(c => { c.checked = checked; });
+            });
+        }
+
+        otherCheckboxes.forEach(c => {
+            c.addEventListener('change', () => {
+                if (!allCheckbox) return;
+                allCheckbox.checked = otherCheckboxes.every(oc => oc.checked);
+            });
+        });
+
         // Helper to get selected values
         const getValues = () => checkboxes.filter(c => c.checked).map(c => c.value);
         // Helper to set selected values
         const setValues = (vals) => {
             if (!Array.isArray(vals)) vals = [vals];
+            const hasAll = vals.includes('All');
             checkboxes.forEach(c => {
-                c.checked = vals.includes(c.value);
+                if (hasAll) {
+                    // When "All" is present, check every box (including "All")
+                    c.checked = true;
+                } else {
+                    c.checked = vals.includes(c.value);
+                }
             });
+            // If every non-"All" checkbox is checked, also check "All"
+            if (!hasAll && allCheckbox && otherCheckboxes.every(oc => oc.checked)) {
+                allCheckbox.checked = true;
+            }
         };
 
         return { container: div, checkboxes, getValues, setValues };
