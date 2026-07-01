@@ -298,15 +298,16 @@ const DEPT_METRICS = {
         "Light Vehicles",
         "Tipper Trucks",
         "Prime Excavators",
-        "Anx Excavators",
-        "Dump Trucks",
-        "ART Dump Trucks",
+        "Ancillary Excavators",
+        "Dump Truck (CAT 777E)",
+        "Dump Truck (Liebherr T236)",
+        "Articulated Dump Trucks",
         "Wheel Loaders",
         "Graders",
         "Dozers",
         "Crusher",
         "Mill",
-        "Pumps",
+        "Dewatering Pumps",
         "Drill Rigs"
     ]
 };
@@ -479,7 +480,7 @@ const IMPORT_CONFIGS = {
 };
 
 // Engineering metrics mapping
-['Light Vehicles', 'Tipper Trucks', 'Pumps', 'Drill Rigs', 'Prime Excavators', 'Anx Excavators', 'Dump Trucks', 'ART Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
+['Light Vehicles', 'Tipper Trucks', 'Dewatering Pumps', 'Drill Rigs', 'Prime Excavators', 'Ancillary Excavators', 'Dump Truck (CAT 777E)', 'Dump Truck (Liebherr T236)', 'Articulated Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
     IMPORT_CONFIGS[m] = {
         headers: ['Date (YYYY-MM-DD)', 'Qty Available', 'Daily Actual(%)', 'Daily Forecast(%)', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'qty_available', 'daily_actual', 'daily_forecast', 'full_forecast', 'full_budget']
@@ -1684,7 +1685,7 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if ((metric === "Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Anx Excavators" || metric === "Dump Trucks" || metric === "ART Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
+        } else if ((metric === "Dewatering Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Ancillary Excavators" || metric === "Dump Truck (CAT 777E)" || metric === "Dump Truck (Liebherr T236)" || metric === "Articulated Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -1878,16 +1879,16 @@ function renderKPIForm(dept, metricName) {
         renderOHSPropertyDamageForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Light Vehicles") {
         renderEngineeringLightVehiclesForm(dept, metricName, card);
-    } else if (dept === "Engineering" && (metricName === "Tipper Trucks" || metricName === "Pumps" || metricName === "Drill Rigs")) {
+    } else if (dept === "Engineering" && (metricName === "Tipper Trucks" || metricName === "Dewatering Pumps" || metricName === "Drill Rigs")) {
         renderEngineeringTipperTrucksForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Prime Excavators") {
         renderEngineeringPrimeExcavatorsForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "Anx Excavators") {
-        renderEngineeringAnxExcavatorsForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "Dump Trucks") {
-        renderEngineeringDumpTrucksForm(dept, metricName, card);
-    } else if (dept === "Engineering" && metricName === "ART Dump Trucks") {
-        renderEngineeringArtDumpTrucksForm(dept, metricName, card);
+    } else if (dept === "Engineering" && metricName === "Ancillary Excavators") {
+        renderEngineeringAncillaryExcavatorsForm(dept, metricName, card);
+    } else if (dept === "Engineering" && (metricName === "Dump Truck (CAT 777E)" || metricName === "Dump Truck (Liebherr T236)")) {
+        renderEngineeringDumpTruckForm(dept, metricName, card);
+    } else if (dept === "Engineering" && metricName === "Articulated Dump Trucks") {
+        renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Wheel Loaders") {
         renderEngineeringWheelLoadersForm(dept, metricName, card);
     } else if (dept === "Engineering" && metricName === "Graders") {
@@ -8741,7 +8742,7 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
     card.appendChild(btnContainer);
 }
 
-function renderEngineeringAnxExcavatorsForm(dept, metricName, card) {
+function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
     const grid = document.createElement('div');
     grid.className = 'kpi-form-grid';
 
@@ -9000,7 +9001,7 @@ function renderEngineeringAnxExcavatorsForm(dept, metricName, card) {
     card.appendChild(btnContainer);
 }
 
-function renderEngineeringDumpTrucksForm(dept, metricName, card) {
+function renderEngineeringDumpTruckForm(dept, metricName, card) {
     const grid = document.createElement('div');
     grid.className = 'kpi-form-grid';
 
@@ -9249,7 +9250,7 @@ function renderEngineeringDumpTrucksForm(dept, metricName, card) {
     card.appendChild(btnContainer);
 }
 
-function renderEngineeringArtDumpTrucksForm(dept, metricName, card) {
+function renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card) {
     const grid = document.createElement('div');
     grid.className = 'kpi-form-grid';
 
@@ -12315,8 +12316,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Anx Excavators OR Dump Trucks OR ART Dump Trucks OR Wheel Loaders OR Graders (Identical columns)
-        if (STATE.currentMetric === 'Anx Excavators' || STATE.currentMetric === 'Dump Trucks' || STATE.currentMetric === 'ART Dump Trucks' || STATE.currentMetric === 'Wheel Loaders' || STATE.currentMetric === 'Graders') {
+        // Handling for Ancillary Excavators OR Dump Truck (CAT 777E) OR Dump Truck (Liebherr T236) OR Articulated Dump Trucks OR Wheel Loaders OR Graders (Identical columns)
+        if (STATE.currentMetric === 'Ancillary Excavators' || STATE.currentMetric === 'Dump Truck (CAT 777E)' || STATE.currentMetric === 'Dump Truck (Liebherr T236)' || STATE.currentMetric === 'Articulated Dump Trucks' || STATE.currentMetric === 'Wheel Loaders' || STATE.currentMetric === 'Graders') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | Qty Avail | D.Act(%) | D.Fcst(%) | Var% | MTD.Act | MTD.Fcst | Var% | F.Fcst | F.Budg | Action
@@ -13654,16 +13655,17 @@ const METRIC_UNITS = {
     // Engineering
     "Tipper Trucks": "%",
     "Prime Excavators": "%",
-    "Anx Excavators": "%",
-    "Dump Trucks": "%",
-    "ART Dump Trucks": "%",
+    "Ancillary Excavators": "%",
+    "Dump Truck (CAT 777E)": "%",
+    "Dump Truck (Liebherr T236)": "%",
+    "Articulated Dump Trucks": "%",
     "Wheel Loaders": "%",
     "Graders": "%",
     "Dozers": "%",
     "Crusher": "%",
     "Mill": "%",
     "Light Vehicles": "%",
-    "Pumps": "%",
+    "Dewatering Pumps": "%",
     "Drill Rigs": "%"
 };
 
@@ -13673,7 +13675,7 @@ const SUMMARY_METRIC_ORDER = {
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
-    "Engineering": ["Tipper Trucks", "Prime Excavators", "Anx Excavators", "Dump Trucks", "ART Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Pumps", "Drill Rigs"]
+    "Engineering": ["Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Articulated Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Dewatering Pumps", "Drill Rigs"]
 };
 
 // Mining base metric -> associated grade metric. On the summary dashboard the
@@ -14431,9 +14433,12 @@ function renderSummaryTable(departments) {
             // groupMember rows intentionally omit the KPI cell because it is
             // spanned from the preceding base-metric row.
             html += `<td style="font-size:0.65rem;color:#666;">${unit}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name)}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name)}</td>`;
-            html += `<td class="${isMilling ? svarClass(d.day2_var) : 'num-cell'}">${isMilling ? fmtVal(d.day2_var, isOHS) : ''}</td>`;
+            const secVal = isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name);
+            const secVal2 = isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name);
+            const showDay2Dash = !isMilling;
+            html += `<td class="num-cell">${showDay2Dash && dept !== 'Engineering' ? '-' : (secVal || (isMilling ? '-' : ''))}</td>`;
+            html += `<td class="num-cell">${showDay2Dash ? '-' : (secVal2 || (isMilling ? '-' : ''))}</td>`;
+            html += `<td class="${isMilling ? svarClass(d.day2_var) : 'svar-na'}">${isMilling ? fmtVal(d.day2_var, isOHS) : '-'}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
@@ -14499,6 +14504,7 @@ function renderCommentsTable(departments, dateStr) {
         const secLabel = DEPT_SECONDARY_LABEL[dept] || '';
         const secLabel2 = DEPT_SECONDARY_LABEL2[dept] || '';
         const isOHS = dept === 'OHS';
+        const isMilling = dept === 'Milling_CIL';
 
         const order = SUMMARY_METRIC_ORDER[dept] || [];
         const sorted = [];
@@ -14522,7 +14528,7 @@ function renderCommentsTable(departments, dateStr) {
             if (unit && !displayName.includes(unit)) displayName = `${displayName} ${unit}`;
 
             const v1 = d.var1 ?? '';
-            rows.push({ dept, deptLabel, secLabel, secLabel2, isOHS, displayName, metricName: m.metric_name, d, v1, comment });
+            rows.push({ dept, deptLabel, secLabel, secLabel2, isOHS, isMilling, displayName, metricName: m.metric_name, d, v1, comment });
         }
     }
 
@@ -14580,8 +14586,8 @@ function renderCommentsTable(departments, dateStr) {
             lastDept = dept;
         }
         html += `<td style="font-weight:500;">${displayName}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : (!isMilling && dept !== 'Engineering' ? '-' : getSecondaryVal(dept, d, metricName))}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : (!isMilling ? '-' : getSecondaryVal2(dept, d, metricName))}</td>`;
         html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
@@ -14596,7 +14602,7 @@ function renderCommentsTable(departments, dateStr) {
     // all rows reliably when the source is positioned off-screen.
     let exportRowsHtml = '';
     for (const r of rows) {
-        const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
+        const { dept, deptLabel, isOHS, isMilling, displayName, metricName, d, v1, comment } = r;
         const deptKey = dept.toLowerCase();
         const isStockpileMetric = (
             metricName === 'Near Pit Ore Stockpile' ||
@@ -14605,8 +14611,8 @@ function renderCommentsTable(departments, dateStr) {
         exportRowsHtml += '<tr>';
         exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
         exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal(dept, d, metricName)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : getSecondaryVal2(dept, d, metricName)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (!isMilling && dept !== 'Engineering' ? '-' : getSecondaryVal(dept, d, metricName))}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (!isMilling ? '-' : getSecondaryVal2(dept, d, metricName))}</td>`;
         exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
         exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         exportRowsHtml += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
