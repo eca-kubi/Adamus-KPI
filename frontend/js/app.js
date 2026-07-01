@@ -14524,21 +14524,21 @@ function renderSummaryTable(departments) {
             const secVal2 = isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name);
             const showDay2 = dept !== 'Engineering';
             html += `<td class="num-cell">${showDay2 ? (secVal2 || '-') : '-'}</td>`;
-            html += `<td class="num-cell">${showDay2 ? (secVal || '-') : (secVal || '-')}</td>`;
+            html += `<td class="num-cell">${showDay2 ? (secVal || '-') : '-'}</td>`;
             html += `<td class="${showDay2 ? svarClass(d.day2_var) : 'num-cell'}">${showDay2 ? (fmtVal(d.day2_var, isOHS) || '-') : (secVal || '-')}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
-            html += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
+            html += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_actual, isOHS))}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_forecast, isOHS))}</td>`;
             html += `<td class="${(isStockpileMetric || isRuntimeThroughput) ? 'svar-na' : svarClass(v2)}">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(v2, isOHS))}</td>`;
-            html += `<td style="text-align:center;">${isStockpileMetric || isRuntimeThroughput ? '' : (isEng ? '' : sstatusHtml(v2))}</td>`;
+            html += `<td style="text-align:right;">${isStockpileMetric || isRuntimeThroughput ? '' : (isEng ? '' : sstatusHtml(v2))}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.outlook ?? '', isOHS))}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.full_forecast ?? '', isOHS))}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.full_budget ?? '', isOHS))}</td>`;
             html += `<td class="${(isStockpileMetric || isRuntimeThroughput || isRehandleMetric) ? 'svar-na' : svarClass(v3)}">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(v3, isOHS))}</td>`;
-            html += `<td style="text-align:center;">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '' : (isEng ? '' : sstatusHtml(v3))}</td>`;
+            html += `<td style="text-align:right;">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '' : (isEng ? '' : sstatusHtml(v3))}</td>`;
             html += `<td class="trend-cell">${summarySparkline(m.trend, isOHS)}</td>`;
 
             html += '</tr>';
@@ -14677,7 +14677,7 @@ function renderCommentsTable(departments, dateStr) {
         html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
-        html += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
+        html += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
         html += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
         html += '</tr>';
     }
@@ -14702,7 +14702,7 @@ function renderCommentsTable(departments, dateStr) {
         exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
         exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         exportRowsHtml += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
-        exportRowsHtml += `<td style="text-align:center;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
+        exportRowsHtml += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
         exportRowsHtml += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
         exportRowsHtml += '</tr>';
     }
