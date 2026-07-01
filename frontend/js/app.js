@@ -296,19 +296,19 @@ const DEPT_METRICS = {
     "Engineering": [
         "Fixed Inputs",
         "Tipper Trucks",
+        "Light Vehicles",
         "Prime Excavators",
         "Ancillary Excavators",
+        "Articulated Dump Trucks",
+        "Drill Rigs",
         "Dump Truck (CAT 777E)",
         "Dump Truck (Liebherr T236)",
-        "Articulated Dump Trucks",
-        "Wheel Loaders",
-        "Graders",
         "Dozers",
-        "Crusher",
-        "Mill",
-        "Light Vehicles",
+        "Graders",
+        "Wheel Loaders",
         "Dewatering Pumps",
-        "Drill Rigs"
+        "Crusher",
+        "Mill"
     ]
 };
 
@@ -13762,7 +13762,7 @@ const SUMMARY_METRIC_ORDER = {
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
-    "Engineering": ["Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Articulated Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles", "Dewatering Pumps", "Drill Rigs"]
+    "Engineering": ["Tipper Trucks", "Light Vehicles", "Prime Excavators", "Ancillary Excavators", "Articulated Dump Trucks", "Drill Rigs", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Dozers", "Graders", "Wheel Loaders", "Dewatering Pumps", "Crusher", "Mill"]
 };
 
 // Mining base metric -> associated grade metric. On the summary dashboard the
@@ -14449,8 +14449,8 @@ function renderSummaryTable(departments) {
 
         // Department section header row
         html += `<tr class="summary-dept-hdr dept-hdr-${deptKey}">
-            <td>Area</td><td>KPI</td><td>Unit</td><td>${secLabel}</td>
-            <td>${secLabel2}</td><td>${isMilling ? 'Day-2 Var' : ''}</td>
+            <td>Area</td><td>KPI</td><td>Unit</td><td>${secLabel2}</td>
+            <td>${isMilling ? secLabel : ''}</td><td>${isMilling ? 'Day-2 Var' : secLabel}</td>
             <td>Daily Actual</td><td>Daily Forecast</td><td>Variance</td><td>Status</td>
             <td>MTD Actual</td><td>MTD Forecast</td><td>Variance</td><td>Status</td>
             <td>Outlook (a)</td><td>Forecast (b)</td><td>Budget (c)</td><td>Variance (a-b)</td><td>Status</td>
@@ -14523,9 +14523,9 @@ function renderSummaryTable(departments) {
             const secVal = isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name);
             const secVal2 = isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name);
             const showDay2Dash = !isMilling;
-            html += `<td class="num-cell">${showDay2Dash && dept !== 'Engineering' ? '-' : (secVal || (isMilling ? '-' : ''))}</td>`;
             html += `<td class="num-cell">${showDay2Dash ? '-' : (secVal2 || (isMilling ? '-' : ''))}</td>`;
-            html += `<td class="${isMilling ? svarClass(d.day2_var) : 'svar-na'}">${isMilling ? fmtVal(d.day2_var, isOHS) : '-'}</td>`;
+            html += `<td class="num-cell">${isMilling ? (secVal || '-') : '-'}</td>`;
+            html += `<td class="${isMilling ? svarClass(d.day2_var) : 'num-cell'}">${isMilling ? fmtVal(d.day2_var, isOHS) : (isEng ? (secVal || '-') : '-')}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
