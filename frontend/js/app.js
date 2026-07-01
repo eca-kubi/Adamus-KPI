@@ -1825,10 +1825,14 @@ function renderKPIForm(dept, metricName) {
         renderMiningGradeRehandleForm(dept, metricName, card);
     } else if (dept === "Mining" && metricName === "Rehandle") {
         renderMiningRehandleForm(dept, metricName, card);
-    } else if (dept === "Mining" && (metricName === "Near Pit Ore Stockpile" || metricName === "Main Rompad Stockpile")) {
+    } else if (dept === "Mining" && metricName === "Near Pit Ore Stockpile") {
         renderMiningStockPileForm(dept, metricName, card);
-    } else if (dept === "Mining" && (metricName === "Near Pit Ore Stockpile Grade" || metricName === "Main Rompad Ore Stockpile Grade")) {
+    } else if (dept === "Mining" && metricName === "Main Rompad Stockpile") {
+        renderMiningMainRompadStockPileForm(dept, metricName, card);
+    } else if (dept === "Mining" && metricName === "Near Pit Ore Stockpile Grade") {
         renderMiningGradeStockPileForm(dept, metricName, card);
+    } else if (dept === "Mining" && metricName === "Main Rompad Ore Stockpile Grade") {
+        renderMiningMainRompadGradeStockPileForm(dept, metricName, card);
     } else if (dept === "Mining" && (
         metricName === "Availability - Dump Trucks" ||
         metricName === "Utilization - Dump Trucks" ||
@@ -4060,6 +4064,274 @@ function renderMiningGradeStockPileForm(dept, metricName, card) {
             dActGrade.input.value = '';
             dVar.input.value = '';
             mAct.input.value = '';
+            mVar.input.value = '';
+            date.input.value = '';
+        } catch (e) {
+            console.error("Save failed", e);
+            showSaveError(e, "Failed to save record");
+        }
+    });
+    btnContainer.appendChild(saveBtn);
+    card.appendChild(btnContainer);
+}
+
+function renderMiningMainRompadStockPileForm(dept, metricName, card) {
+    const grid = document.createElement('div');
+    grid.className = 'kpi-form-grid-3';
+
+    // Helper to add to grid
+    const add = (group) => grid.appendChild(group.container);
+
+    // Row 1
+    const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
+    kpi.input.value = metricName;
+    kpi.input.readOnly = true;
+
+    const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
+
+    // Row 2
+    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number", '', true);
+    const dFcst = DOM.createInputGroup("Daily Forecast (t)", `input-${dept}-daily-fcst`, "number", '', true);
+    
+    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+
+    // Row 3
+    const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
+    mAct.input.readOnly = true;
+    
+    const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
+    mFcst.input.readOnly = true;
+    
+    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    mVar.input.readOnly = true;
+
+    // Auto-Calculate logic
+    const calculateValues = () => {
+        const currentDailyAct = parseFloat(dAct.input.value) || 0;
+        const currentDailyFcst = parseFloat(dFcst.input.value) || 0;
+        
+        mAct.input.value = currentDailyAct.toFixed(2);
+        mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        mFcst.input.value = currentDailyFcst.toFixed(2);
+        mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Variances calculations
+        if (currentDailyAct === 0 || currentDailyFcst === 0) {
+            dVar.input.value = "0%";
+            mVar.input.value = "0%";
+        } else {
+            const dailyVar = ((currentDailyAct - currentDailyFcst) / currentDailyFcst * 100).toFixed(1);
+            dVar.input.value = dailyVar + "%";
+            mVar.input.value = dailyVar + "%";
+        }
+        dVar.input.dispatchEvent(new Event('input', { bubbles: true }));
+        mVar.input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    dAct.input.addEventListener('input', calculateValues);
+    dFcst.input.addEventListener('input', calculateValues);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    date.input.addEventListener('change', calculateValues);
+
+    // Add to Grid
+    add(kpi); add(date); grid.appendChild(document.createElement('div')); // Row 1
+    add(dAct); add(dFcst); add(dVar); // Row 2
+    add(mAct); add(mFcst); add(mVar); // Row 3
+
+    card.appendChild(grid);
+
+    // Save Button
+    const btnContainer = document.createElement('div');
+    const saveBtn = DOM.createButton("Save Record", async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
+
+        const currentDailyAct = parseFloat(dAct.input.value) || 0;
+        const currentDailyFcst = parseFloat(dFcst.input.value);
+        if (isNaN(currentDailyFcst) || currentDailyFcst <= 0) {
+            DOM.showToast("Please enter a valid Daily Forecast value", "error");
+            return;
+        }
+
+        const record = {
+            subtype: 'daily_input',
+            date: dateVal,
+            department: dept,
+            metric_name: metricName,
+            data: {
+                daily_actual: currentDailyAct,
+                daily_forecast: currentDailyFcst,
+                var1: dVar.input.value,
+                mtd_actual: currentDailyAct,
+                mtd_forecast: currentDailyFcst,
+                var2: mVar.input.value,
+                outlook: currentDailyAct,
+                full_forecast: "-",
+                full_budget: "-",
+                var3: "-"
+            }
+        };
+
+        try {
+            await saveKPIRecord(dept, record);
+            DOM.showToast("Record saved successfully!");
+            loadRecentRecords(dept);
+
+            // Clear inputs
+            dAct.input.value = '';
+            dFcst.input.value = '';
+            dVar.input.value = '';
+            mAct.input.value = '';
+            mFcst.input.value = '';
+            mVar.input.value = '';
+            date.input.value = '';
+        } catch (e) {
+            console.error("Save failed", e);
+            showSaveError(e, "Failed to save record");
+        }
+    });
+    btnContainer.appendChild(saveBtn);
+    card.appendChild(btnContainer);
+}
+
+function renderMiningMainRompadGradeStockPileForm(dept, metricName, card) {
+    const grid = document.createElement('div');
+    grid.className = 'kpi-form-grid-3';
+
+    // Helper to add to grid
+    const add = (group) => grid.appendChild(group.container);
+
+    // Row 1
+    const kpi = DOM.createInputGroup("KPI", `input-${dept}-kpi`, "text");
+    kpi.input.value = metricName;
+    kpi.input.readOnly = true;
+
+    const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
+
+    // Row 2
+    const dAct = DOM.createInputGroup("Daily Actual (t)", `input-${dept}-daily-act`, "number", '', true);
+    const dActGrade = DOM.createInputGroup("Daily Actual (g/t)", `input-${dept}-daily-act-gt`, "number", '', true);
+    const dFcst = DOM.createInputGroup("Daily Forecast (g/t)", `input-${dept}-daily-fcst`, "number", '', true);
+
+    // Row 3
+    const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
+    dVar.input.readOnly = true;
+
+    const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
+    mAct.input.readOnly = true;
+    
+    const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "number");
+    mFcst.input.readOnly = true;
+
+    // Row 4
+    const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
+    mVar.input.readOnly = true;
+
+    // Auto-Calculate logic
+    const calculateValues = () => {
+        const currentDailyActGrade = parseFloat(dActGrade.input.value) || 0;
+        const currentDailyFcst = parseFloat(dFcst.input.value) || 0;
+        
+        mAct.input.value = currentDailyActGrade.toFixed(2);
+        mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        mFcst.input.value = currentDailyFcst.toFixed(2);
+        mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Variances calculations
+        if (currentDailyActGrade === 0 || currentDailyFcst === 0) {
+            dVar.input.value = "0%";
+            mVar.input.value = "0%";
+        } else {
+            const dailyVar = ((currentDailyActGrade - currentDailyFcst) / currentDailyFcst * 100).toFixed(1);
+            dVar.input.value = dailyVar + "%";
+            mVar.input.value = dailyVar + "%";
+        }
+        dVar.input.dispatchEvent(new Event('input', { bubbles: true }));
+        mVar.input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    dActGrade.input.addEventListener('input', calculateValues);
+    dFcst.input.addEventListener('input', calculateValues);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act`,
+            daily_act_grade: `input-${dept}-daily-act-gt`,
+            daily_forecast: `input-${dept}-daily-fcst`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dActGrade.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    date.input.addEventListener('change', calculateValues);
+
+    // Add to Grid
+    add(kpi); add(date); grid.appendChild(document.createElement('div')); // Row 1
+    add(dAct); add(dActGrade); add(dFcst); // Row 2
+    add(dVar); add(mAct); add(mFcst); // Row 3
+    add(mVar); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Row 4
+
+    card.appendChild(grid);
+
+    // Save Button
+    const btnContainer = document.createElement('div');
+    const saveBtn = DOM.createButton("Save Record", async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) { DOM.showToast("Please select a date", "error"); return; }
+
+        const currentDailyAct = parseFloat(dAct.input.value) || 0;
+        const currentDailyActGrade = parseFloat(dActGrade.input.value) || 0;
+        const currentDailyFcst = parseFloat(dFcst.input.value);
+        if (isNaN(currentDailyFcst) || currentDailyFcst <= 0) {
+            DOM.showToast("Please enter a valid Daily Forecast value", "error");
+            return;
+        }
+
+        const record = {
+            subtype: 'daily_input',
+            date: dateVal,
+            department: dept,
+            metric_name: metricName,
+            data: {
+                daily_actual: currentDailyAct,
+                daily_act_grade: currentDailyActGrade,
+                daily_forecast: currentDailyFcst,
+                var1: dVar.input.value,
+                mtd_actual: currentDailyActGrade,
+                mtd_forecast: currentDailyFcst,
+                var2: mVar.input.value,
+                outlook: currentDailyActGrade,
+                full_forecast: "-",
+                full_budget: "-",
+                var3: "-"
+            }
+        };
+
+        try {
+            await saveKPIRecord(dept, record);
+            DOM.showToast("Record saved successfully!");
+            loadRecentRecords(dept);
+
+            // Clear inputs
+            dAct.input.value = '';
+            dActGrade.input.value = '';
+            dFcst.input.value = '';
+            dVar.input.value = '';
+            mAct.input.value = '';
+            mFcst.input.value = '';
             mVar.input.value = '';
             date.input.value = '';
         } catch (e) {
@@ -10970,8 +11242,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Stockpile metrics
-        if (STATE.currentMetric === 'Near Pit Ore Stockpile' || STATE.currentMetric === 'Main Rompad Stockpile') {
+        // Handling for Near Pit Stockpile metric
+        if (STATE.currentMetric === 'Near Pit Ore Stockpile') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             thead.innerHTML = `
@@ -11034,8 +11306,72 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Grade Stockpile metrics
-        if (STATE.currentMetric === 'Near Pit Ore Stockpile Grade' || STATE.currentMetric === 'Main Rompad Ore Stockpile Grade') {
+        // Handling for Main Rompad Stockpile metric
+        if (STATE.currentMetric === 'Main Rompad Stockpile') {
+            filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
+
+            thead.innerHTML = `
+                <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
+                <th style="padding: 12px; text-align: left;">D.Act(t)</th>
+                <th style="padding: 12px; text-align: left;">D.Fcst(t)</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">MTD.Act</th>
+                <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Outlook</th>
+                <th style="padding: 12px; text-align: left;">F.Fcst</th>
+                <th style="padding: 12px; text-align: left;">F.Budg</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
+                <th style="padding: 12px; text-align: left;">Action</th>
+            `;
+
+            if (filteredRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="16" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                return;
+            }
+
+            filteredRecords.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.style.borderTop = '1px solid #e5e7eb';
+
+                let dateDisplay = r.date;
+                if (r.date && r.date.includes('-')) {
+                    const [y, m, d] = r.date.split('-');
+                    dateDisplay = `${d}-${m}-${y}`;
+                }
+
+                tr.innerHTML = `
+                    <td style="padding: 12px;">${dateDisplay}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.outlook)}</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px; text-align: center;">-</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
+                    <td style="padding: 12px;">
+                        <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
+                        <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            return;
+        }
+
+        // Handling for Near Pit Grade Stockpile metric
+        if (STATE.currentMetric === 'Near Pit Ore Stockpile Grade') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             thead.innerHTML = `
@@ -11082,6 +11418,72 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
                     <td style="padding: 12px;">0</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.outlook)}</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px;">-</td>
+                    <td style="padding: 12px; text-align: center;">-</td>
+                    <td style="padding: 12px;">${getInputBy(r)}</td>
+                    <td style="padding: 12px;">
+                        <button onclick="editRecord(${r.id})" style="margin-right:8px; padding:2px 6px; cursor:pointer;" title="Edit">✏️</button>
+                        <button onclick="deleteRecord(${r.id})" style="padding:2px 6px; cursor:pointer; color:red;" title="Delete">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            return;
+        }
+
+        // Handling for Main Rompad Grade Stockpile metric
+        if (STATE.currentMetric === 'Main Rompad Ore Stockpile Grade') {
+            filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
+
+            thead.innerHTML = `
+                <th style="padding: 12px; text-align: left; min-width: 90px;">Date</th>
+                <th style="padding: 12px; text-align: left;">D.Act(t)</th>
+                <th style="padding: 12px; text-align: left;">D.Act(g/t)</th>
+                <th style="padding: 12px; text-align: left;">D.Fcst(g/t)</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">MTD.Act</th>
+                <th style="padding: 12px; text-align: left;">MTD.Fcst</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Outlook</th>
+                <th style="padding: 12px; text-align: left;">F.Fcst</th>
+                <th style="padding: 12px; text-align: left;">F.Budg</th>
+                <th style="padding: 12px; text-align: left;">Var%</th>
+                <th style="padding: 12px; text-align: center;">Status</th>
+                <th style="padding: 12px; text-align: left;">Input By</th>
+                <th style="padding: 12px; text-align: left;">Action</th>
+            `;
+
+            if (filteredRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="17" style="padding: 12px; text-align: center;">No records found for ${STATE.currentMetric}</td></tr>`;
+                return;
+            }
+
+            filteredRecords.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.style.borderTop = '1px solid #e5e7eb';
+
+                let dateDisplay = r.date;
+                if (r.date && r.date.includes('-')) {
+                    const [y, m, d] = r.date.split('-');
+                    dateDisplay = `${d}-${m}-${y}`;
+                }
+
+                tr.innerHTML = `
+                    <td style="padding: 12px;">${dateDisplay}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_act_grade)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
+                    <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.outlook)}</td>
@@ -14004,9 +14406,7 @@ function renderSummaryTable(departments) {
             const isEng = dept === 'Engineering';
             const isStockpileMetric = (
                 m.metric_name === 'Near Pit Ore Stockpile' ||
-                m.metric_name === 'Main Rompad Stockpile' ||
-                m.metric_name === 'Near Pit Ore Stockpile Grade' ||
-                m.metric_name === 'Main Rompad Ore Stockpile Grade'
+                m.metric_name === 'Near Pit Ore Stockpile Grade'
             );
             const isRuntimeThroughput = (
                 m.metric_name === 'Runtime' || m.metric_name === 'Throughput' ||
@@ -14171,9 +14571,7 @@ function renderCommentsTable(departments, dateStr) {
         const { dept, deptLabel, isOHS, displayName, metricName, d, v1, comment } = r;
         const isStockpileMetric = (
             metricName === 'Near Pit Ore Stockpile' ||
-            metricName === 'Main Rompad Stockpile' ||
-            metricName === 'Near Pit Ore Stockpile Grade' ||
-            metricName === 'Main Rompad Ore Stockpile Grade'
+            metricName === 'Near Pit Ore Stockpile Grade'
         );
         html += '<tr>';
         if (dept !== lastDept) {
@@ -14202,9 +14600,7 @@ function renderCommentsTable(departments, dateStr) {
         const deptKey = dept.toLowerCase();
         const isStockpileMetric = (
             metricName === 'Near Pit Ore Stockpile' ||
-            metricName === 'Main Rompad Stockpile' ||
-            metricName === 'Near Pit Ore Stockpile Grade' ||
-            metricName === 'Main Rompad Ore Stockpile Grade'
+            metricName === 'Near Pit Ore Stockpile Grade'
         );
         exportRowsHtml += '<tr>';
         exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
@@ -14339,7 +14735,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
     // 1. Ignore existing computed values from CSV
     COMPUTED_FIELDS.forEach(field => delete d[field]);
 
-    if (metric === 'Near Pit Ore Stockpile' || metric === 'Main Rompad Stockpile' || metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
+    if (metric === 'Near Pit Ore Stockpile' || metric === 'Near Pit Ore Stockpile Grade') {
         d.daily_forecast = 0;
     }
 
@@ -14400,7 +14796,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
             d.var1 = calcVar(d.daily_act_grade, d.daily_forecast);
             d.daily_var = d.var1;
         }
-    } else if (metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
+    } else if (metric === 'Near Pit Ore Stockpile Grade') {
         if (d.daily_act_grade !== undefined) {
             const currentDailyActGrade = parseFloat(d.daily_act_grade) || 0;
             d.var1 = currentDailyActGrade === 0 ? "0%" : "-";
@@ -14487,7 +14883,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         }
     }
 
-    if (metric === 'Near Pit Ore Stockpile' || metric === 'Main Rompad Stockpile' || metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
+    if (metric === 'Near Pit Ore Stockpile' || metric === 'Near Pit Ore Stockpile Grade') {
         d.mtd_forecast = 0;
     } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
         d.mtd_forecast = "-";
@@ -14499,7 +14895,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
     }
 
     if (d.mtd_actual !== undefined && d.mtd_forecast !== undefined) {
-        if (metric === 'Near Pit Ore Stockpile Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
+        if (metric === 'Near Pit Ore Stockpile Grade') {
             d.var2 = (parseFloat(d.mtd_actual) || 0) === 0 ? "0%" : "-";
         } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
             d.var2 = "-";

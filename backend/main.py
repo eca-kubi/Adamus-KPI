@@ -1160,7 +1160,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
         daily_act = parse_float(d.get('daily_actual'))
         daily_fcst = parse_float(d.get('daily_forecast'))
         
-        if department == "Mining" and metric_name in ("Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+        if department == "Mining" and metric_name in ("Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade"):
             d['daily_forecast'] = 0.0
             daily_fcst = 0.0
             
@@ -1170,7 +1170,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
         # MTD Forecast
         if is_ohs_dept:
             mtd_forecast = full_fcst
-        elif department == "Mining" and metric_name in ("Rehandle Grade", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+        elif department == "Mining" and metric_name in ("Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade"):
             mtd_forecast = daily_fcst
         elif department == "Milling_CIL" and metric_name == "Recovery":
             mtd_forecast = daily_fcst
@@ -1280,8 +1280,8 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 var1 = f"{round(daily_act - daily_fcst)}%"
             var2 = "-"
             var3 = "-"
-        elif department == "Mining" and metric_name in ("Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
-            if metric_name in ("Rehandle Grade", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+        elif department == "Mining" and metric_name in ("Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade"):
+            if metric_name in ("Rehandle Grade", "Near Pit Ore Stockpile Grade"):
                 daily_act_grade = parse_float(d.get('daily_act_grade'))
                 var1 = calc_var(daily_act_grade, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -1329,7 +1329,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
         d["budget_var"] = var3
         if department == "Milling_CIL":
             d["day2_var"] = day2_var
-        if metric_name in ("Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+        if metric_name in ("Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade"):
             d["mtd_actual"] = round(mtd_actual, 2)
             d["mtd_forecast"] = round(mtd_forecast, 2)
         else:
@@ -1341,7 +1341,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             d["full_forecast"] = "-" if full_fcst is None else (round(full_fcst, 2) if full_fcst % 1 else int(full_fcst))
             d["full_budget"] = "-" if full_budg is None else (round(full_budg, 2) if full_budg % 1 else int(full_budg))
             d["annual_target"] = d["full_budget"]
-        elif department == "Mining" and metric_name in ("Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+        elif department == "Mining" and metric_name in ("Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade"):
             d["full_forecast"] = "-"
             d["full_budget"] = "-"
         else:
