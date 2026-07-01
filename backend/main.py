@@ -1407,20 +1407,17 @@ def get_summary_dashboard(
     current_user: User = Depends(get_current_active_user),
 ):
     """Aggregate latest KPI data across all departments for the given date, calculating values in realtime from daily records."""
-    visible_departments = get_visible_departments(current_user)
+    # Summary Dashboard shows ALL departments to every authenticated user,
+    # regardless of their access level (Admin vs Staff).
     month_start = date(target_date.year, target_date.month, 1)
     trend_start = target_date - timedelta(days=6)
     query_start = min(month_start, trend_start)
 
-    # Fetch only records for visible departments in the date window.
-    # Filtering in the database avoids pulling every department's rows into the
-    # application when a user can only see a subset, and makes the summary
-    # dashboard scale as data volumes grow.
     all_records = session.exec(
         select(KPIRecord).where(
             KPIRecord.date >= query_start,
             KPIRecord.date <= target_date,
-            KPIRecord.department.in_(visible_departments)
+            KPIRecord.department.in_(SUMMARY_DEPARTMENTS)
         )
     ).all()
 
@@ -1470,7 +1467,7 @@ def get_summary_dashboard(
     remaining_days = max(0, total_days - current_day)
 
     result = {}
-    for dept in visible_departments:
+    for dept in SUMMARY_DEPARTMENTS:
         dept_records = [r for r in all_records if r.department == dept]
         
         # Get the list of metrics for this department
