@@ -6604,11 +6604,15 @@ function renderMillingTonnesTreatedForm(dept, metricName, card) {
     // Auto-populate form when date changes (load existing daily record if any)
     date.input.addEventListener('change', async () => {
         await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_act_tonnes: `input-${dept}-daily-act-t`,
+            daily_forecast_tonnes: `input-${dept}-daily-fcst-t`,
             daily_actual: `input-${dept}-daily-act`,
             daily_forecast: `input-${dept}-daily-fcst`,
             day2: `input-${dept}-day2`,
             day2_forecast: `input-${dept}-day2-forecast`
         });
+        dActT.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcstT.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
         day2.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -8522,81 +8526,63 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
 
     card.appendChild(grid);
 
-    // 1. Auto-Fetch Fixed Inputs on Date Change (Debug Enabled)
+    // 1. Auto-Fetch Fixed Inputs on Date Change
     date.input.addEventListener('change', async () => {
         const dateVal = date.input.value;
         if (!dateVal) return;
 
-        // Visual Feedback for debugging
-        console.log("DEBUG: Date Changed to", dateVal);
-
         try {
             const records = await fetchKPIRecords(dept);
-            // Filter by subtype 'fixed_input'. Note: Backend might return all records, so we filter here.
             const fixedInputs = records.filter(r => r.subtype === 'fixed_input');
 
-            // Extract YYYY-MM
             const [y, m, d] = dateVal.split('-');
-            const searchMonth = `${y}-${m}`; // "2026-01"
+            const searchMonth = `${y}-${m}`;
 
-            console.log(`DEBUG: Searching for Fixed Input. Metric: '${metricName}', Month: '${searchMonth}'`);
-
-            // Find matching record
             const target = fixedInputs.find(r => {
-                // Robust Metric Name Check (case-insensitive trim)
                 if (r.metric_name.trim().toLowerCase() !== metricName.trim().toLowerCase()) return false;
-
-                // Robust Date Check (Starts with YYYY-MM)
-                // r.date is typically YYYY-MM-DD string from backend
                 return r.date && r.date.startsWith(searchMonth);
             });
 
-            if (target) {
-                console.log("DEBUG: Match Found!", target);
-                DOM.showToast(`Match Found for ${metricName}! ID: ${target.id}`, 'success'); // Uncomment for distinct visual confirmation
-
-                if (target.data) {
-                    // Populate Full Forecast (b)
-                    if (target.data.full_forecast != null) {
-                        let val = target.data.full_forecast;
-                        // Attach % if it's a number, or string without %
-                        if (typeof val === 'number') {
-                            val = val + '%';
-                        } else if (typeof val === 'string' && !val.includes('%')) {
-                            val = val + '%';
-                        }
-
-                        fullFcst.input.value = val;
-                        fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
-
-                        // Also populate Daily Forecast
-                        dFcst.input.value = val;
-                        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
-                    } else {
-                        console.warn("DEBUG: Match found but 'full_forecast' is missing in data", target.data);
+            if (target && target.data) {
+                if (target.data.full_forecast != null) {
+                    let val = target.data.full_forecast;
+                    if (typeof val === 'number') {
+                        val = val + '%';
+                    } else if (typeof val === 'string' && !val.includes('%')) {
+                        val = val + '%';
                     }
 
-                    // Populate Full Budget (c)
-                    if (target.data.full_budget != null) {
-                        let val = target.data.full_budget;
-                        if (typeof val === 'number') {
-                            // val = val + '%'; // User requested no %
-                        } else if (typeof val === 'string' && val.includes('%')) {
-                            val = val.replace('%', ''); // Ensure no %
-                        }
-                        fullBudg.input.value = val;
-                        fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
+                    fullFcst.input.value = val;
+                    fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+                    dFcst.input.value = val;
+                    dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
                 }
-            } else {
-                console.warn(`DEBUG: No Fixed Input found for ${metricName} in ${searchMonth}`);
-                DOM.showToast(`Debug: No Fixed Input found for ${metricName} in ${searchMonth}. Checked ${fixedInputs.length} fixed input records.`, 'error');
-            }
 
+                if (target.data.full_budget != null) {
+                    let val = target.data.full_budget;
+                    if (typeof val === 'string' && val.includes('%')) {
+                        val = val.replace('%', '');
+                    }
+                    fullBudg.input.value = val;
+                    fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
         } catch (e) {
             console.error("Error fetching fixed inputs for auto-forecast", e);
-            DOM.showToast("Error fetching data: " + e.message, "error");
         }
+    });
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     // 2. Auto-Calculate MTD Forecast (Mirror Daily Forecast)
@@ -8822,9 +8808,19 @@ function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
         }
     });
 
-    // Auto-Calculate MTD Actual (Average)
-    const updateMTDActual = async () => {
-        const dateVal = date.input.value;
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Auto-Calculate MTD Actual (Average) for Anx Excavators
         const currentDailyValStr = dAct.input.value;
 
         if (!dateVal) return;
@@ -9077,6 +9073,18 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
         }
     });
 
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // Auto-Calculate MTD Actual (Average)
     const updateMTDActual = async () => {
         const dateVal = date.input.value;
@@ -9322,6 +9330,18 @@ function renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card) {
         }
     });
 
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "text"); // Changed to text
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "text"); // Changed to text
@@ -9562,6 +9582,18 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
         } catch (e) {
             console.error(e);
         }
+    });
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     // Row 3
@@ -9806,6 +9838,18 @@ function renderEngineeringGradersForm(dept, metricName, card) {
         }
     });
 
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "text"); // Changed to text
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "text"); // Changed to text
@@ -10040,6 +10084,18 @@ function renderEngineeringDozersForm(dept, metricName, card) {
         }
     });
 
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            qty_available: `input-${dept}-qty-avail`,
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "text"); // Changed to text
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "text"); // Changed to text
@@ -10204,6 +10260,16 @@ function renderEngineeringCrusherForm(dept, metricName, card) {
         } catch (e) {
             console.error("Error fetching fixed inputs for auto-forecast", e);
         }
+    });
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     // Auto-Calculate MTD Forecast (Mirror Daily Forecast)
@@ -10414,6 +10480,16 @@ function renderEngineeringMillForm(dept, metricName, card) {
         }
     });
 
+    // Auto-populate form when date changes (load existing daily record if any)
+    date.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+            daily_actual: `input-${dept}-daily-act-pct`,
+            daily_forecast: `input-${dept}-daily-fcst-pct`
+        });
+        dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // Auto-Calculate MTD Forecast (Mirror Daily Forecast)
     const updateMTDForecast = () => {
         mFcst.input.value = dFcst.input.value;
@@ -10559,6 +10635,16 @@ function renderStandardKPIForm(dept, metricName, card) {
 
     // Attach calculation logic
     attachVarianceListener(dailyActual.input, dailyForecast.input, varianceGroup.input);
+
+    // Auto-populate form when date changes (load existing daily record if any)
+    dateGroup.input.addEventListener('change', async () => {
+        await autoPopulateDailyForm(dept, metricName, dateGroup.input.value, {
+            daily_actual: `input-${dept}-actual`,
+            daily_forecast: `input-${dept}-forecast`
+        });
+        dailyActual.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dailyForecast.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
     // Actions
     const btnContainer = document.createElement('div');
