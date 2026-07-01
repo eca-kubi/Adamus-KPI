@@ -5962,7 +5962,8 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
     const budgVar = DOM.createInputGroup("Var3 %", `input-${dept}-budg-var`, "text");
     budgVar.input.readOnly = true;
-    attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
+    // Var3 for Plant Feed Grade: (Outlook - Full Forecast) / Full Forecast
+    attachVarianceListener(outlook.input, fullFcst.input, budgVar.input);
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Spacers

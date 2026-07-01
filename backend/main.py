@@ -1309,7 +1309,10 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
             day2_var = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
             var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
-            var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
+            if metric_name == "Plant Feed Grade":
+                var3 = calc_var(outlook, full_fcst, is_ohs_dept, use_act_denom=True)
+            else:
+                var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
         else:
             var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
             var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -1662,7 +1665,10 @@ def get_summary_dashboard(
                 var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
                 day2_var = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
-                var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
+                if metric_name == "Plant Feed Grade":
+                    var3 = calc_var(outlook, full_fcst, is_ohs_dept, use_act_denom=True)
+                else:
+                    var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
             else:
                 var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -2319,7 +2325,7 @@ def cascade_fixed_input(
             # Recalculate Budget Variance (var3)
             # For Geology department: third variance is Outlook (a) vs Full Forecast (b)
             # For other departments: standard Budget Variance (Full Forecast vs Full Budget)
-            if department in ("Geology", "OHS"):
+            if department in ("Geology", "OHS") or (department == "Milling_CIL" and payload.metric_name == "Plant Feed Grade"):
                 fcst_target = payload.full_forecast if not is_ohs_dept else (annual_target / 12.0)
                 new_data['var3'] = calc_var(new_data.get('outlook'), fcst_target, is_ohs_dept, use_act_denom=True)
             else:
