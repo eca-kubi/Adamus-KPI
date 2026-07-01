@@ -13851,15 +13851,10 @@ function fmtVal(v, isOHS = false) {
 }
 
 function getSecondaryVal(dept, data, metric) {
-    if (dept === 'Engineering') {
-        if (metric === 'Crusher' || metric === 'Mill') return '-';
-        return fmtVal(data.qty_available ?? '');
-    }
     return fmtVal(data.day2 ?? data.day_2 ?? '');
 }
 
 function getSecondaryVal2(dept, data, metric) {
-    if (dept === 'Engineering') return '';
     return fmtVal(data.day2_forecast ?? data.day_2_forecast ?? '');
 }
 
@@ -14449,8 +14444,8 @@ function renderSummaryTable(departments) {
 
         // Department section header row
         html += `<tr class="summary-dept-hdr dept-hdr-${deptKey}">
-            <td>Area</td><td>KPI</td><td>Unit</td><td>${isNonEng ? secLabel2 : ''}</td>
-            <td>${isNonEng ? secLabel : ''}</td><td>${isNonEng ? 'Day-2 Var' : secLabel}</td>
+            <td>Area</td><td>KPI</td><td>Unit</td><td>${isNonEng ? secLabel2 : 'DAY-2 FCST'}</td>
+            <td>${isNonEng ? secLabel : 'DAY-2 ACT'}</td><td>${isNonEng ? 'Day-2 Var' : secLabel}</td>
             <td>Daily Actual</td><td>Daily Forecast</td><td>Variance</td><td>Status</td>
             <td>MTD Actual</td><td>MTD Forecast</td><td>Variance</td><td>Status</td>
             <td>Outlook (a)</td><td>Forecast (b)</td><td>Budget (c)</td><td>Variance (a-b)</td><td>Status</td>
@@ -14522,10 +14517,9 @@ function renderSummaryTable(departments) {
             html += `<td style="font-size:0.65rem;color:#666;">${unit}</td>`;
             const secVal = isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name);
             const secVal2 = isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name);
-            const showDay2 = dept !== 'Engineering';
-            html += `<td class="num-cell">${showDay2 ? (secVal2 || '-') : '-'}</td>`;
-            html += `<td class="num-cell">${showDay2 ? (secVal || '-') : '-'}</td>`;
-            html += `<td class="${showDay2 ? svarClass(d.day2_var) : 'num-cell'}">${showDay2 ? (fmtVal(d.day2_var, isOHS) || '-') : (secVal || '-')}</td>`;
+            html += `<td class="num-cell">${isEng ? '-' : (secVal2 || '-')}</td>`;
+            html += `<td class="num-cell">${isEng ? '-' : (secVal || '-')}</td>`;
+            html += `<td class="${isEng ? 'num-cell' : svarClass(d.day2_var)}">${isEng ? (fmtVal(d.qty_available ?? '') || '-') : (fmtVal(d.day2_var, isOHS) || '-')}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
