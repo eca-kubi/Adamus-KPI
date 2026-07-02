@@ -14519,7 +14519,7 @@ function renderSummaryTable(departments) {
             const secVal2 = isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name);
             html += `<td class="num-cell">${isEng ? '-' : (secVal2 || '-')}</td>`;
             html += `<td class="num-cell">${isEng ? '-' : (secVal || '-')}</td>`;
-            html += `<td class="${isEng ? 'num-cell' : svarClass(d.day2_var)}">${isEng ? (fmtVal(d.qty_available ?? '') || '-') : (fmtVal(d.day2_var, isOHS) || '-')}</td>`;
+            html += `<td class="${isEng ? 'num-cell' : svarClass(d.day2_var)}">${isEng ? (['Crusher', 'Mill'].includes(m.metric_name) ? '-' : fmtVal(d.qty_available ?? '')) : (fmtVal(d.day2_var, isOHS) || '-')}</td>`;
             html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
