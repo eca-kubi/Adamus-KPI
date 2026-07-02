@@ -12153,7 +12153,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.outlook)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>

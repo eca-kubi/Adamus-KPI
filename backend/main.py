@@ -1353,8 +1353,11 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 if is_budg_empty:
                     d["full_budget"] = round(full_budg, 2) if full_budg % 1 else int(full_budg)
             elif department == "Milling_CIL" and metric_name == "Plant Feed Grade":
-                # Full Forecast must always equal the Daily Forecast grade for the day
-                d["full_forecast"] = round(daily_fcst, 2) if daily_fcst % 1 else int(daily_fcst)
+                # Full Forecast must always equal the Daily Forecast grade for the day.
+                # Only set when daily_forecast has been entered; otherwise leave as-is
+                # so the frontend can show '-' instead of '0'.
+                if d.get("daily_forecast") not in (None, "", "-"):
+                    d["full_forecast"] = round(daily_fcst, 2) if daily_fcst % 1 else int(daily_fcst)
                 if d.get("full_budget") is None:
                     d["full_budget"] = round(full_budg, 2) if full_budg % 1 else int(full_budg)
             else:
@@ -1542,7 +1545,7 @@ def get_summary_dashboard(
             # (set by recalculate_metric_month).  Override the fixed_input-derived value so the
             # Summary Dashboard shows the correct per-day full forecast.
             if dept == "Milling_CIL" and metric_name == "Plant Feed Grade":
-                full_fcst = parse_float(daily_forecast) if daily_forecast is not None else full_fcst
+                full_fcst = parse_float(daily_forecast) if daily_forecast is not None else None
 
             # Calculate MTD Forecast
             if is_ohs_dept:
@@ -2245,9 +2248,12 @@ def cascade_fixed_input(
                 new_data['full_forecast'] = annual_target / 12.0
                 new_data['mtd_forecast'] = annual_target / 12.0
             elif department == "Milling_CIL" and payload.metric_name == "Plant Feed Grade":
-                # Full Forecast must always equal the Daily Forecast grade for the day
+                # Full Forecast must always equal the Daily Forecast grade for the day.
+                # Do not fall back to payload.full_forecast (which is always 0 for PFG);
+                # keep the existing value when daily_forecast is not yet entered.
                 daily_fcst = new_data.get('daily_forecast')
-                new_data['full_forecast'] = daily_fcst if daily_fcst not in (None, '', '-') else payload.full_forecast
+                if daily_fcst not in (None, '', '-'):
+                    new_data['full_forecast'] = daily_fcst
                 new_data['full_budget'] = payload.full_budget
             else:
                 new_data['full_forecast'] = payload.full_forecast
