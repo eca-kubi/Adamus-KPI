@@ -362,7 +362,7 @@ def send_sms(text: str, recipient: str) -> dict:
 class CascadeFixedRequest(BaseModel):
     metric_name: str
     target_month: str # YYYY-MM
-    full_forecast: float
+    full_forecast: Optional[float] = 0.0
     full_budget: float
     annual_target: Optional[float] = None
     forecast_per_rig: Optional[float] = None
@@ -1310,7 +1310,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             day2_var = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
             var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
             if metric_name == "Plant Feed Grade":
-                var3 = calc_var(outlook, full_fcst, is_ohs_dept, use_act_denom=True)
+                var3 = calc_var(outlook, daily_fcst, is_ohs_dept, use_act_denom=True)
             else:
                 var3 = calc_var(full_fcst, full_budg, is_ohs_dept)
         else:
@@ -1537,6 +1537,12 @@ def get_summary_dashboard(
 
             if dept == "Mining" and metric_name in ("Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
                 daily_forecast = 0.0
+
+            # For Plant Feed Grade, full_forecast on each daily record equals that day's daily_forecast
+            # (set by recalculate_metric_month).  Override the fixed_input-derived value so the
+            # Summary Dashboard shows the correct per-day full forecast.
+            if dept == "Milling_CIL" and metric_name == "Plant Feed Grade":
+                full_fcst = parse_float(daily_forecast) if daily_forecast is not None else full_fcst
 
             # Calculate MTD Forecast
             if is_ohs_dept:

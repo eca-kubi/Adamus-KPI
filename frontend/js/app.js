@@ -1942,6 +1942,13 @@ function renderFixedInputForm(dept, card) {
         return selectedKPI !== 'Exploration Drilling' && selectedKPI !== 'Toll';
     };
 
+    // Plant Feed Grade does not have a Full Forecast field — its full forecast is
+    // always the daily forecast value for each day.
+    let shouldShowFullForecast = () => {
+        const selectedKPI = selectKPI.value;
+        return selectedKPI !== 'Plant Feed Grade';
+    };
+
     const thead = document.createElement('thead');
     let headerHTML = `
         <tr style="background-color: #f9fafb;">
@@ -1949,7 +1956,7 @@ function renderFixedInputForm(dept, card) {
             <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb; width: ${colWidth};">Target Month</th>
             <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb; width: ${colWidth};">Number of Days</th>
             <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb; width: ${colWidth};">${isOHS ? 'Annual Target' : 'Full Budget'}</th>
-            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb; width: ${colWidth};">Full Forecast</th>
+            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb; width: ${colWidth};" id="full-forecast-header">Full Forecast</th>
     `;
 
     if (isGeology) {
@@ -2025,6 +2032,20 @@ function renderFixedInputForm(dept, card) {
         }
     };
 
+    // Function to update Full Forecast visibility (hidden for Plant Feed Grade)
+    const updateFullForecastVisibility = () => {
+        const fullForecastCell = document.getElementById('full-forecast-cell');
+        const fullForecastHeader = document.getElementById('full-forecast-header');
+        const show = shouldShowFullForecast();
+
+        if (fullForecastCell) {
+            fullForecastCell.style.display = show ? '' : 'none';
+        }
+        if (fullForecastHeader) {
+            fullForecastHeader.style.display = show ? '' : 'none';
+        }
+    };
+
     // Auto-populate Fixed Input form when KPI or month changes
     const autoPopulateFixedInput = async () => {
         const kpiVal = selectKPI.value;
@@ -2081,6 +2102,7 @@ function renderFixedInputForm(dept, card) {
     selectKPI.addEventListener('change', () => {
         updateDays();
         updateForecastPerRigVisibility();
+        updateFullForecastVisibility();
         autoPopulateFixedInput();
     });
 
@@ -2121,7 +2143,9 @@ function renderFixedInputForm(dept, card) {
     }
     const budgetCell = createCell(inputBudget);
     tr.appendChild(budgetCell);
-    tr.appendChild(createCell(inputForecast));
+    const forecastCell = createCell(inputForecast);
+    forecastCell.id = 'full-forecast-cell';
+    tr.appendChild(forecastCell);
 
     // 6. Forecast Per Rig (Geology Only)
     if (isGeology) {
@@ -2231,6 +2255,9 @@ function renderFixedInputForm(dept, card) {
         setTimeout(() => updateForecastPerRigVisibility(), 0);
     }
 
+    // Set initial Full Forecast visibility (hidden for Plant Feed Grade)
+    setTimeout(() => updateFullForecastVisibility(), 0);
+
     tbody.appendChild(tr);
     table.appendChild(thead);
     table.appendChild(tbody);
@@ -2249,15 +2276,17 @@ function renderFixedInputForm(dept, card) {
             return;
         }
 
-        if (!daysVal || !fcstVal || !budgVal) {
-            const fieldMsg = isOHS ? "Number of Days, Full Forecast, Annual Target" : "Number of Days, Full Forecast, Full Budget";
+        // Plant Feed Grade does not have a Full Forecast — skip validation for it
+        const isPlantFeedGrade = (kpiVal === 'Plant Feed Grade');
+        if (!daysVal || !budgVal || (!isPlantFeedGrade && !fcstVal)) {
+            const fieldMsg = isOHS ? "Number of Days, Full Forecast, Annual Target" : (isPlantFeedGrade ? "Number of Days, Full Budget" : "Number of Days, Full Forecast, Full Budget");
             DOM.showToast(`Please fill in all fields (${fieldMsg}) before saving.`, "error");
             return;
         }
 
         const dataPayload = {
             num_days: dept === 'Crushing' ? (parseFloat(daysVal) || 0) : (parseInt(daysVal) || 0),
-            full_forecast: parseFloat(fcstVal.toString().replace(/,/g, '')) || 0,
+            full_forecast: isPlantFeedGrade ? 0 : (parseFloat(fcstVal.toString().replace(/,/g, '')) || 0),
             full_budget: parseFloat(budgVal.toString().replace(/,/g, '')) || 0
         };
 
@@ -10994,7 +11023,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.metric_name}</td>
                     <td style="padding: 12px;">${dateDisplay}</td>
                     <td style="padding: 12px;">${r.data.num_days || '-'}</td>
-                    <td style="padding: 12px;">${formatNum(r.data.full_forecast)}</td>
+                    <td style="padding: 12px;">${r.metric_name === 'Plant Feed Grade' ? '-' : formatNum(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.full_budget)}</td>
                     ${!hideRigColumn ? `<td style="padding: 12px;">${forecastPerRigValue}</td>` : ''}
                     <td style="padding: 12px;">${getInputBy(r)}</td>
