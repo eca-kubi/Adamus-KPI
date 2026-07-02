@@ -1093,7 +1093,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 return f"{round(var)}%"
         else:
             if fcst_f == 0:
-                return "0%" if act_f == 0 else "-"
+                return "0%"
             var = ((act_f - fcst_f) / fcst_f) * 100
             return f"{round(var)}%"
     
@@ -1454,7 +1454,7 @@ def get_summary_dashboard(
                 return f"{round(var)}%"
         else:
             if fcst_f == 0:
-                return "0%" if act_f == 0 else "-"
+                return "0%"
             var = ((act_f - fcst_f) / fcst_f) * 100
             return f"{round(var)}%"
 
@@ -2285,12 +2285,9 @@ def cascade_fixed_input(
                         # Standard Logic (Higher is Better/Production)
                         # If Forecast is 0, we can't calculate variance. Return "-" or maybe "0%"?
                         # Standard practice in this app seems to be "-" if invalid.
-                        # However, user complained about "-". 
-                        # If Forecast is 0 and Actual is > 0, technically it's infinite variance.
+                        # If Forecast is 0, variance is undefined; treat as 0% (consistent with daily entry form).
                         if fcst == 0:
-                            if act == 0:
-                                return "0%"
-                            return "-" # Keep as - for non-OHS if forecast is 0, unless user specifies otherwise for all.
+                            return "0%"
 
                         var = ((act - fcst) / fcst) * 100
                         return f"{round(var)}%"

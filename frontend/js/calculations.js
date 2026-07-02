@@ -10,7 +10,7 @@ function calculateVariance(actual, forecast) {
     }
 
     if (fc === 0) {
-        return act === 0 ? '0%' : '-';
+        return '0%';
     }
 
     const variance = ((act - fc) / fc) * 100;
