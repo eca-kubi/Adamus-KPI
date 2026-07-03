@@ -14033,6 +14033,66 @@ window.renderSummaryDashboardPage = async function () {
             headerHtml.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
             contentHtml.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
 
+            // --- Strip zoom/transform styles from the cloned content so
+            // html2canvas renders at natural 100 % size.  CSS `zoom` (used
+            // by Fit mode and zoom-out) is a non-standard property that
+            // html2canvas cannot interpret correctly, causing text to appear
+            // scrumbled or squeezed in exported PDF/PNG files.  Resetting
+            // these inline styles lets html2canvas render crisp, legible
+            // output regardless of the current on-screen zoom level.
+            //
+            // NOTE: contentHtml *itself* is a .summary-table-wrap (the clone
+            // of #summary-export-content), so we must clean it directly in
+            // addition to querying its descendants.  querySelectorAll only
+            // searches children, not the context element. ---
+            (function cleanExportClone(root) {
+                // 1.  Strip the root wrapper's own zoom-related inline
+                //     styles and CSS classes.
+                root.style.zoom = '';
+                root.style.transform = '';
+                root.style.transformOrigin = '';
+                root.style.overflowX = '';
+                root.style.overflowY = '';
+                root.style.overflow = '';
+                root.style.minHeight = '';
+                root.style.maxWidth = '';
+                root.style.marginRight = '';
+                root.style.marginBottom = '';
+                root.classList.remove('zoom-scaled', 'fit-mode-active');
+
+                // 2.  Walk every descendant table and strip all
+                //     properties that html2canvas misinterprets.
+                root.querySelectorAll('table').forEach(function (t) {
+                    t.style.zoom = '';
+                    t.style.fontSize = '';
+                    t.style.transform = '';
+                    t.style.transformOrigin = '';
+                    t.style.letterSpacing = '';
+                    // Lift the CSS width:100% constraint so the table
+                    // renders at its natural content-width inside the
+                    // max-content export container — html2canvas can
+                    // then measure every column correctly.
+                    t.style.width = 'auto';
+                });
+
+                // 3.  Clean any nested .summary-table-wrap wrappers
+                //     (relevant for comments-export clones).
+                root.querySelectorAll('.summary-table-wrap').forEach(function (w) {
+                    w.style.zoom = '';
+                    w.style.transform = '';
+                    w.style.transformOrigin = '';
+                    w.style.overflowX = '';
+                    w.style.overflowY = '';
+                    w.style.overflow = '';
+                    w.style.minHeight = '';
+                    w.style.maxWidth = '';
+                    w.style.marginRight = '';
+                    w.style.marginBottom = '';
+                    w.style.width = '';
+                    w.classList.remove('zoom-scaled', 'fit-mode-active');
+                });
+            })(contentHtml);
+
             headerHtml.style.background = 'none';
             headerHtml.style.backgroundColor = 'transparent';
             headerHtml.style.boxShadow = 'none';
@@ -14180,6 +14240,13 @@ window.renderSummaryDashboardPage = async function () {
                                 const commentsClone = visibleCommentsTable.cloneNode(true);
                                 commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
                                 commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+                                // Strip zoom/transform so comments render at natural size
+                                commentsClone.style.zoom = '';
+                                commentsClone.style.fontSize = '';
+                                commentsClone.style.transform = '';
+                                commentsClone.style.transformOrigin = '';
+                                commentsClone.style.letterSpacing = '';
+                                commentsClone.style.width = 'auto';
 
                                 const commentsHeader = headerHtml.cloneNode(true);
                                 commentsHeader.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
@@ -14332,6 +14399,13 @@ window.renderSummaryDashboardPage = async function () {
                                         const commentsClone = commentsTable.cloneNode(true);
                                         commentsClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
                                         commentsClone.querySelectorAll('[data-html2canvas-ignore]').forEach(el => el.remove());
+                                        // Strip zoom/transform so comments render at natural size
+                                        commentsClone.style.zoom = '';
+                                        commentsClone.style.fontSize = '';
+                                        commentsClone.style.transform = '';
+                                        commentsClone.style.transformOrigin = '';
+                                        commentsClone.style.letterSpacing = '';
+                                        commentsClone.style.width = 'auto';
 
                                         // Add the same branded header used for the summary PNG.
                                         const commentsHeader = headerHtml.cloneNode(true);
