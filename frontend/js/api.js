@@ -345,3 +345,56 @@ async function resetPassword(identity, code, newPassword) {
     return handleResponse(response);
 }
 
+// ---------------------------------------------------------------------------
+// Chat Room
+// ---------------------------------------------------------------------------
+
+async function fetchChatConversations() {
+    const response = await fetch(`${API_BASE_URL}/chat/conversations`, {
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+
+async function fetchChatMessages(otherUserId, includeBroadcast = false, limit = 100, beforeId = null) {
+    let url = `${API_BASE_URL}/chat/messages?limit=${limit}`;
+    if (includeBroadcast) {
+        url += '&include_broadcast=true';
+    } else if (otherUserId) {
+        url += `&other_user_id=${otherUserId}`;
+    }
+    if (beforeId) url += `&before_id=${beforeId}`;
+
+    const response = await fetch(url, {
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+
+async function sendChatMessage(recipientUserId, message) {
+    const response = await fetch(`${API_BASE_URL}/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+            recipient_user_id: recipientUserId,
+            message: message
+        })
+    });
+    return handleResponse(response);
+}
+
+async function markChatMessageRead(messageId) {
+    const response = await fetch(`${API_BASE_URL}/chat/read/${messageId}`, {
+        method: 'POST',
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+
+async function fetchUnreadChatCount() {
+    const response = await fetch(`${API_BASE_URL}/chat/unread-count`, {
+        headers: { ...authHeaders() }
+    });
+    return handleResponse(response);
+}
+

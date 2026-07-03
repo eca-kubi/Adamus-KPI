@@ -6,8 +6,9 @@ const STATE = {
     currentUser: null,
     currentDept: "OHS",
     currentMetric: "Fixed Inputs",
-    currentView: 'dept',  // 'dept' | 'users' | 'profile' | 'summary'
-    summaryDate: null
+    currentView: 'dept',  // 'dept' | 'users' | 'profile' | 'summary' | 'chat'
+    summaryDate: null,
+    chatUnreadCount: 0
 };
 
 // Helper for parsing float that returns null instead of NaN for empty strings
@@ -558,6 +559,9 @@ function parseRouteFromHash(hashInput = window.location.hash) {
     } else if (parts[0] === 'profile') {
         route.view = 'profile';
         route.invalid = false;
+    } else if (parts[0] === 'chat') {
+        route.view = 'chat';
+        route.invalid = false;
     } else if (parts[0] === 'dept') {
         const dept = DEPT_BY_SLUG[parts[1]];
         if (dept) {
@@ -583,6 +587,7 @@ function parseRouteFromHash(hashInput = window.location.hash) {
 function getCanonicalHashFromState() {
     if (STATE.currentView === 'users') return '#/users';
     if (STATE.currentView === 'profile') return '#/profile';
+    if (STATE.currentView === 'chat') return '#/chat';
 
     if (STATE.currentView === 'dept') {
         const dept = DEPARTMENTS.includes(STATE.currentDept) ? STATE.currentDept : DEPARTMENTS[0];
@@ -662,6 +667,11 @@ async function applyRouteFromHash() {
 
         if (route.view === 'profile') {
             await renderMyProfilePage();
+            return true;
+        }
+
+        if (route.view === 'chat') {
+            await renderChatPage();
             return true;
         }
 
@@ -749,6 +759,9 @@ async function initApp() {
     content.classList.add('main-content');
     sidebar.classList.add('show');
     document.getElementById('sidebar-toggle').style.display = 'block';
+
+    // Start chat polling for unread messages
+    startChatPolling();
 
     await applyRouteFromHash();
 }
@@ -1293,7 +1306,8 @@ function renderSidebar() {
             </button>
         </div>
         
-        <nav class="nav flex-column flex-grow-1" style="margin-top: -1rem;">
+        <div class="sidebar-nav-scroll">
+        <nav class="nav flex-column" style="margin-top: -1rem;">
             <a href="#" onclick="sidebarNavigate(renderSummaryDashboardPage); return false;"
                class="nav-link ${STATE.currentView === 'summary' ? 'active' : ''}"
                data-tooltip="Summary Dashboard">
@@ -1311,6 +1325,14 @@ function renderSidebar() {
                    <span>${dept.replace('_', ' ')}</span>
                 </a>
             `).join('')}
+
+            <a href="#" onclick="sidebarNavigate(renderChatPage); return false;"
+               class="nav-link chat-nav-link ${STATE.currentView === 'chat' ? 'active' : ''}"
+               data-tooltip="Chat Room">
+               <i class="bi bi-chat-dots-fill"></i>
+               <span>Chat Room</span>
+               ${(STATE.chatUnreadCount || 0) > 0 ? `<span class="chat-nav-badge">${STATE.chatUnreadCount}</span>` : ''}
+            </a>
 
             <hr style="border-color: rgba(255,255,255,0.1); margin: 0.75rem 0;">
 
@@ -1339,6 +1361,7 @@ function renderSidebar() {
                <span>Sign Out</span>
             </a>
         </nav>
+        </div>
 
         <div class="user-info mt-auto">
             <div class="d-flex align-items-center justify-content-between w-100">
@@ -1369,6 +1392,12 @@ function renderSidebar() {
                             </a>
                         </li>
                         ` : ''}
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="renderChatPage(); return false;">
+                                <i class="bi bi-chat-dots-fill"></i> Chat Room
+                                ${(STATE.chatUnreadCount || 0) > 0 ? `<span class="badge bg-danger ms-auto">${STATE.chatUnreadCount}</span>` : ''}
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item text-danger d-flex align-items-center gap-2" href="#" onclick="logout(); return false;">
@@ -14616,6 +14645,477 @@ function setupSummaryZoom() {
 
     // Sync the Fit button appearance with the current state.
     updateFitButtonState();
+}
+
+// ---------------------------------------------------------------------------
+// Chat Room
+// ---------------------------------------------------------------------------
+
+let _chatPollInterval = null;
+let _chatActiveConversation = null;  // { userId, isBroadcast }
+let _lastUnreadCount = -1;           // Avoid re-rendering sidebar when count hasn't changed
+const _chatUserCache = {};           // userId → { username, full_name } from conversations endpoint
+
+/** Poll the server for the unread chat message count. Only updates the badge when the count changes. */
+async function _pollUnreadChatCount() {
+    if (!STATE.currentUser) return;
+
+    try {
+        const result = await fetchUnreadChatCount();
+        const newCount = result.count || 0;
+
+        // Only re-render sidebar when the count actually changed — prevents screen flash
+        if (newCount === STATE.chatUnreadCount) return;
+
+        // Toast notification when new messages arrive (not on first load, not on chat page)
+        if (_lastUnreadCount >= 0 && newCount > _lastUnreadCount && STATE.currentView !== 'chat') {
+            const diff = newCount - _lastUnreadCount;
+            const label = diff === 1 ? 'new message' : 'new messages';
+            DOM.showToast(`You have ${diff} ${label}`, 'info');
+        }
+
+        _lastUnreadCount = newCount;
+        STATE.chatUnreadCount = newCount;
+        renderSidebar();
+    } catch (e) {
+        // Silently ignore polling errors
+    }
+}
+
+function startChatPolling() {
+    stopChatPolling();
+    _pollUnreadChatCount();
+    _chatPollInterval = setInterval(_pollUnreadChatCount, 15000); // every 15 seconds
+}
+
+function stopChatPolling() {
+    if (_chatPollInterval) {
+        clearInterval(_chatPollInterval);
+        _chatPollInterval = null;
+    }
+}
+
+window.renderChatPage = async function () {
+    STATE.currentView = 'chat';
+    renderSidebar();
+    syncRouteHashFromState();
+
+    const content = document.getElementById('content');
+    content.className = 'main-content fade-in';
+    const isAdmin = (STATE.currentUser.role || '').toLowerCase() === 'admin';
+
+    content.innerHTML = `
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-chat-dots-fill text-primary"></i>
+                Chat Room
+            </h2>
+            ${isAdmin ? `
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted" style="font-size: 0.8rem;">Send to:</span>
+                <select id="chat-recipient-select" class="form-select form-select-sm" style="width: auto; min-width: 200px;">
+                    <option value="">Loading users...</option>
+                </select>
+                <button class="btn btn-sm btn-outline-primary" id="chat-refresh-btn" title="Refresh">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+            ` : ''}
+        </div>
+
+        <div class="chat-container">
+            <!-- Conversation List -->
+            <div class="chat-sidebar">
+                <div class="chat-sidebar-header">
+                    <i class="bi bi-people-fill"></i> Conversations
+                </div>
+                <div class="chat-conversation-list" id="chat-conv-list">
+                    <div class="text-center text-muted py-3">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <p class="mt-2 small">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="chat-main">
+                <div class="chat-main-header" id="chat-main-header">
+                    <i class="bi bi-chat-dots"></i>
+                    <span id="chat-header-title">Select a conversation</span>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-empty-state">
+                        <i class="bi bi-chat-square-text"></i>
+                        <p>Select a conversation to start chatting</p>
+                    </div>
+                </div>
+                <div class="chat-input-area" id="chat-input-area" style="display: none;">
+                    <textarea id="chat-message-input" placeholder="Type your message..." rows="1"
+                        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.sendChatMessageFromInput();}"></textarea>
+                    <button class="chat-send-btn" id="chat-send-btn" onclick="window.sendChatMessageFromInput()" title="Send">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (isAdmin) {
+        await _loadChatConversations();
+        await loadChatUsers();
+    } else {
+        // Non-admin: load conversations with admins (including broadcast)
+        await _loadStaffConversations();
+    }
+
+    // Poll more frequently when on the chat page
+    stopChatPolling();
+    _pollUnreadChatCount();
+    _chatPollInterval = setInterval(async () => {
+        await _pollUnreadChatCount();
+        // Refresh messages only if the user isn't typing
+        const input = document.getElementById('chat-message-input');
+        if (_chatActiveConversation && document.activeElement !== input) {
+            await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast);
+        }
+    }, 8000); // every 8 seconds when on chat page
+};
+
+/** Load the list of conversations for the admin sidebar. */
+async function _loadChatConversations() {
+    const listEl = document.getElementById('chat-conv-list');
+    if (!listEl) return;
+
+    try {
+        const data = await fetchChatConversations();
+        const conversations = data.conversations || [];
+
+        // Cache user info for use in selectChatConversation
+        conversations.forEach(u => { _chatUserCache[u.id] = { username: u.username, full_name: u.full_name }; });
+
+        let html = '';
+
+        // Broadcast conversation
+        if (data.has_broadcast || data.is_admin) {
+            html += `
+                <button class="chat-conversation-item ${_chatActiveConversation && _chatActiveConversation.isBroadcast ? 'active' : ''}"
+                        onclick="window.selectChatConversation(null, true)">
+                    <div class="chat-conv-avatar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="bi bi-megaphone-fill"></i>
+                    </div>
+                    <div class="chat-conv-info">
+                        <div class="chat-conv-name">Broadcast</div>
+                        <div class="chat-conv-role">All Users</div>
+                    </div>
+                </button>
+            `;
+        }
+
+        // Individual conversations
+        conversations.forEach(user => {
+            const roleLabel = (user.role || '').toLowerCase() === 'admin' ? 'Admin' : (user.username || '?');
+            html += `
+                <button class="chat-conversation-item ${_chatActiveConversation && !_chatActiveConversation.isBroadcast && _chatActiveConversation.userId === user.id ? 'active' : ''}"
+                        onclick="window.selectChatConversation(${user.id}, false)">
+                    <div class="chat-conv-avatar">${(user.username || '?')[0].toUpperCase()}</div>
+                    <div class="chat-conv-info">
+                        <div class="chat-conv-name">${user.full_name || user.username}</div>
+                        <div class="chat-conv-role">${roleLabel}</div>
+                    </div>
+                </button>
+            `;
+        });
+
+        if (!html) {
+            html = '<div class="text-center text-muted py-3"><p class="small">No conversations yet</p></div>';
+        }
+
+        listEl.innerHTML = html;
+    } catch (e) {
+        listEl.innerHTML = `<div class="text-center text-danger py-3"><p class="small">Failed to load conversations</p></div>`;
+        console.error('Failed to load chat conversations', e);
+    }
+}
+
+/** Load the user dropdown for recipient selection (Admin only). */
+async function loadChatUsers() {
+    const select = document.getElementById('chat-recipient-select');
+    if (!select) return;
+
+    try {
+        const users = await fetchUsers();
+        select.innerHTML = '<option value="">-- Select recipient --</option>';
+
+        // Add "Broadcast" option
+        const broadcastOpt = document.createElement('option');
+        broadcastOpt.value = 'broadcast';
+        broadcastOpt.textContent = '[Broadcast - All Users]';
+        select.appendChild(broadcastOpt);
+
+        users.forEach(user => {
+            if (user.id === STATE.currentUser.id) return; // Skip self
+            const opt = document.createElement('option');
+            opt.value = user.id;
+            opt.textContent = `${user.full_name || user.username} (${user.username})`;
+            select.appendChild(opt);
+        });
+
+        // When a recipient is selected, switch the conversation
+        select.addEventListener('change', function () {
+            const val = this.value;
+            if (val === 'broadcast') {
+                window.selectChatConversation(null, true);
+            } else if (val) {
+                window.selectChatConversation(parseInt(val), false);
+            }
+        });
+    } catch (e) {
+        select.innerHTML = '<option value="">Failed to load users</option>';
+        console.error('Failed to load chat users', e);
+    }
+}
+
+/** Non-admin: load conversation list into the sidebar, including broadcast when available. */
+async function _loadStaffConversations() {
+    const listEl = document.getElementById('chat-conv-list');
+    if (!listEl) return;
+
+    try {
+        const data = await fetchChatConversations();
+        const conversations = data.conversations || [];
+
+        // Cache user info for use in selectChatConversation
+        conversations.forEach(u => { _chatUserCache[u.id] = { username: u.username, full_name: u.full_name }; });
+
+        let html = '';
+
+        // Broadcast conversation (for staff, show if there are broadcast messages)
+        if (data.has_broadcast) {
+            html += `
+                <button class="chat-conversation-item ${_chatActiveConversation && _chatActiveConversation.isBroadcast ? 'active' : ''}"
+                        onclick="window.selectChatConversation(null, true)">
+                    <div class="chat-conv-avatar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="bi bi-megaphone-fill"></i>
+                    </div>
+                    <div class="chat-conv-info">
+                        <div class="chat-conv-name">Broadcast</div>
+                        <div class="chat-conv-role">All Users</div>
+                    </div>
+                </button>
+            `;
+        }
+
+        // Individual conversations with admins
+        conversations.forEach(user => {
+            const roleLabel = (user.role || '').toLowerCase() === 'admin' ? 'Admin' : (user.username || '?');
+            html += `
+                <button class="chat-conversation-item ${_chatActiveConversation && !_chatActiveConversation.isBroadcast && _chatActiveConversation.userId === user.id ? 'active' : ''}"
+                        onclick="window.selectChatConversation(${user.id}, false)">
+                    <div class="chat-conv-avatar">${(user.username || '?')[0].toUpperCase()}</div>
+                    <div class="chat-conv-info">
+                        <div class="chat-conv-name">${user.full_name || user.username}</div>
+                        <div class="chat-conv-role">${roleLabel}</div>
+                    </div>
+                </button>
+            `;
+        });
+
+        if (!html) {
+            html = '<div class="text-center text-muted py-3"><p class="small">No messages yet. An administrator will reach out when needed.</p></div>';
+        }
+
+        listEl.innerHTML = html;
+
+        // Auto-select the first available conversation (prefer broadcast if it exists)
+        if (!_chatActiveConversation) {
+            if (data.has_broadcast) {
+                await window.selectChatConversation(null, true);
+            } else if (conversations.length > 0) {
+                const firstUser = conversations[0];
+                await window.selectChatConversation(firstUser.id, false);
+            }
+        }
+    } catch (e) {
+        listEl.innerHTML = `<div class="text-center text-danger py-3"><p class="small">Failed to load conversations</p></div>`;
+        console.error('Failed to load staff conversations', e);
+    }
+}
+
+/** Select a conversation and load its messages. */
+window.selectChatConversation = async function (userId, isBroadcast) {
+    _chatActiveConversation = { userId, isBroadcast };
+
+    // Update conversation list highlights
+    const items = document.querySelectorAll('.chat-conversation-item');
+    items.forEach(item => item.classList.remove('active'));
+
+    if (isBroadcast) {
+        document.getElementById('chat-header-title').textContent = 'Broadcast — All Users';
+        document.getElementById('chat-main-header').innerHTML = `
+            <i class="bi bi-megaphone-fill" style="color: #667eea;"></i>
+            <span id="chat-header-title">Broadcast — All Users</span>
+        `;
+    } else {
+        // Look up user info from cache (populated by conversations endpoint)
+        const cached = _chatUserCache[userId];
+        let name, username;
+        if (cached) {
+            username = cached.username || '?';
+            name = cached.full_name || username;
+        } else {
+            // Fallback: try admin endpoint (admins only); staff will get placeholder
+            try {
+                const user = await fetchUser(userId);
+                username = user.username || '?';
+                name = user.full_name || username;
+                _chatUserCache[userId] = { username, full_name: user.full_name };
+            } catch (e) {
+                username = '?';
+                name = 'User #' + userId;
+            }
+        }
+        document.getElementById('chat-header-title').textContent = name;
+        document.getElementById('chat-main-header').innerHTML = `
+            <div class="chat-conv-avatar" style="width:32px;height:32px;font-size:0.75rem;">${username[0].toUpperCase()}</div>
+            <span id="chat-header-title">${name}</span>
+            <small class="text-muted">@${username}</small>
+        `;
+    }
+
+    // Hide input area for non-admins viewing Broadcast (only admins can send broadcasts)
+    const isAdmin = (STATE.currentUser.role || '').toLowerCase() === 'admin';
+    if (isBroadcast && !isAdmin) {
+        document.getElementById('chat-input-area').style.display = 'none';
+    } else {
+        document.getElementById('chat-input-area').style.display = 'flex';
+    }
+    await _loadChatMessages(userId, isBroadcast);
+
+    // Update recipient select
+    const select = document.getElementById('chat-recipient-select');
+    if (select) {
+        if (isBroadcast) {
+            select.value = 'broadcast';
+        } else if (userId) {
+            select.value = String(userId);
+        }
+    }
+};
+
+/** Load and render chat messages for the active conversation. */
+async function _loadChatMessages(userId, isBroadcast) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    try {
+        let messages;
+        if (isBroadcast) {
+            messages = await fetchChatMessages(null, true);
+        } else if (userId) {
+            messages = await fetchChatMessages(userId, false);
+        } else {
+            container.innerHTML = `
+                <div class="chat-empty-state">
+                    <i class="bi bi-chat-square-text"></i>
+                    <p>Select a conversation to start chatting</p>
+                </div>`;
+            return;
+        }
+
+        if (!messages || messages.length === 0) {
+            container.innerHTML = `
+                <div class="chat-empty-state">
+                    <i class="bi bi-chat-dots"></i>
+                    <p>No messages yet. Start the conversation!</p>
+                </div>`;
+        } else {
+            container.innerHTML = messages.map(m => {
+                const isMine = m.sender_user_id === STATE.currentUser.id;
+                const time = new Date(m.created_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const date = new Date(m.created_at + 'Z').toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+                let cssClass = isMine ? 'sent' : 'received';
+                if (m.is_broadcast && !isMine) cssClass = 'received broadcast';
+
+                return `
+                    <div class="chat-message ${cssClass}" data-msg-id="${m.id}">
+                        <div class="chat-message-bubble">
+                            ${m.is_broadcast ? '<span class="chat-message-broadcast-label">BROADCAST</span> ' : ''}
+                            ${!isMine && !m.is_broadcast ? `<strong style="font-size:0.75rem;">${m.sender_username}</strong><br>` : ''}
+                            ${_escapeHtml(m.message)}
+                        </div>
+                        <div class="chat-message-meta">
+                            <span>${date} ${time}</span>
+                            ${isMine ? `<span>${m.read ? '<i class="bi bi-check-all" style="color:#0d6efd;"></i>' : '<i class="bi bi-check"></i>'}</span>` : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+
+            // Mark unread messages as read (when current user is the recipient, or for broadcasts being viewed by non-admin)
+            for (const m of messages) {
+                const isStaff = (STATE.currentUser.role || '').toLowerCase() !== 'admin';
+                if (!m.read && (m.recipient_user_id === STATE.currentUser.id || (m.is_broadcast && isStaff))) {
+                    try { await markChatMessageRead(m.id); } catch (e) { /* ignore */ }
+                }
+            }
+        }
+    } catch (e) {
+        container.innerHTML = `
+            <div class="chat-empty-state">
+                <i class="bi bi-exclamation-triangle text-warning"></i>
+                <p>Failed to load messages</p>
+            </div>`;
+        console.error('Failed to load chat messages', e);
+    }
+}
+
+/** Send a chat message from the input field. */
+window.sendChatMessageFromInput = async function () {
+    const input = document.getElementById('chat-message-input');
+    const btn = document.getElementById('chat-send-btn');
+    if (!input || !btn) return;
+
+    const message = input.value.trim();
+    if (!message) return;
+
+    if (!_chatActiveConversation) {
+        DOM.showToast('Please select a recipient first.', 'warning');
+        return;
+    }
+
+    btn.disabled = true;
+    input.disabled = true;
+
+    try {
+        const recipientId = _chatActiveConversation.isBroadcast ? null : _chatActiveConversation.userId;
+        await sendChatMessage(recipientId, message);
+        input.value = '';
+        input.style.height = 'auto';
+
+        // Refresh messages
+        await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast);
+
+        // Refresh conversation list for admin
+        if ((STATE.currentUser.role || '').toLowerCase() === 'admin') {
+            await _loadChatConversations();
+        }
+    } catch (e) {
+        DOM.showToast('Failed to send message: ' + (e.message || 'Unknown error'), 'error');
+    } finally {
+        btn.disabled = false;
+        input.disabled = false;
+        input.focus();
+    }
+};
+
+/** Escape HTML to prevent XSS in chat messages. */
+function _escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/\n/g, '<br>');
 }
 
 /**

@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Relative imports from within the backend package
 from .database import create_db_and_tables, get_session
-from .models import KPIRecord, User
+from .models import KPIRecord, User, ChatMessage
 from . import security
 from .profiler import ProfilingMiddleware, monitor_memory
 import asyncio
@@ -2368,6 +2368,302 @@ def cascade_fixed_input(
     except Exception as e:
         logger.exception("ERROR cascading fixed input")
         raise HTTPException(status_code=500, detail="An internal server error occurred. Please contact support.")
+
+# ---------------------------------------------------------------------------
+# Chat Room — Admin-to-User targeted messaging
+# ---------------------------------------------------------------------------
+
+class ChatSendRequest(BaseModel):
+    recipient_user_id: Optional[int] = None  # None = broadcast to all users
+    message: str
+
+class ChatMessageResponse(BaseModel):
+    id: int
+    sender_user_id: int
+    sender_username: str
+    recipient_user_id: Optional[int] = None
+    message: str
+    is_broadcast: bool
+    read: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@app.get("/api/chat/conversations")
+def list_chat_conversations(
+    current_user: User = Depends(get_current_active_user),
+    session: Session = Depends(get_session),
+):
+    """Return the list of users the current user has exchanged messages with.
+    For Admins this also includes users who have received broadcasts."""
+    is_admin = (current_user.role or "").lower() == "admin"
+
+    if is_admin:
+        # Admins see all users they've sent messages to, plus a "Broadcast" entry
+        stmt = select(ChatMessage.recipient_user_id).where(
+            ChatMessage.sender_user_id == current_user.id,
+            ChatMessage.recipient_user_id.isnot(None),
+        ).distinct()
+        recipient_ids = list(session.exec(stmt).all())
+
+        users = []
+        if recipient_ids:
+            user_stmt = select(User).where(User.id.in_(recipient_ids))
+            users = [
+                {"id": u.id, "username": u.username, "full_name": u.full_name, "role": u.role}
+                for u in session.exec(user_stmt).all()
+            ]
+
+        # Check if there are any broadcast messages
+        broadcast_count = session.exec(
+            select(ChatMessage).where(
+                ChatMessage.sender_user_id == current_user.id,
+                ChatMessage.is_broadcast.is_(True),
+            )
+        ).all()
+        has_broadcast = len(list(broadcast_count)) > 0
+
+        return {
+            "conversations": users,
+            "has_broadcast": has_broadcast,
+            "is_admin": True,
+        }
+    else:
+        # Non-admin users see only the admin(s) who have sent them messages
+        stmt = select(ChatMessage.sender_user_id).where(
+            ChatMessage.recipient_user_id == current_user.id,
+        ).distinct()
+        sender_ids = list(session.exec(stmt).all())
+
+        # Also include broadcast messages from admins
+        broadcast_stmt = select(ChatMessage.sender_user_id).where(
+            ChatMessage.is_broadcast.is_(True),
+        ).distinct()
+        broadcast_sender_ids = list(session.exec(broadcast_stmt).all())
+        all_sender_ids = list(set(sender_ids + broadcast_sender_ids))
+
+        users = []
+        if all_sender_ids:
+            user_stmt = select(User).where(User.id.in_(all_sender_ids))
+            users = [
+                {"id": u.id, "username": u.username, "full_name": u.full_name, "role": u.role}
+                for u in session.exec(user_stmt).all()
+            ]
+
+        # Check if there are any broadcast messages visible to this user
+        has_broadcast = len(broadcast_sender_ids) > 0
+
+        return {
+            "conversations": users,
+            "has_broadcast": has_broadcast,
+            "is_admin": False,
+        }
+
+
+@app.get("/api/chat/messages", response_model=List[ChatMessageResponse])
+def get_chat_messages(
+    other_user_id: Optional[int] = None,
+    include_broadcast: bool = False,
+    limit: int = Query(default=100, le=500),
+    before_id: Optional[int] = None,
+    current_user: User = Depends(get_current_active_user),
+    session: Session = Depends(get_session),
+):
+    """Get messages between the current user and another user (or broadcasts)."""
+    is_admin = (current_user.role or "").lower() == "admin"
+
+    if include_broadcast:
+        # Get broadcast messages (visible to all users)
+        stmt = select(ChatMessage).where(ChatMessage.is_broadcast.is_(True))
+        if before_id:
+            stmt = stmt.where(ChatMessage.id < before_id)
+        stmt = stmt.order_by(ChatMessage.id.desc()).limit(limit)
+        messages = list(session.exec(stmt).all())
+    elif other_user_id:
+        if is_admin:
+            # Admin can see all messages with this user (sent or received)
+            stmt = select(ChatMessage).where(
+                (
+                    (ChatMessage.sender_user_id == current_user.id) & (ChatMessage.recipient_user_id == other_user_id)
+                ) | (
+                    (ChatMessage.sender_user_id == other_user_id) & (ChatMessage.recipient_user_id == current_user.id)
+                )
+            )
+        else:
+            # Non-admin sees messages sent by admin to them, or their replies to admin
+            stmt = select(ChatMessage).where(
+                (
+                    (ChatMessage.sender_user_id == other_user_id) & (ChatMessage.recipient_user_id == current_user.id)
+                ) | (
+                    (ChatMessage.sender_user_id == current_user.id) & (ChatMessage.recipient_user_id == other_user_id)
+                )
+            )
+        if before_id:
+            stmt = stmt.where(ChatMessage.id < before_id)
+        stmt = stmt.order_by(ChatMessage.id.desc()).limit(limit)
+        messages = list(session.exec(stmt).all())
+    else:
+        return []
+
+    # Enrich with sender username
+    user_ids = set()
+    for m in messages:
+        user_ids.add(m.sender_user_id)
+    user_map = {}
+    if user_ids:
+        users = session.exec(select(User).where(User.id.in_(list(user_ids)))).all()
+        user_map = {u.id: u.username for u in users}
+
+    result = []
+    for m in reversed(messages):  # chronological order
+        result.append(ChatMessageResponse(
+            id=m.id,
+            sender_user_id=m.sender_user_id,
+            sender_username=user_map.get(m.sender_user_id, "Unknown"),
+            recipient_user_id=m.recipient_user_id,
+            message=m.message,
+            is_broadcast=m.is_broadcast,
+            read=m.read,
+            created_at=m.created_at,
+        ))
+    return result
+
+
+@app.post("/api/chat/send", response_model=ChatMessageResponse)
+def send_chat_message(
+    payload: ChatSendRequest,
+    current_user: User = Depends(get_current_active_user),
+    session: Session = Depends(get_session),
+):
+    """Send a chat message. Admins can broadcast or target any user.
+    Non-admin users can only reply to admins who have already messaged them."""
+    if not payload.message or not payload.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    is_admin = (current_user.role or "").lower() == "admin"
+    is_broadcast = payload.recipient_user_id is None
+
+    if is_broadcast and not is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can send broadcast messages")
+
+    if not is_broadcast:
+        # Verify recipient exists
+        recipient = session.get(User, payload.recipient_user_id)
+        if not recipient:
+            raise HTTPException(status_code=404, detail="Recipient user not found")
+
+        if not is_admin:
+            # Non-admin: only allow replying to an admin who has messaged them
+            # Check that the recipient is an admin who has sent them a message
+            recipient_is_admin = (recipient.role or "").lower() == "admin"
+            if not recipient_is_admin:
+                raise HTTPException(status_code=403, detail="You can only send messages to administrators")
+
+            # Verify a conversation exists
+            existing = session.exec(
+                select(ChatMessage).where(
+                    ChatMessage.sender_user_id == recipient.id,
+                    ChatMessage.recipient_user_id == current_user.id,
+                )
+            ).first()
+            if not existing:
+                raise HTTPException(status_code=403, detail="No existing conversation with this administrator")
+
+    chat_msg = ChatMessage(
+        sender_user_id=current_user.id,
+        recipient_user_id=payload.recipient_user_id,
+        message=payload.message.strip(),
+        is_broadcast=is_broadcast,
+    )
+    session.add(chat_msg)
+    session.commit()
+    session.refresh(chat_msg)
+
+    return ChatMessageResponse(
+        id=chat_msg.id,
+        sender_user_id=chat_msg.sender_user_id,
+        sender_username=current_user.username,
+        recipient_user_id=chat_msg.recipient_user_id,
+        message=chat_msg.message,
+        is_broadcast=chat_msg.is_broadcast,
+        read=chat_msg.read,
+        created_at=chat_msg.created_at,
+    )
+
+
+@app.post("/api/chat/read/{message_id}")
+def mark_chat_message_read(
+    message_id: int,
+    current_user: User = Depends(get_current_active_user),
+    session: Session = Depends(get_session),
+):
+    """Mark a chat message as read by the recipient."""
+    msg = session.get(ChatMessage, message_id)
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Broadcast messages: track per-user read status via read_by list
+    if msg.is_broadcast:
+        read_by = list(msg.read_by or [])
+        if current_user.id not in read_by:
+            read_by.append(current_user.id)
+            msg.read_by = read_by
+            session.add(msg)
+            session.commit()
+        return {"ok": True}
+
+    # Only the recipient can mark it as read
+    if msg.recipient_user_id and msg.recipient_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to mark this message as read")
+
+    msg.read = True
+    session.add(msg)
+    session.commit()
+    return {"ok": True}
+
+
+@app.get("/api/chat/unread-count")
+def get_unread_chat_count(
+    current_user: User = Depends(get_current_active_user),
+    session: Session = Depends(get_session),
+):
+    """Get the count of unread messages for the current user."""
+    is_admin = (current_user.role or "").lower() == "admin"
+
+    if is_admin:
+        # Admin: count unread replies from users
+        stmt = select(ChatMessage).where(
+            ChatMessage.recipient_user_id == current_user.id,
+            ChatMessage.read.is_(False),
+            ChatMessage.is_broadcast.is_(False),
+        )
+    else:
+        # Non-admin: count unread direct messages and unread broadcasts
+        direct = select(ChatMessage.id).where(
+            ChatMessage.recipient_user_id == current_user.id,
+            ChatMessage.read.is_(False),
+            ChatMessage.is_broadcast.is_(False),
+        )
+        # Broadcasts: count those the current user hasn't read yet
+        # (read_by is a JSON array — we can't filter server-side in MySQL,
+        # so fetch all broadcast IDs and filter in Python)
+        all_broadcasts = session.exec(
+            select(ChatMessage.id, ChatMessage.read_by).where(
+                ChatMessage.is_broadcast.is_(True),
+            )
+        ).all()
+        direct_ids = set(session.exec(direct).all())
+        broadcast_ids = {
+            bid for bid, read_by in all_broadcasts
+            if not (read_by and current_user.id in (read_by or []))
+        }
+        return {"count": len(direct_ids | broadcast_ids)}
+
+    count = len(list(session.exec(stmt).all()))
+    return {"count": count}
+
 
 # Serve Frontend Static Files
 # We assume the backend is run from the project root (e.g. uvicorn backend.main:app)
