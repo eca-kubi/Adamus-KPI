@@ -13940,6 +13940,28 @@ window.renderSummaryDashboardPage = async function () {
             </li>
         </ul>
 
+        <!-- Zoom toolbar -->
+        <div class="summary-zoom-toolbar" id="summary-zoom-toolbar" data-html2canvas-ignore>
+            <span class="zoom-label">Zoom:</span>
+            <button class="btn-zoom" id="btn-zoom-out" title="Zoom Out" type="button">−</button>
+            <span class="zoom-pct" id="zoom-pct-label">100%</span>
+            <button class="btn-zoom" id="btn-zoom-in" title="Zoom In" type="button">+</button>
+            <span class="zoom-divider"></span>
+            <button class="btn-zoom btn-zoom-text" id="btn-zoom-fit" title="Fit to Screen" type="button">
+                <i class="bi bi-arrows-fullscreen"></i> Fit
+            </button>
+            <button class="btn-zoom btn-zoom-text" id="btn-zoom-reset" title="Reset to 100%" type="button">
+                <i class="bi bi-arrow-counterclockwise"></i> 100%
+            </button>
+            <span class="zoom-divider"></span>
+            <button class="btn-zoom btn-zoom-text" id="btn-fullscreen" title="Fullscreen" type="button">
+                <i class="bi bi-fullscreen"></i> Fullscreen
+            </button>
+            <button class="btn-zoom btn-zoom-text" id="btn-zen-mode" title="Zen Mode — distraction-free view" type="button">
+                <i class="bi bi-eye"></i> Zen
+            </button>
+        </div>
+
         <div class="tab-content">
             <!-- KPI Dashboard pane -->
             <div class="tab-pane fade show active" id="pane-kpi" role="tabpanel">
@@ -13973,6 +13995,9 @@ window.renderSummaryDashboardPage = async function () {
         syncRouteHashFromState();
         loadSummaryData(this.value);
     });
+
+    // --- Zoom controls ---
+    setupSummaryZoom();
 
     const handleExport = function(format) {
         return function(e) {
@@ -14416,6 +14441,7 @@ async function loadSummaryData(dateStr) {
         const resp = await fetchSummaryDashboard(dateStr);
         const depts = resp.departments || {};
         renderSummaryTable(depts);
+        reapplySummaryZoom();
         if (commentsContainer) renderCommentsTable(depts, dateStr);
     } catch (e) {
         const errHtml = `<div class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</div>`;
@@ -14441,6 +14467,524 @@ window.afterKPIChange = async function(department, recordDate) {
 
     await loadSummaryData(summaryDate);
 };
+
+// ---------------------------------------------------------------------------
+// Summary Dashboard — Zoom Controls
+// ---------------------------------------------------------------------------
+
+/** Current zoom scale for the summary KPI table (1.0 = 100%). */
+let _summaryZoomLevel = 1.0;
+
+/** Whether Fit-to-Screen mode is currently active (default: off — 100 %). */
+let _fitModeActive = false;
+
+/** Debounce timer ID for the resize handler. */
+let _fitResizeTimer = null;
+
+/** Minimum / maximum zoom levels allowed. */
+const SUMMARY_ZOOM_MIN = 0.4;
+const SUMMARY_ZOOM_MAX = 2.0;
+const SUMMARY_ZOOM_STEP = 0.1;
+
+/**
+ * Attach click handlers to the zoom toolbar buttons.
+ * Called once after the summary page HTML is injected.
+ */
+function setupSummaryZoom() {
+    const btnIn = document.getElementById('btn-zoom-in');
+    const btnOut = document.getElementById('btn-zoom-out');
+    const btnFit = document.getElementById('btn-zoom-fit');
+    const btnReset = document.getElementById('btn-zoom-reset');
+
+    if (btnIn) btnIn.addEventListener('click', () => {
+        exitFitMode();
+        applySummaryZoom(_summaryZoomLevel + SUMMARY_ZOOM_STEP);
+    });
+    if (btnOut) btnOut.addEventListener('click', () => {
+        exitFitMode();
+        applySummaryZoom(_summaryZoomLevel - SUMMARY_ZOOM_STEP);
+    });
+    if (btnFit) btnFit.addEventListener('click', toggleFitMode);
+    if (btnReset) btnReset.addEventListener('click', () => {
+        exitFitMode();
+        applySummaryZoom(1.0);
+    });
+
+    // Fullscreen button
+    const btnFS = document.getElementById('btn-fullscreen');
+    if (btnFS) btnFS.addEventListener('click', toggleFullscreen);
+
+    // Zen mode button
+    const btnZen = document.getElementById('btn-zen-mode');
+    if (btnZen) btnZen.addEventListener('click', toggleZenMode);
+
+    // Update fullscreen button icon/text when the user exits via Esc
+    document.addEventListener('fullscreenchange', _onFullscreenChange);
+
+    // Listen for window / sidebar resize so Fit mode stays accurate.
+    window.addEventListener('resize', _onFitResize);
+    // Observe sidebar transitions (CSS transition on margin-left / width).
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        const observer = new MutationObserver(() => {
+            _onFitResize();
+        });
+        observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+    }
+    // Also observe the main content area for margin changes.
+    const mainContent = document.getElementById('content');
+    if (mainContent) {
+        const observer2 = new MutationObserver(() => {
+            _onFitResize();
+        });
+        observer2.observe(mainContent, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+
+    // Sync the Fit button appearance with the current state.
+    updateFitButtonState();
+}
+
+/**
+ * Debounced handler: when Fit mode is active, recalculate the fit on
+ * layout changes (window resize, sidebar toggle, etc.).
+ *
+ * The 320 ms debounce is deliberately longer than the sidebar / main-content
+ * CSS transition (250 ms) so that the measurement always sees the final
+ * post-transition layout — just like Excel's print-preview waits for the
+ * margins to settle before calculating the page scale.
+ */
+function _onFitResize() {
+    if (!_fitModeActive) return;
+    clearTimeout(_fitResizeTimer);
+    _fitResizeTimer = setTimeout(() => {
+        if (_fitModeActive) {
+            _applyFitScale();
+        }
+    }, 320);
+}
+
+/** Whether the sidebar was collapsed BEFORE Fit mode engaged (so we can restore it). */
+let _sidebarWasCollapsedBeforeFit = null;
+
+/**
+ * Toggle Fit-to-Screen mode on/off.
+ * - If off → on: collapse the sidebar to free ~200 px of horizontal space,
+ *   then wait for the CSS transition to finish before measuring and
+ *   applying the fit scale.
+ * - If on → off: restore the sidebar to its previous state, reset zoom to
+ *   100 %, and remove the active indicator.
+ */
+function toggleFitMode() {
+    if (_fitModeActive) {
+        exitFitMode();
+    } else {
+        _fitModeActive = true;
+
+        // --- Collapse sidebar to maximise table real-estate ---
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            // Remember the pre-fit state so we can restore it on exit.
+            _sidebarWasCollapsedBeforeFit = sidebar.classList.contains('collapsed');
+            sidebar.classList.add('collapsed');
+        }
+
+        // Use the debounced handler so the sidebar/main-content CSS
+        // transition (250 ms) finishes before we measure the available
+        // width.  This guarantees all ~200 px are accounted for.
+        _onFitResize();
+        updateFitButtonState();
+    }
+}
+
+/**
+ * Exit Fit mode, restoring the sidebar and resetting the button appearance.
+ * Does NOT change the current zoom level — the user can stay at whatever
+ * scale was last applied.
+ */
+function exitFitMode() {
+    if (!_fitModeActive) return;
+    _fitModeActive = false;
+    clearTimeout(_fitResizeTimer);
+
+    // --- Restore sidebar to its pre-fit state ---
+    if (_sidebarWasCollapsedBeforeFit !== null) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            if (_sidebarWasCollapsedBeforeFit) {
+                sidebar.classList.add('collapsed');
+            } else {
+                sidebar.classList.remove('collapsed');
+            }
+        }
+        _sidebarWasCollapsedBeforeFit = null;
+
+        // Force the sidebar / main-content CSS transitions to complete
+        // synchronously.  Without this, callers like applySummaryZoom
+        // that run immediately after exitFitMode() will read layout
+        // measurements (scrollHeight, getBoundingClientRect, etc.) while
+        // the 250-ms sidebar transition is still animating, producing
+        // garbage dimensions that corrupt the wrapper's scrollbar and
+        // height calculations.
+        const content = document.getElementById('content');
+        const els = [sidebar, content].filter(Boolean);
+        els.forEach(function (el) { el.style.transition = 'none'; });
+        void (els[0] && els[0].offsetWidth);  // force synchronous reflow
+        els.forEach(function (el) { el.style.transition = ''; });
+    }
+
+    // Remove the gold outline from the wrapper.
+    const wrap = document.querySelector('#pane-kpi .summary-table-wrap');
+    if (wrap) wrap.classList.remove('fit-mode-active');
+    updateFitButtonState();
+}
+
+/**
+ * Measure the natural (unscaled) content width, figure out how much the
+ * available pane can show, and apply the resulting fit scale.
+ *
+ * This is the core measurement + apply step and is used both by the
+ * initial Fit toggle and by the resize listener.
+ *
+ * Measurement is synchronous because reading scrollWidth forces a
+ * layout recalculation — the browser guarantees all columns are painted
+ * by the time we get the value back, just like Excel's print-preview
+ * measures every column before deciding the page scale.
+ */
+function _applyFitScale() {
+    const wrap = document.querySelector('#pane-kpi .summary-table-wrap');
+    if (!wrap) return;
+
+    // --- Reset to 100 % so we can measure natural dimensions accurately ---
+    _resetWrapStyles(wrap);
+
+    const table = wrap.querySelector('table.summary-table');
+    if (!table) return;
+
+    // Force a synchronous layout pass so the table's natural width
+    // includes every column before we measure.  Reading offsetWidth
+    // on any element in the tree triggers this.
+    void table.offsetWidth;
+
+    // Lift the CSS width:100% constraint so scrollWidth reports the true
+    // content width (all columns, no wrapping) instead of the
+    // CSS-constrained width.
+    const oldTableWidth = table.style.width;
+    table.style.width = 'auto';
+
+    // Measure the wrapper's scrollWidth (which includes the full table
+    // width plus any wrapper padding).  This is more accurate than
+    // measuring the table's scrollWidth directly because the wrapper
+    // may have padding or borders that affect the final visual width.
+    const naturalW = wrap.scrollWidth;
+
+    table.style.width = oldTableWidth;
+
+    // Available horizontal space: use the wrapper's parent clientWidth
+    // (the tab-pane) because it sits inside #content's padding box and
+    // reflects the true content-area width.  Subtract any horizontal
+    // padding on the pane itself so the scaled wrapper doesn't overflow.
+    const pane = wrap.parentElement; // #pane-kpi (.tab-pane)
+    const paneStyle = pane ? getComputedStyle(pane) : null;
+    const panePadLeft = paneStyle ? parseFloat(paneStyle.paddingLeft) || 0 : 0;
+    const panePadRight = paneStyle ? parseFloat(paneStyle.paddingRight) || 0 : 0;
+    // Add a 4 px safety buffer — identical to Excel's approach of
+    // leaving a small margin so that subpixel rounding or border
+    // anti-aliasing never forces a horizontal scrollbar to appear.
+    const SAFETY_BUFFER = 4;
+    const availableWidth = (pane ? pane.clientWidth : window.innerWidth) - panePadLeft - panePadRight - SAFETY_BUFFER;
+
+    if (naturalW > 0 && availableWidth > 0) {
+        // Fit horizontally — never zoom IN beyond 100 %, only zoom out.
+        const fitScale = Math.min(1.0, availableWidth / naturalW);
+        applySummaryZoom(fitScale, /* fillVertical */ true, naturalW);
+    }
+
+    // Mark the wrapper so the user can see Fit mode is engaged (subtle gold outline).
+    if (_fitModeActive) {
+        wrap.classList.add('fit-mode-active');
+    }
+}
+
+/**
+ * Apply a zoom scale to the summary table.
+ *
+ * Uses two strategies depending on direction:
+ * - Zoom-in  (>100%): font-size scaling — text expands, columns widen
+ *   naturally, wrapper scrolls.
+ * - Zoom-out (<100%, Fit mode): CSS `zoom` on the table element.  `zoom`
+ *   scales both layout and rendering together, so the wrapper stays at
+ *   width:100% with overflow:auto and the horizontal scrollbar never
+ *   escapes to the page level.
+ *
+ * @param {number} level - Desired scale (clamped to [MIN, MAX]).
+ * @param {boolean} [fillVertical=false] - When true, set min-height so the
+ *   wrapper fills available viewport space (used by Fit mode).
+ * @param {number} [_knownNaturalWidth] - Kept for backward compatibility;
+ *   no longer consumed (zoom-out uses CSS `zoom` which scales layout
+ *   intrinsically, so pixel measurements aren't needed).
+ */
+function applySummaryZoom(level, fillVertical, knownNaturalWidth) {
+    _summaryZoomLevel = Math.min(SUMMARY_ZOOM_MAX, Math.max(SUMMARY_ZOOM_MIN, level));
+    const wrap = document.querySelector('#pane-kpi .summary-table-wrap');
+    if (!wrap) return;
+
+    // --- reset to 100 % so we can measure natural dimensions ---
+    _resetWrapStyles(wrap);
+
+    // Always pin the wrapper as the scroll container so overflow never
+    // escapes to the page level — regardless of zoom direction.
+    wrap.style.overflowX = 'auto';
+    wrap.style.overflowY = 'auto';
+
+    const table = wrap.querySelector('table.summary-table');
+
+    if (Math.abs(_summaryZoomLevel - 1.0) < 0.005) {
+        // At 100 % the natural layout is perfect — nothing more to do.
+        // Inline overflow:auto on the wrapper handles scrolling natively.
+    } else if (_summaryZoomLevel > 1.0) {
+        // --- ZOOM IN (> 100 %) ------------------------------------------------
+        // Scale the table's font-size proportionally from the CSS base of
+        // 0.7rem.  Larger text makes column widths expand via the browser's
+        // native table-layout:auto algorithm.  The wrapper's overflow:auto
+        // then scrolls through exactly the right range — no pixel
+        // measurements or width pinning needed.
+        //
+        // We intentionally avoid CSS transform:scale() because transforms
+        // only affect rendering (not layout), causing visual overflow to
+        // escape the wrapper and create a page-level scrollbar.
+        // --------------------------------------------------------------------
+        if (table) {
+            table.style.fontSize = `${0.7 * _summaryZoomLevel}rem`;
+        }
+        wrap.classList.add('zoom-scaled');
+    } else {
+        // --- ZOOM OUT (< 100 %, including Fit mode) --------------------------
+        // Use CSS `zoom` on the table instead of transform:scale().
+        // `zoom` scales both the layout box AND the visual rendering
+        // together, so the table's actual width in the document flow
+        // matches what the eye sees.  The wrapper stays at its CSS
+        // width:100% with overflow:auto — if the zoomed table is still
+        // wider than the viewport, the wrapper's own scrollbar handles it
+        // without ever pushing the page wide.
+        //
+        // This preserves the proportional "everything scales" look of the
+        // original Fit mode (borders, padding, text all shrink together)
+        // while keeping the horizontal scrollbar on the table itself.
+        // --------------------------------------------------------------------
+        if (table) {
+            table.style.zoom = _summaryZoomLevel;
+        }
+        wrap.classList.add('zoom-scaled');
+
+        // When called from Fit mode, expand the wrapper's min-height so
+        // the page doesn't look half-empty (the zoomed-out table is short).
+        if (fillVertical) {
+            const wrapTop = wrap.getBoundingClientRect().top;
+            const availH = window.innerHeight - wrapTop - 24;
+            if (availH > 0) {
+                wrap.style.minHeight = `${availH}px`;
+            }
+        }
+    }
+
+    // In fit mode, re-apply the visual indicator (reset cleared it above).
+    if (_fitModeActive) {
+        wrap.classList.add('fit-mode-active');
+    }
+
+    updateZoomLabel();
+    updateFitButtonState();
+}
+
+
+/**
+ * Reset all inline zoom styles on the wrapper so it renders at its natural
+ * (100 %) size for measurement or full-size display.
+ */
+function _resetWrapStyles(wrap) {
+    wrap.classList.remove('zoom-scaled');
+    wrap.classList.remove('fit-mode-active');
+    wrap.style.transform = '';
+    wrap.style.width = '';
+    wrap.style.height = '';
+    wrap.style.minHeight = '';
+    wrap.style.maxWidth = '';
+    wrap.style.marginRight = '';
+    wrap.style.marginBottom = '';
+    wrap.style.overflowX = '';
+    wrap.style.overflowY = '';
+    wrap.style.overflow = '';
+    // Also reset the table's inline styles so CSS rules take effect
+    // again for natural layout and accurate re-measurement.
+    const table = wrap.querySelector('table.summary-table');
+    if (table) {
+        table.style.width = '';
+        table.style.fontSize = '';
+        table.style.zoom = '';
+        table.style.transform = '';
+        table.style.transformOrigin = '';
+    }
+}
+
+/** Update the percentage label in the toolbar. */
+function updateZoomLabel() {
+    const label = document.getElementById('zoom-pct-label');
+    if (label) {
+        label.textContent = Math.round(_summaryZoomLevel * 100) + '%';
+    }
+}
+
+/**
+ * Add or remove the "active" visual state on the Fit button based on
+ * whether Fit mode is currently engaged.
+ */
+function updateFitButtonState() {
+    const btnFit = document.getElementById('btn-zoom-fit');
+    if (!btnFit) return;
+    if (_fitModeActive) {
+        btnFit.classList.add('fit-active');
+        btnFit.title = 'Exit Fit to Screen';
+    } else {
+        btnFit.classList.remove('fit-active');
+        btnFit.title = 'Fit to Screen';
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Summary Dashboard — Fullscreen
+// ---------------------------------------------------------------------------
+
+/**
+ * Toggle browser fullscreen mode for the entire page.
+ * Uses the standard Fullscreen API.  The `fullscreenchange` event handler
+ * updates the button appearance when the user exits via Esc.
+ */
+function toggleFullscreen() {
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+    } else {
+        document.documentElement.requestFullscreen().catch(() => {});
+    }
+}
+
+/** React to fullscreen changes (e.g. user presses Esc). */
+function _onFullscreenChange() {
+    const btn = document.getElementById('btn-fullscreen');
+    if (!btn) return;
+    const isFS = !!document.fullscreenElement;
+    const icon = btn.querySelector('i');
+    if (isFS) {
+        btn.classList.add('fit-active');
+        btn.title = 'Exit Fullscreen';
+        if (icon) icon.className = 'bi bi-fullscreen-exit';
+        btn.childNodes[btn.childNodes.length - 1].textContent = ' Exit';
+    } else {
+        btn.classList.remove('fit-active');
+        btn.title = 'Fullscreen';
+        if (icon) icon.className = 'bi bi-fullscreen';
+        btn.childNodes[btn.childNodes.length - 1].textContent = ' Fullscreen';
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Summary Dashboard — Zen Mode
+// ---------------------------------------------------------------------------
+
+/** Whether Zen mode is currently active. */
+let _zenModeActive = false;
+
+/** Sidebar collapsed state before Zen was engaged (to restore on exit). */
+let _sidebarWasCollapsedBeforeZen = null;
+
+/**
+ * Toggle Zen mode.  When active this hides the sidebar, tabs, zoom toolbar,
+ * and date-picker row — leaving only the bare KPI table for a focused,
+ * distraction-free view (ideal for wall-mounted monitors / presentations).
+ *
+ * Press the Zen button again (or Esc while not in fullscreen) to exit.
+ */
+function toggleZenMode() {
+    if (_zenModeActive) {
+        exitZenMode();
+    } else {
+        _zenModeActive = true;
+
+        // Collapse sidebar
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            _sidebarWasCollapsedBeforeZen = sidebar.classList.contains('collapsed');
+            if (!_sidebarWasCollapsedBeforeZen) {
+                sidebar.classList.add('collapsed');
+            }
+        }
+
+        // Hide non-essential UI elements
+        document.body.classList.add('zen-mode');
+
+        updateZenButtonState();
+
+        // Recalculate fit if active
+        if (_fitModeActive) {
+            setTimeout(() => _onFitResize(), 350);
+        }
+    }
+}
+
+/** Exit Zen mode and restore hidden elements. */
+function exitZenMode() {
+    if (!_zenModeActive) return;
+    _zenModeActive = false;
+
+    document.body.classList.remove('zen-mode');
+
+    // Restore sidebar
+    if (_sidebarWasCollapsedBeforeZen !== null) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && !_sidebarWasCollapsedBeforeZen) {
+            sidebar.classList.remove('collapsed');
+        }
+        _sidebarWasCollapsedBeforeZen = null;
+    }
+
+    updateZenButtonState();
+
+    // Recalculate fit if active
+    if (_fitModeActive) {
+        setTimeout(() => _onFitResize(), 350);
+    }
+}
+
+/** Update the Zen button appearance based on current state. */
+function updateZenButtonState() {
+    const btn = document.getElementById('btn-zen-mode');
+    if (!btn) return;
+    const icon = btn.querySelector('i');
+    if (_zenModeActive) {
+        btn.classList.add('fit-active');
+        btn.title = 'Exit Zen Mode';
+        if (icon) icon.className = 'bi bi-eye-slash';
+        btn.childNodes[btn.childNodes.length - 1].textContent = ' Exit Zen';
+    } else {
+        btn.classList.remove('fit-active');
+        btn.title = 'Zen Mode — distraction-free view';
+        if (icon) icon.className = 'bi bi-eye';
+        btn.childNodes[btn.childNodes.length - 1].textContent = ' Zen';
+    }
+}
+
+
+/**
+ * Re-apply the current zoom level after the table content is replaced
+ * (e.g. after a date change).  In Fit mode this recalculates the scale
+ * for the new content; in manual-zoom mode it re-applies the stored level.
+ */
+function reapplySummaryZoom() {
+    if (_fitModeActive) {
+        _applyFitScale();
+    } else if (Math.abs(_summaryZoomLevel - 1.0) > 0.005) {
+        applySummaryZoom(_summaryZoomLevel);
+    }
+}
 
 function renderSummaryTable(departments) {
     const container = document.getElementById('summary-table-container');
