@@ -174,8 +174,11 @@ function setFormInputValue(input, value) {
  * @param {Object<string, string>} fieldMap - Maps record data keys to DOM element IDs
  * @returns {Object|null} The existing record if found, null otherwise
  */
-async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap) {
+async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap, options = {}) {
     if (!dateVal || !fieldMap) return null;
+
+    const { preserveKeys = [] } = options;
+    const preserveSet = new Set(preserveKeys);
 
     try {
         // Fetch fresh records for this department to ensure we have latest data
@@ -195,8 +198,9 @@ async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap) {
             return existingRecord;
         }
 
-        // No record found for this date — clear all mapped fields
-        for (const [, elementId] of Object.entries(fieldMap)) {
+        // No record found for this date — clear all mapped fields except preserved ones
+        for (const [dataKey, elementId] of Object.entries(fieldMap)) {
+            if (preserveSet.has(dataKey)) continue;
             const el = document.getElementById(elementId);
             if (!el) continue;
             setFormInputValue(el, '');
@@ -1944,6 +1948,17 @@ function renderKPIForm(dept, metricName) {
     }
 
     container.appendChild(card);
+
+    // For Engineering daily input, make auto-populated fields readonly
+    // (Daily Forecast, MTD Forecast, Full Forecast are all driven by the Fixed Input)
+    if (dept === "Engineering" && metricName !== "Fixed Inputs") {
+        const dailyFcstEl = document.getElementById(`input-${dept}-daily-fcst-pct`);
+        const mtdFcstEl = document.getElementById(`input-${dept}-mtd-fcst`);
+        const fullFcstEl = document.getElementById(`input-${dept}-full-fcst`);
+        if (dailyFcstEl) dailyFcstEl.readOnly = true;
+        if (mtdFcstEl) mtdFcstEl.readOnly = true;
+        if (fullFcstEl) fullFcstEl.readOnly = true;
+    }
 
     // Restore any previously saved draft for this department/metric.
     restoreFormDraft(dept, metricName);
@@ -8068,7 +8083,7 @@ function renderEngineeringLightVehiclesForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -8181,7 +8196,7 @@ function renderEngineeringLightVehiclesForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -8313,7 +8328,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -8372,7 +8387,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
     mVar.input.readOnly = true;
     attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
-    // Auto-Calculate MTD Forecast (Mirror Daily Forecast)
+    // Auto-Calculate MTD Forecast (Mirror Daily Forecast and Full Forecast)
     const updateMTDForecast = () => {
         let val = dFcst.input.value;
         if (val && !val.includes('%')) {
@@ -8380,6 +8395,8 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
         }
         mFcst.input.value = val;
         mFcst.input.dispatchEvent(new Event('input')); // Trigger variance
+        fullFcst.input.value = val;
+        fullFcst.input.dispatchEvent(new Event('input'));
     };
     dFcst.input.addEventListener('input', updateMTDForecast);
 
@@ -8466,7 +8483,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -8558,7 +8575,7 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -8637,13 +8654,13 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // 2. Auto-Calculate MTD Forecast (Mirror Daily Forecast)
+    // 2. Auto-Calculate MTD Forecast (Mirror Daily Forecast and Full Forecast)
     const updateMTDForecast = () => {
         let val = dFcst.input.value;
         if (val && !val.includes('%')) {
@@ -8651,6 +8668,8 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
         }
         mFcst.input.value = val;
         mFcst.input.dispatchEvent(new Event('input', { bubbles: true })); // Trigger variance
+        fullFcst.input.value = val;
+        fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     };
     dFcst.input.addEventListener('input', updateMTDForecast);
 
@@ -8802,7 +8821,7 @@ function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -8872,7 +8891,7 @@ function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -8982,8 +9001,16 @@ function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
             }
             mFcst.input.value = val;
             mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = val;
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         } else {
             mFcst.input.value = '';
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = '';
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
     });
 
@@ -9072,7 +9099,7 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -9138,7 +9165,7 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -9242,8 +9269,16 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
             }
             mFcst.input.value = val;
             mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = val;
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         } else {
             mFcst.input.value = '';
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = '';
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
     });
 
@@ -9333,7 +9368,7 @@ function renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -9395,7 +9430,7 @@ function renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -9417,8 +9452,16 @@ function renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card) {
             }
             mFcst.input.value = val;
             mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = val;
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         } else {
             mFcst.input.value = '';
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = '';
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
     });
 
@@ -9587,7 +9630,7 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -9649,7 +9692,7 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -9671,8 +9714,16 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
             }
             mFcst.input.value = val;
             mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = val;
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         } else {
             mFcst.input.value = '';
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = '';
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
     });
 
@@ -9841,7 +9892,7 @@ function renderEngineeringGradersForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -9903,7 +9954,7 @@ function renderEngineeringGradersForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -9925,8 +9976,16 @@ function renderEngineeringGradersForm(dept, metricName, card) {
             }
             mFcst.input.value = val;
             mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = val;
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         } else {
             mFcst.input.value = '';
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = '';
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
     });
 
@@ -10095,7 +10154,7 @@ function renderEngineeringDozersForm(dept, metricName, card) {
     date.input.value = '';
 
     // Row 2
-    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number");
+    const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
     const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
@@ -10149,7 +10208,7 @@ function renderEngineeringDozersForm(dept, metricName, card) {
             qty_available: `input-${dept}-qty-avail`,
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -10171,8 +10230,16 @@ function renderEngineeringDozersForm(dept, metricName, card) {
             }
             mFcst.input.value = val;
             mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = val;
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         } else {
             mFcst.input.value = '';
+            if (typeof fullFcst !== 'undefined') {
+                fullFcst.input.value = '';
+                fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
     });
 
@@ -10326,15 +10393,19 @@ function renderEngineeringCrusherForm(dept, metricName, card) {
         await autoPopulateDailyForm(dept, metricName, date.input.value, {
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // Auto-Calculate MTD Forecast (Mirror Daily Forecast)
+    // Auto-Calculate MTD Forecast (Mirror Daily Forecast and Full Forecast)
     const updateMTDForecast = () => {
         mFcst.input.value = dFcst.input.value;
         mFcst.input.dispatchEvent(new Event('input'));
+        if (typeof fullFcst !== 'undefined') {
+            fullFcst.input.value = dFcst.input.value;
+            fullFcst.input.dispatchEvent(new Event('input'));
+        }
     };
     dFcst.input.addEventListener('input', updateMTDForecast);
 
@@ -10544,15 +10615,19 @@ function renderEngineeringMillForm(dept, metricName, card) {
         await autoPopulateDailyForm(dept, metricName, date.input.value, {
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
-        });
+        }, { preserveKeys: ['daily_forecast'] });
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // Auto-Calculate MTD Forecast (Mirror Daily Forecast)
+    // Auto-Calculate MTD Forecast (Mirror Daily Forecast and Full Forecast)
     const updateMTDForecast = () => {
         mFcst.input.value = dFcst.input.value;
         mFcst.input.dispatchEvent(new Event('input'));
+        if (typeof fullFcst !== 'undefined') {
+            fullFcst.input.value = dFcst.input.value;
+            fullFcst.input.dispatchEvent(new Event('input'));
+        }
     };
     dFcst.input.addEventListener('input', updateMTDForecast);
 
