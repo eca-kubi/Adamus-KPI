@@ -14739,14 +14739,22 @@ async function _pollUnreadChatCount() {
         const result = await fetchUnreadChatCount();
         const newCount = result.count || 0;
 
+        // Track baseline on every poll so we can detect increases reliably
+        if (_lastUnreadCount < 0) {
+            _lastUnreadCount = newCount;
+        }
+
         // Only re-render sidebar when the count actually changed — prevents screen flash
         if (newCount === STATE.chatUnreadCount) return;
 
         // Toast notification when new messages arrive (not on first load, not on chat page)
-        if (_lastUnreadCount >= 0 && newCount > _lastUnreadCount && STATE.currentView !== 'chat') {
+        if (newCount > _lastUnreadCount && STATE.currentView !== 'chat') {
             const diff = newCount - _lastUnreadCount;
             const label = diff === 1 ? 'new message' : 'new messages';
-            DOM.showToast(`You have ${diff} ${label}`, 'info');
+            DOM.showToast(
+                `<span role="button" class="text-decoration-underline" onclick="renderChatPage(); return false;">You have ${diff} ${label}</span>`,
+                'info'
+            );
         }
 
         _lastUnreadCount = newCount;
@@ -14889,6 +14897,9 @@ async function _loadChatConversations() {
         // Individual conversations
         conversations.forEach(user => {
             const roleLabel = (user.role || '').toLowerCase() === 'admin' ? 'Admin' : (user.username || '?');
+            const unreadBadge = (user.unread_count || 0) > 0
+                ? `<span class="chat-conv-badge">${user.unread_count > 99 ? '99+' : user.unread_count}</span>`
+                : '';
             html += `
                 <button class="chat-conversation-item ${_chatActiveConversation && !_chatActiveConversation.isBroadcast && _chatActiveConversation.userId === user.id ? 'active' : ''}"
                         onclick="window.selectChatConversation(${user.id}, false)">
@@ -14897,6 +14908,7 @@ async function _loadChatConversations() {
                         <div class="chat-conv-name">${user.full_name || user.username}</div>
                         <div class="chat-conv-role">${roleLabel}</div>
                     </div>
+                    ${unreadBadge}
                 </button>
             `;
         });
@@ -14966,6 +14978,9 @@ async function _loadStaffConversations() {
 
         // Broadcast conversation (for staff, show if there are broadcast messages)
         if (data.has_broadcast) {
+            const broadcastBadge = (data.broadcast_unread_count || 0) > 0
+                ? `<span class="chat-conv-badge">${data.broadcast_unread_count > 99 ? '99+' : data.broadcast_unread_count}</span>`
+                : '';
             html += `
                 <button class="chat-conversation-item ${_chatActiveConversation && _chatActiveConversation.isBroadcast ? 'active' : ''}"
                         onclick="window.selectChatConversation(null, true)">
@@ -14976,6 +14991,7 @@ async function _loadStaffConversations() {
                         <div class="chat-conv-name">Broadcast</div>
                         <div class="chat-conv-role">All Users</div>
                     </div>
+                    ${broadcastBadge}
                 </button>
             `;
         }
@@ -14983,6 +14999,9 @@ async function _loadStaffConversations() {
         // Individual conversations with admins
         conversations.forEach(user => {
             const roleLabel = (user.role || '').toLowerCase() === 'admin' ? 'Admin' : (user.username || '?');
+            const unreadBadge = (user.unread_count || 0) > 0
+                ? `<span class="chat-conv-badge">${user.unread_count > 99 ? '99+' : user.unread_count}</span>`
+                : '';
             html += `
                 <button class="chat-conversation-item ${_chatActiveConversation && !_chatActiveConversation.isBroadcast && _chatActiveConversation.userId === user.id ? 'active' : ''}"
                         onclick="window.selectChatConversation(${user.id}, false)">
@@ -14991,6 +15010,7 @@ async function _loadStaffConversations() {
                         <div class="chat-conv-name">${user.full_name || user.username}</div>
                         <div class="chat-conv-role">${roleLabel}</div>
                     </div>
+                    ${unreadBadge}
                 </button>
             `;
         });

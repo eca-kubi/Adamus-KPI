@@ -2416,6 +2416,18 @@ def list_chat_conversations(
                 for u in session.exec(user_stmt).all()
             ]
 
+        # Per-conversation unread counts: messages FROM each user TO the admin that are unread
+        for u in users:
+            unread = session.exec(
+                select(ChatMessage).where(
+                    ChatMessage.sender_user_id == u["id"],
+                    ChatMessage.recipient_user_id == current_user.id,
+                    ChatMessage.read.is_(False),
+                    ChatMessage.is_broadcast.is_(False),
+                )
+            ).all()
+            u["unread_count"] = len(list(unread))
+
         # Check if there are any broadcast messages
         broadcast_count = session.exec(
             select(ChatMessage).where(
@@ -2452,12 +2464,37 @@ def list_chat_conversations(
                 for u in session.exec(user_stmt).all()
             ]
 
+        # Per-conversation unread counts
+        for u in users:
+            # Unread direct messages FROM this sender TO the current user
+            unread_direct = session.exec(
+                select(ChatMessage).where(
+                    ChatMessage.sender_user_id == u["id"],
+                    ChatMessage.recipient_user_id == current_user.id,
+                    ChatMessage.read.is_(False),
+                    ChatMessage.is_broadcast.is_(False),
+                )
+            ).all()
+            u["unread_count"] = len(list(unread_direct))
+
+        # Broadcast unread count
+        all_broadcasts = session.exec(
+            select(ChatMessage.id, ChatMessage.read_by).where(
+                ChatMessage.is_broadcast.is_(True),
+            )
+        ).all()
+        broadcast_unread = sum(
+            1 for bid, read_by in all_broadcasts
+            if not (read_by and current_user.id in (read_by or []))
+        )
+
         # Check if there are any broadcast messages visible to this user
         has_broadcast = len(broadcast_sender_ids) > 0
 
         return {
             "conversations": users,
             "has_broadcast": has_broadcast,
+            "broadcast_unread_count": broadcast_unread,
             "is_admin": False,
         }
 
