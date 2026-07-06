@@ -356,10 +356,11 @@ async function fetchChatConversations() {
     return handleResponse(response);
 }
 
-async function fetchChatMessages(otherUserId, includeBroadcast = false, limit = 100, beforeId = null) {
+async function fetchChatMessages(otherUserId, includeBroadcast = false, department = null, limit = 100, beforeId = null) {
     let url = `${API_BASE_URL}/chat/messages?limit=${limit}`;
     if (includeBroadcast) {
         url += '&include_broadcast=true';
+        if (department) url += `&department=${encodeURIComponent(department)}`;
     } else if (otherUserId) {
         url += `&other_user_id=${otherUserId}`;
     }
@@ -371,13 +372,14 @@ async function fetchChatMessages(otherUserId, includeBroadcast = false, limit = 
     return handleResponse(response);
 }
 
-async function sendChatMessage(recipientUserId, message) {
+async function sendChatMessage(recipientUserId, message, department = null) {
     const response = await fetch(`${API_BASE_URL}/chat/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
             recipient_user_id: recipientUserId,
-            message: message
+            message: message,
+            department: department
         })
     });
     return handleResponse(response);

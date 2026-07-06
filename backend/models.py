@@ -39,12 +39,13 @@ class User(SQLModel, table=True):
     reset_code_expires_at: Optional[datetime] = Field(default=None)
 
 class ChatMessage(SQLModel, table=True):
-    """Targeted message from an Admin to a specific user (or broadcast to all)."""
+    """Targeted message from an Admin to a specific user (or broadcast to all / a department)."""
     id: Optional[int] = Field(default=None, primary_key=True)
     sender_user_id: int = Field(foreign_key="user.id", index=True)
     recipient_user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     message: str
     is_broadcast: bool = Field(default=False)
+    department: Optional[str] = Field(default=None, index=True)  # None = global broadcast or direct message; e.g. "OHS" = department-scoped broadcast
     read: bool = Field(default=False)
     read_by: Optional[List[int]] = Field(default_factory=list, sa_column=Column(JSON))  # user IDs who have read this broadcast
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

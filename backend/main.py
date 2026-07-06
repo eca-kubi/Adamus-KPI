@@ -2374,8 +2374,10 @@ def cascade_fixed_input(
 # ---------------------------------------------------------------------------
 
 class ChatSendRequest(BaseModel):
-    recipient_user_id: Optional[int] = None  # None = broadcast to all users
+    recipient_user_id: Optional[int] = None  # None = broadcast (global or department-scoped)
     message: str
+    department: Optional[str] = None  # e.g. "OHS", "Mining" — only relevant for broadcasts
+
 
 class ChatMessageResponse(BaseModel):
     id: int
@@ -2384,6 +2386,7 @@ class ChatMessageResponse(BaseModel):
     recipient_user_id: Optional[int] = None
     message: str
     is_broadcast: bool
+    department: Optional[str] = None
     read: bool
     created_at: datetime
 
@@ -2397,11 +2400,53 @@ def list_chat_conversations(
     session: Session = Depends(get_session),
 ):
     """Return the list of users the current user has exchanged messages with.
-    For Admins this also includes users who have received broadcasts."""
+    For Admins this also includes users who have received broadcasts.
+    Also includes department-scoped broadcast groups."""
     is_admin = (current_user.role or "").lower() == "admin"
+    user_departments = current_user.departments or []
+
+    # Build the list of department broadcast groups visible to this user
+    dept_groups = []
+    if is_admin:
+        # Admins see all department groups
+        dept_groups = list(DEPARTMENT_METRICS.keys())
+    elif user_departments:
+        # Staff see only their own departments
+        dept_groups = [d for d in user_departments if d in DEPARTMENT_METRICS]
+
+    # Count unread messages for each department broadcast group
+    dept_broadcasts = []
+    if dept_groups:
+        dept_msgs = session.exec(
+            select(ChatMessage.id, ChatMessage.department, ChatMessage.read_by, ChatMessage.sender_user_id).where(
+                ChatMessage.is_broadcast.is_(True),
+                ChatMessage.department.in_(dept_groups),
+            )
+        ).all()
+        dept_unread_map = {}
+        for msg_id, dept, read_by, sender_id in dept_msgs:
+            dept_unread_map.setdefault(dept, 0)
+            if sender_id == current_user.id:
+                continue  # Don't count own broadcast messages as unread
+            if not (read_by and current_user.id in (read_by or [])):
+                dept_unread_map[dept] += 1
+        for dept in dept_groups:
+            dept_broadcasts.append({
+                "department": dept,
+                "unread_count": dept_unread_map.get(dept, 0),
+            })
+
+    # Check for existing global broadcast messages
+    global_broadcast_count = session.exec(
+        select(ChatMessage).where(
+            ChatMessage.is_broadcast.is_(True),
+            ChatMessage.department.is_(None),
+        )
+    ).all()
+    has_global_broadcast = len(list(global_broadcast_count)) > 0
 
     if is_admin:
-        # Admins see all users they've sent messages to, plus a "Broadcast" entry
+        # Admins see all users they've sent messages to
         stmt = select(ChatMessage.recipient_user_id).where(
             ChatMessage.sender_user_id == current_user.id,
             ChatMessage.recipient_user_id.isnot(None),
@@ -2416,7 +2461,7 @@ def list_chat_conversations(
                 for u in session.exec(user_stmt).all()
             ]
 
-        # Per-conversation unread counts: messages FROM each user TO the admin that are unread
+        # Per-conversation unread counts
         for u in users:
             unread = session.exec(
                 select(ChatMessage).where(
@@ -2428,18 +2473,10 @@ def list_chat_conversations(
             ).all()
             u["unread_count"] = len(list(unread))
 
-        # Check if there are any broadcast messages
-        broadcast_count = session.exec(
-            select(ChatMessage).where(
-                ChatMessage.sender_user_id == current_user.id,
-                ChatMessage.is_broadcast.is_(True),
-            )
-        ).all()
-        has_broadcast = len(list(broadcast_count)) > 0
-
         return {
             "conversations": users,
-            "has_broadcast": has_broadcast,
+            "has_global_broadcast": has_global_broadcast,
+            "department_broadcasts": dept_broadcasts,
             "is_admin": True,
         }
     else:
@@ -2449,7 +2486,7 @@ def list_chat_conversations(
         ).distinct()
         sender_ids = list(session.exec(stmt).all())
 
-        # Also include broadcast messages from admins
+        # Also include broadcast messages from admins (global + department)
         broadcast_stmt = select(ChatMessage.sender_user_id).where(
             ChatMessage.is_broadcast.is_(True),
         ).distinct()
@@ -2464,9 +2501,8 @@ def list_chat_conversations(
                 for u in session.exec(user_stmt).all()
             ]
 
-        # Per-conversation unread counts
+        # Per-conversation unread counts (direct messages)
         for u in users:
-            # Unread direct messages FROM this sender TO the current user
             unread_direct = session.exec(
                 select(ChatMessage).where(
                     ChatMessage.sender_user_id == u["id"],
@@ -2477,24 +2513,27 @@ def list_chat_conversations(
             ).all()
             u["unread_count"] = len(list(unread_direct))
 
-        # Broadcast unread count
-        all_broadcasts = session.exec(
+        # Global broadcast unread count
+        all_global_broadcasts = session.exec(
             select(ChatMessage.id, ChatMessage.read_by).where(
                 ChatMessage.is_broadcast.is_(True),
+                ChatMessage.department.is_(None),
             )
         ).all()
-        broadcast_unread = sum(
-            1 for bid, read_by in all_broadcasts
+        global_broadcast_unread = sum(
+            1 for bid, read_by in all_global_broadcasts
             if not (read_by and current_user.id in (read_by or []))
         )
 
-        # Check if there are any broadcast messages visible to this user
+        visible_broadcast_depts = {d["department"] for d in dept_broadcasts if d["unread_count"] > 0}
         has_broadcast = len(broadcast_sender_ids) > 0
 
         return {
             "conversations": users,
+            "has_global_broadcast": has_broadcast,
             "has_broadcast": has_broadcast,
-            "broadcast_unread_count": broadcast_unread,
+            "global_broadcast_unread_count": global_broadcast_unread,
+            "department_broadcasts": dept_broadcasts,
             "is_admin": False,
         }
 
@@ -2503,17 +2542,32 @@ def list_chat_conversations(
 def get_chat_messages(
     other_user_id: Optional[int] = None,
     include_broadcast: bool = False,
+    department: Optional[str] = None,
     limit: int = Query(default=100, le=500),
     before_id: Optional[int] = None,
     current_user: User = Depends(get_current_active_user),
     session: Session = Depends(get_session),
 ):
-    """Get messages between the current user and another user (or broadcasts)."""
+    """Get messages between the current user and another user (or broadcasts).
+    
+    - ``include_broadcast=True`` with ``department`` set returns department-scoped broadcasts.
+    - ``include_broadcast=True`` without ``department`` returns global broadcasts (department IS NULL).
+    """
     is_admin = (current_user.role or "").lower() == "admin"
 
     if include_broadcast:
-        # Get broadcast messages (visible to all users)
+        # Get broadcast messages — global or department-scoped
+        # Staff users can only see department broadcasts for their own departments
+        if department and not is_admin:
+            user_departments = current_user.departments or []
+            if department not in user_departments:
+                raise HTTPException(status_code=403, detail="You do not have access to this department's broadcasts")
+
         stmt = select(ChatMessage).where(ChatMessage.is_broadcast.is_(True))
+        if department:
+            stmt = stmt.where(ChatMessage.department == department)
+        else:
+            stmt = stmt.where(ChatMessage.department.is_(None))
         if before_id:
             stmt = stmt.where(ChatMessage.id < before_id)
         stmt = stmt.order_by(ChatMessage.id.desc()).limit(limit)
@@ -2562,6 +2616,7 @@ def get_chat_messages(
             recipient_user_id=m.recipient_user_id,
             message=m.message,
             is_broadcast=m.is_broadcast,
+            department=m.department,
             read=m.read,
             created_at=m.created_at,
         ))
@@ -2574,7 +2629,7 @@ def send_chat_message(
     current_user: User = Depends(get_current_active_user),
     session: Session = Depends(get_session),
 ):
-    """Send a chat message. Admins can broadcast or target any user.
+    """Send a chat message. Admins can broadcast (global or department-scoped) or target any user.
     Non-admin users can only reply to admins who have already messaged them."""
     if not payload.message or not payload.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
@@ -2585,6 +2640,14 @@ def send_chat_message(
     if is_broadcast and not is_admin:
         raise HTTPException(status_code=403, detail="Only admins can send broadcast messages")
 
+    # Validate department if provided with a broadcast
+    if is_broadcast and payload.department:
+        if payload.department not in DEPARTMENT_METRICS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid department: {payload.department}. Valid departments: {', '.join(DEPARTMENT_METRICS.keys())}"
+            )
+
     if not is_broadcast:
         # Verify recipient exists
         recipient = session.get(User, payload.recipient_user_id)
@@ -2593,7 +2656,6 @@ def send_chat_message(
 
         if not is_admin:
             # Non-admin: only allow replying to an admin who has messaged them
-            # Check that the recipient is an admin who has sent them a message
             recipient_is_admin = (recipient.role or "").lower() == "admin"
             if not recipient_is_admin:
                 raise HTTPException(status_code=403, detail="You can only send messages to administrators")
@@ -2613,6 +2675,7 @@ def send_chat_message(
         recipient_user_id=payload.recipient_user_id,
         message=payload.message.strip(),
         is_broadcast=is_broadcast,
+        department=payload.department if is_broadcast else None,
     )
     session.add(chat_msg)
     session.commit()
@@ -2625,6 +2688,7 @@ def send_chat_message(
         recipient_user_id=chat_msg.recipient_user_id,
         message=chat_msg.message,
         is_broadcast=chat_msg.is_broadcast,
+        department=chat_msg.department,
         read=chat_msg.read,
         created_at=chat_msg.created_at,
     )
@@ -2676,26 +2740,35 @@ def get_unread_chat_count(
             ChatMessage.read.is_(False),
             ChatMessage.is_broadcast.is_(False),
         )
+        count = len(list(session.exec(stmt).all()))
+        return {"count": count}
     else:
-        # Non-admin: count unread direct messages and unread broadcasts
+        # Non-admin: count unread direct messages and unread broadcasts (global + department)
         direct = select(ChatMessage.id).where(
             ChatMessage.recipient_user_id == current_user.id,
             ChatMessage.read.is_(False),
             ChatMessage.is_broadcast.is_(False),
         )
-        # Broadcasts: count those the current user hasn't read yet
-        # (read_by is a JSON array — we can't filter server-side in MySQL,
-        # so fetch all broadcast IDs and filter in Python)
+
+        # All broadcasts (global + department) — filter in Python for per-user read status
         all_broadcasts = session.exec(
-            select(ChatMessage.id, ChatMessage.read_by).where(
+            select(ChatMessage.id, ChatMessage.department, ChatMessage.read_by).where(
                 ChatMessage.is_broadcast.is_(True),
             )
         ).all()
+
         direct_ids = set(session.exec(direct).all())
-        broadcast_ids = {
-            bid for bid, read_by in all_broadcasts
-            if not (read_by and current_user.id in (read_by or []))
-        }
+
+        user_departments = set(current_user.departments or [])
+        broadcast_ids = set()
+        for bid, dept, read_by in all_broadcasts:
+            # Only count broadcasts the user should see:
+            # - Global broadcasts (dept is None)
+            # - Department broadcasts where the user belongs to that department
+            if dept is None or dept in user_departments:
+                if not (read_by and current_user.id in (read_by or [])):
+                    broadcast_ids.add(bid)
+
         return {"count": len(direct_ids | broadcast_ids)}
 
     count = len(list(session.exec(stmt).all()))

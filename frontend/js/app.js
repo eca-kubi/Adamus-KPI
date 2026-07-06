@@ -14728,7 +14728,7 @@ function setupSummaryZoom() {
 
 let _chatPollInterval = null;
 let _chatMsgPollInterval = null;     // Fast message-only polling (1s) for live feel
-let _chatActiveConversation = null;  // { userId, isBroadcast }
+let _chatActiveConversation = null;  // { userId, isBroadcast, department }
 let _lastUnreadCount = -1;           // Avoid re-rendering sidebar when count hasn't changed
 let _chatLastMessageId = 0;          // Highest message ID displayed — enables incremental refresh
 const _chatUserCache = {};           // userId → { username, full_name } from conversations endpoint
@@ -14802,8 +14802,8 @@ window.renderChatPage = async function () {
             ${isAdmin ? `
             <div class="d-flex align-items-center gap-2">
                 <span class="text-muted" style="font-size: 0.8rem;">Send to:</span>
-                <select id="chat-recipient-select" class="form-select form-select-sm" style="width: auto; min-width: 200px;">
-                    <option value="">Loading users...</option>
+                <select id="chat-recipient-select" class="form-select form-select-sm" style="width: auto; min-width: 220px;">
+                    <option value="">Loading...</option>
                 </select>
                 <button class="btn btn-sm btn-outline-primary" id="chat-refresh-btn" title="Refresh">
                     <i class="bi bi-arrow-clockwise"></i>
@@ -14876,7 +14876,7 @@ window.renderChatPage = async function () {
     _chatMsgPollInterval = setInterval(async () => {
         const input = document.getElementById('chat-message-input');
         if (_chatActiveConversation && document.activeElement !== input) {
-            await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast);
+            await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast, false, _chatActiveConversation.department);
         }
     }, 1000); // every 1 second for live message updates
 };
@@ -14889,26 +14889,60 @@ async function _loadChatConversations() {
     try {
         const data = await fetchChatConversations();
         const conversations = data.conversations || [];
+        const deptBroadcasts = data.department_broadcasts || [];
 
         // Cache user info for use in selectChatConversation
         conversations.forEach(u => { _chatUserCache[u.id] = { username: u.username, full_name: u.full_name }; });
 
         let html = '';
 
-        // Broadcast conversation
-        if (data.has_broadcast || data.is_admin) {
+        // Section: Department Broadcasts
+        if (deptBroadcasts.length > 0 || data.is_admin) {
+            html += `<div class="chat-section-label">Department Broadcasts</div>`;
+        }
+
+        // Global broadcast
+        if (data.has_global_broadcast || data.is_admin) {
+            const active = _chatActiveConversation && _chatActiveConversation.isBroadcast && !_chatActiveConversation.department;
             html += `
-                <button class="chat-conversation-item ${_chatActiveConversation && _chatActiveConversation.isBroadcast ? 'active' : ''}"
-                        onclick="window.selectChatConversation(null, true)">
+                <button class="chat-conversation-item ${active ? 'active' : ''}"
+                        onclick="window.selectChatConversation(null, true, null)">
                     <div class="chat-conv-avatar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                         <i class="bi bi-megaphone-fill"></i>
                     </div>
                     <div class="chat-conv-info">
-                        <div class="chat-conv-name">Broadcast</div>
-                        <div class="chat-conv-role">All Users</div>
+                        <div class="chat-conv-name">Broadcast — All</div>
+                        <div class="chat-conv-role">All Departments</div>
                     </div>
                 </button>
             `;
+        }
+
+        // Department-specific broadcast groups
+        deptBroadcasts.forEach(db => {
+            const active = _chatActiveConversation && _chatActiveConversation.isBroadcast && _chatActiveConversation.department === db.department;
+            const unreadBadge = (db.unread_count || 0) > 0
+                ? `<span class="chat-conv-badge">${db.unread_count > 99 ? '99+' : db.unread_count}</span>`
+                : '';
+            const deptColor = _getDepartmentColor(db.department);
+            html += `
+                <button class="chat-conversation-item ${active ? 'active' : ''}"
+                        onclick="window.selectChatConversation(null, true, '${db.department}')">
+                    <div class="chat-conv-avatar" style="background: ${deptColor};">
+                        <i class="bi bi-megaphone"></i>
+                    </div>
+                    <div class="chat-conv-info">
+                        <div class="chat-conv-name">Broadcast — ${_formatDeptName(db.department)}</div>
+                        <div class="chat-conv-role">${db.department} Team</div>
+                    </div>
+                    ${unreadBadge}
+                </button>
+            `;
+        });
+
+        // Section: Direct Messages
+        if (conversations.length > 0) {
+            html += `<div class="chat-section-label">Direct Messages</div>`;
         }
 
         // Individual conversations
@@ -14917,9 +14951,10 @@ async function _loadChatConversations() {
             const unreadBadge = (user.unread_count || 0) > 0
                 ? `<span class="chat-conv-badge">${user.unread_count > 99 ? '99+' : user.unread_count}</span>`
                 : '';
+            const active = _chatActiveConversation && !_chatActiveConversation.isBroadcast && _chatActiveConversation.userId === user.id;
             html += `
-                <button class="chat-conversation-item ${_chatActiveConversation && !_chatActiveConversation.isBroadcast && _chatActiveConversation.userId === user.id ? 'active' : ''}"
-                        onclick="window.selectChatConversation(${user.id}, false)">
+                <button class="chat-conversation-item ${active ? 'active' : ''}"
+                        onclick="window.selectChatConversation(${user.id}, false, null)">
                     <div class="chat-conv-avatar">${(user.username || '?')[0].toUpperCase()}</div>
                     <div class="chat-conv-info">
                         <div class="chat-conv-name">${user.full_name || user.username}</div>
@@ -14950,27 +14985,45 @@ async function loadChatUsers() {
         const users = await fetchUsers();
         select.innerHTML = '<option value="">-- Select recipient --</option>';
 
-        // Add "Broadcast" option
+        // Add "Global Broadcast" option
         const broadcastOpt = document.createElement('option');
         broadcastOpt.value = 'broadcast';
-        broadcastOpt.textContent = '[Broadcast - All Users]';
+        broadcastOpt.textContent = '[Broadcast — All Departments]';
         select.appendChild(broadcastOpt);
 
+        // Add department-specific broadcast options
+        const depts = ['OHS', 'Mining', 'Milling_CIL', 'Crushing', 'Geology', 'Engineering'];
+        const deptGroup = document.createElement('optgroup');
+        deptGroup.label = 'Department Broadcasts';
+        depts.forEach(dept => {
+            const opt = document.createElement('option');
+            opt.value = 'broadcast:' + dept;
+            opt.textContent = `[Broadcast — ${_formatDeptName(dept)}]`;
+            deptGroup.appendChild(opt);
+        });
+        select.appendChild(deptGroup);
+
+        // Individual users
+        const userGroup = document.createElement('optgroup');
+        userGroup.label = 'Individual Users';
         users.forEach(user => {
             if (user.id === STATE.currentUser.id) return; // Skip self
             const opt = document.createElement('option');
             opt.value = user.id;
             opt.textContent = `${user.full_name || user.username} (${user.username})`;
-            select.appendChild(opt);
+            userGroup.appendChild(opt);
         });
+        select.appendChild(userGroup);
 
         // When a recipient is selected, switch the conversation
         select.addEventListener('change', function () {
             const val = this.value;
             if (val === 'broadcast') {
-                window.selectChatConversation(null, true);
+                window.selectChatConversation(null, true, null);
+            } else if (val.startsWith('broadcast:')) {
+                window.selectChatConversation(null, true, val.substring(10));
             } else if (val) {
-                window.selectChatConversation(parseInt(val), false);
+                window.selectChatConversation(parseInt(val), false, null);
             }
         });
     } catch (e) {
@@ -14987,30 +15040,64 @@ async function _loadStaffConversations() {
     try {
         const data = await fetchChatConversations();
         const conversations = data.conversations || [];
+        const deptBroadcasts = data.department_broadcasts || [];
 
-        // Cache user info for use in selectChatConversation
+        // Cache user info
         conversations.forEach(u => { _chatUserCache[u.id] = { username: u.username, full_name: u.full_name }; });
 
         let html = '';
 
-        // Broadcast conversation (for staff, show if there are broadcast messages)
-        if (data.has_broadcast) {
-            const broadcastBadge = (data.broadcast_unread_count || 0) > 0
-                ? `<span class="chat-conv-badge">${data.broadcast_unread_count > 99 ? '99+' : data.broadcast_unread_count}</span>`
+        // Section: Department Broadcasts
+        if (deptBroadcasts.length > 0 || data.has_global_broadcast) {
+            html += `<div class="chat-section-label">Department Broadcasts</div>`;
+        }
+
+        // Global broadcast
+        if (data.has_global_broadcast) {
+            const active = _chatActiveConversation && _chatActiveConversation.isBroadcast && !_chatActiveConversation.department;
+            const globalBadge = (data.global_broadcast_unread_count || 0) > 0
+                ? `<span class="chat-conv-badge">${data.global_broadcast_unread_count > 99 ? '99+' : data.global_broadcast_unread_count}</span>`
                 : '';
             html += `
-                <button class="chat-conversation-item ${_chatActiveConversation && _chatActiveConversation.isBroadcast ? 'active' : ''}"
-                        onclick="window.selectChatConversation(null, true)">
+                <button class="chat-conversation-item ${active ? 'active' : ''}"
+                        onclick="window.selectChatConversation(null, true, null)">
                     <div class="chat-conv-avatar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                         <i class="bi bi-megaphone-fill"></i>
                     </div>
                     <div class="chat-conv-info">
-                        <div class="chat-conv-name">Broadcast</div>
-                        <div class="chat-conv-role">All Users</div>
+                        <div class="chat-conv-name">Broadcast — All</div>
+                        <div class="chat-conv-role">All Departments</div>
                     </div>
-                    ${broadcastBadge}
+                    ${globalBadge}
                 </button>
             `;
+        }
+
+        // Department-specific broadcast groups (only those available to this staff member)
+        deptBroadcasts.forEach(db => {
+            const active = _chatActiveConversation && _chatActiveConversation.isBroadcast && _chatActiveConversation.department === db.department;
+            const unreadBadge = (db.unread_count || 0) > 0
+                ? `<span class="chat-conv-badge">${db.unread_count > 99 ? '99+' : db.unread_count}</span>`
+                : '';
+            const deptColor = _getDepartmentColor(db.department);
+            html += `
+                <button class="chat-conversation-item ${active ? 'active' : ''}"
+                        onclick="window.selectChatConversation(null, true, '${db.department}')">
+                    <div class="chat-conv-avatar" style="background: ${deptColor};">
+                        <i class="bi bi-megaphone"></i>
+                    </div>
+                    <div class="chat-conv-info">
+                        <div class="chat-conv-name">Broadcast — ${_formatDeptName(db.department)}</div>
+                        <div class="chat-conv-role">${db.department} Team</div>
+                    </div>
+                    ${unreadBadge}
+                </button>
+            `;
+        });
+
+        // Section: Direct Messages
+        if (conversations.length > 0) {
+            html += `<div class="chat-section-label">Direct Messages</div>`;
         }
 
         // Individual conversations with admins
@@ -15019,9 +15106,10 @@ async function _loadStaffConversations() {
             const unreadBadge = (user.unread_count || 0) > 0
                 ? `<span class="chat-conv-badge">${user.unread_count > 99 ? '99+' : user.unread_count}</span>`
                 : '';
+            const active = _chatActiveConversation && !_chatActiveConversation.isBroadcast && _chatActiveConversation.userId === user.id;
             html += `
-                <button class="chat-conversation-item ${_chatActiveConversation && !_chatActiveConversation.isBroadcast && _chatActiveConversation.userId === user.id ? 'active' : ''}"
-                        onclick="window.selectChatConversation(${user.id}, false)">
+                <button class="chat-conversation-item ${active ? 'active' : ''}"
+                        onclick="window.selectChatConversation(${user.id}, false, null)">
                     <div class="chat-conv-avatar">${(user.username || '?')[0].toUpperCase()}</div>
                     <div class="chat-conv-info">
                         <div class="chat-conv-name">${user.full_name || user.username}</div>
@@ -15038,13 +15126,16 @@ async function _loadStaffConversations() {
 
         listEl.innerHTML = html;
 
-        // Auto-select the first available conversation (prefer broadcast if it exists)
+        // Auto-select the first available conversation (prefer department broadcast if it exists)
         if (!_chatActiveConversation) {
-            if (data.has_broadcast) {
-                await window.selectChatConversation(null, true);
+            if (deptBroadcasts.length > 0) {
+                const firstDept = deptBroadcasts[0];
+                await window.selectChatConversation(null, true, firstDept.department);
+            } else if (data.has_global_broadcast) {
+                await window.selectChatConversation(null, true, null);
             } else if (conversations.length > 0) {
                 const firstUser = conversations[0];
-                await window.selectChatConversation(firstUser.id, false);
+                await window.selectChatConversation(firstUser.id, false, null);
             }
         }
     } catch (e) {
@@ -15053,20 +15144,37 @@ async function _loadStaffConversations() {
     }
 }
 
-/** Select a conversation and load its messages. */
-window.selectChatConversation = async function (userId, isBroadcast) {
-    _chatActiveConversation = { userId, isBroadcast };
+/** Select a conversation and load its messages.
+ *  @param {number|null} userId - User ID for direct messages, null for broadcasts
+ *  @param {boolean} isBroadcast - Whether this is a broadcast conversation
+ *  @param {string|null} department - Department key (e.g. "OHS") for department-scoped broadcasts, null for global
+ */
+window.selectChatConversation = async function (userId, isBroadcast, department) {
+    _chatActiveConversation = { userId, isBroadcast, department };
 
     // Update conversation list highlights
     const items = document.querySelectorAll('.chat-conversation-item');
     items.forEach(item => item.classList.remove('active'));
 
     if (isBroadcast) {
-        document.getElementById('chat-header-title').textContent = 'Broadcast — All Users';
-        document.getElementById('chat-main-header').innerHTML = `
-            <i class="bi bi-megaphone-fill" style="color: #667eea;"></i>
-            <span id="chat-header-title">Broadcast — All Users</span>
-        `;
+        if (department) {
+            const deptName = _formatDeptName(department);
+            document.getElementById('chat-header-title').textContent = `Broadcast — ${deptName}`;
+            document.getElementById('chat-main-header').innerHTML = `
+                <div class="chat-conv-avatar" style="width:32px;height:32px;font-size:0.75rem;background:${_getDepartmentColor(department)};">
+                    <i class="bi bi-megaphone" style="font-size:0.85rem;"></i>
+                </div>
+                <span id="chat-header-title">Broadcast — ${deptName}</span>
+                <small class="text-muted">${department} Team</small>
+            `;
+        } else {
+            document.getElementById('chat-header-title').textContent = 'Broadcast — All Departments';
+            document.getElementById('chat-main-header').innerHTML = `
+                <i class="bi bi-megaphone-fill" style="color: #667eea;"></i>
+                <span id="chat-header-title">Broadcast — All Departments</span>
+                <small class="text-muted">All Users</small>
+            `;
+        }
     } else {
         // Look up user info from cache (populated by conversations endpoint)
         const cached = _chatUserCache[userId];
@@ -15101,12 +15209,14 @@ window.selectChatConversation = async function (userId, isBroadcast) {
     } else {
         document.getElementById('chat-input-area').style.display = 'flex';
     }
-    await _loadChatMessages(userId, isBroadcast, true);
+    await _loadChatMessages(userId, isBroadcast, true, department);
 
     // Update recipient select
     const select = document.getElementById('chat-recipient-select');
     if (select) {
-        if (isBroadcast) {
+        if (isBroadcast && department) {
+            select.value = 'broadcast:' + department;
+        } else if (isBroadcast) {
             select.value = 'broadcast';
         } else if (userId) {
             select.value = String(userId);
@@ -15116,7 +15226,7 @@ window.selectChatConversation = async function (userId, isBroadcast) {
 
 /** Load and render chat messages for the active conversation.
  *  Uses _chatLastMessageId to do incremental (append-only) refresh when possible. */
-async function _loadChatMessages(userId, isBroadcast, isInitialLoad = false) {
+async function _loadChatMessages(userId, isBroadcast, isInitialLoad = false, department = null) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
 
@@ -15128,7 +15238,7 @@ async function _loadChatMessages(userId, isBroadcast, isInitialLoad = false) {
     try {
         let messages;
         if (isBroadcast) {
-            messages = await fetchChatMessages(null, true);
+            messages = await fetchChatMessages(null, true, department);
         } else if (userId) {
             messages = await fetchChatMessages(userId, false);
         } else {
@@ -15171,11 +15281,21 @@ async function _loadChatMessages(userId, isBroadcast, isInitialLoad = false) {
 
                 let cssClass = isMine ? 'sent' : 'received';
                 if (m.is_broadcast && !isMine) cssClass = 'received broadcast';
+                if (m.department) cssClass += ' dept-' + m.department.toLowerCase().replace('_', '-');
+
+                let broadcastLabel = '';
+                if (m.is_broadcast) {
+                    if (m.department) {
+                        broadcastLabel = `<span class="chat-message-broadcast-label dept-label">${_formatDeptName(m.department)}</span> `;
+                    } else {
+                        broadcastLabel = '<span class="chat-message-broadcast-label">BROADCAST</span> ';
+                    }
+                }
 
                 return `
                     <div class="chat-message ${cssClass}" data-msg-id="${m.id}">
                         <div class="chat-message-bubble">
-                            ${m.is_broadcast ? '<span class="chat-message-broadcast-label">BROADCAST</span> ' : ''}
+                            ${broadcastLabel}
                             ${!isMine && !m.is_broadcast ? `<strong style="font-size:0.75rem;">${m.sender_username}</strong><br>` : ''}
                             ${_escapeHtml(m.message)}
                         </div>
@@ -15254,12 +15374,13 @@ window.sendChatMessageFromInput = async function () {
 
     try {
         const recipientId = _chatActiveConversation.isBroadcast ? null : _chatActiveConversation.userId;
-        await sendChatMessage(recipientId, message);
+        const department = _chatActiveConversation.isBroadcast ? (_chatActiveConversation.department || null) : null;
+        await sendChatMessage(recipientId, message, department);
         input.value = '';
         input.style.height = 'auto';
 
         // Refresh messages to show the sent message immediately
-        await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast);
+        await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast, false, _chatActiveConversation.department);
 
         // Refresh conversation list for admin
         if ((STATE.currentUser.role || '').toLowerCase() === 'admin') {
@@ -15271,7 +15392,7 @@ window.sendChatMessageFromInput = async function () {
         [400, 800, 1200].forEach(delay => {
             setTimeout(async () => {
                 if (_chatActiveConversation === conv) {
-                    await _loadChatMessages(conv.userId, conv.isBroadcast);
+                    await _loadChatMessages(conv.userId, conv.isBroadcast, false, conv.department);
                 }
             }, delay);
         });
@@ -15289,6 +15410,32 @@ function _escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML.replace(/\n/g, '<br>');
+}
+
+/** Map department key to a human-readable name. */
+function _formatDeptName(deptKey) {
+    const map = {
+        'OHS': 'OHS',
+        'Mining': 'Mining',
+        'Milling_CIL': 'Milling / CIL',
+        'Crushing': 'Crushing',
+        'Geology': 'Geology',
+        'Engineering': 'Engineering',
+    };
+    return map[deptKey] || deptKey.replace(/_/g, ' ');
+}
+
+/** Return a gradient color for a department avatar. */
+function _getDepartmentColor(dept) {
+    const colors = {
+        'OHS': 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+        'Mining': 'linear-gradient(135deg, #f39c12 0%, #d68910 100%)',
+        'Milling_CIL': 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)',
+        'Crushing': 'linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%)',
+        'Geology': 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)',
+        'Engineering': 'linear-gradient(135deg, #1abc9c 0%, #16a085 100%)',
+    };
+    return colors[dept] || 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)';
 }
 
 /**
