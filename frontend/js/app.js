@@ -14727,8 +14727,10 @@ function setupSummaryZoom() {
 // ---------------------------------------------------------------------------
 
 let _chatPollInterval = null;
+let _chatMsgPollInterval = null;     // Fast message-only polling (1s) for live feel
 let _chatActiveConversation = null;  // { userId, isBroadcast }
 let _lastUnreadCount = -1;           // Avoid re-rendering sidebar when count hasn't changed
+let _chatLastMessageId = 0;          // Highest message ID displayed — enables incremental refresh
 const _chatUserCache = {};           // userId → { username, full_name } from conversations endpoint
 
 /** Poll the server for the unread chat message count. Only updates the badge when the count changes. */
@@ -14775,6 +14777,10 @@ function stopChatPolling() {
     if (_chatPollInterval) {
         clearInterval(_chatPollInterval);
         _chatPollInterval = null;
+    }
+    if (_chatMsgPollInterval) {
+        clearInterval(_chatMsgPollInterval);
+        _chatMsgPollInterval = null;
     }
 }
 
@@ -14851,17 +14857,28 @@ window.renderChatPage = async function () {
         await _loadStaffConversations();
     }
 
-    // Poll more frequently when on the chat page
+    // Two independent poll loops for chat page:
+    //   Fast (1s)  → messages for the active conversation (live feel)
+    //   Slow (3s)  → unread count + conversation list badges
     stopChatPolling();
     _pollUnreadChatCount();
+
     _chatPollInterval = setInterval(async () => {
         await _pollUnreadChatCount();
-        // Refresh messages only if the user isn't typing
+        const isAdmin = (STATE.currentUser.role || '').toLowerCase() === 'admin';
+        if (isAdmin) {
+            await _loadChatConversations();
+        } else {
+            await _loadStaffConversations();
+        }
+    }, 3000);
+
+    _chatMsgPollInterval = setInterval(async () => {
         const input = document.getElementById('chat-message-input');
         if (_chatActiveConversation && document.activeElement !== input) {
             await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast);
         }
-    }, 8000); // every 8 seconds when on chat page
+    }, 1000); // every 1 second for live message updates
 };
 
 /** Load the list of conversations for the admin sidebar. */
@@ -15084,7 +15101,7 @@ window.selectChatConversation = async function (userId, isBroadcast) {
     } else {
         document.getElementById('chat-input-area').style.display = 'flex';
     }
-    await _loadChatMessages(userId, isBroadcast);
+    await _loadChatMessages(userId, isBroadcast, true);
 
     // Update recipient select
     const select = document.getElementById('chat-recipient-select');
@@ -15097,10 +15114,16 @@ window.selectChatConversation = async function (userId, isBroadcast) {
     }
 };
 
-/** Load and render chat messages for the active conversation. */
-async function _loadChatMessages(userId, isBroadcast) {
+/** Load and render chat messages for the active conversation.
+ *  Uses _chatLastMessageId to do incremental (append-only) refresh when possible. */
+async function _loadChatMessages(userId, isBroadcast, isInitialLoad = false) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
+
+    // Reset last-message-id tracker when switching conversations (initial load)
+    if (isInitialLoad) {
+        _chatLastMessageId = 0;
+    }
 
     try {
         let messages;
@@ -15114,6 +15137,7 @@ async function _loadChatMessages(userId, isBroadcast) {
                     <i class="bi bi-chat-square-text"></i>
                     <p>Select a conversation to start chatting</p>
                 </div>`;
+            _chatLastMessageId = 0;
             return;
         }
 
@@ -15123,8 +15147,24 @@ async function _loadChatMessages(userId, isBroadcast) {
                     <i class="bi bi-chat-dots"></i>
                     <p>No messages yet. Start the conversation!</p>
                 </div>`;
+            _chatLastMessageId = 0;
         } else {
-            container.innerHTML = messages.map(m => {
+            const highestId = messages[messages.length - 1].id;
+
+            // If no new messages and we already have content, skip re-render
+            if (!isInitialLoad && _chatLastMessageId > 0 && highestId <= _chatLastMessageId) {
+                // Still mark any lingering unread as read
+                for (const m of messages) {
+                    const isStaff = (STATE.currentUser.role || '').toLowerCase() !== 'admin';
+                    if (!m.read && (m.recipient_user_id === STATE.currentUser.id || (m.is_broadcast && isStaff))) {
+                        try { await markChatMessageRead(m.id); } catch (e) { /* ignore */ }
+                    }
+                }
+                return;
+            }
+
+            // Build HTML for one message
+            const renderOne = (m) => {
                 const isMine = m.sender_user_id === STATE.currentUser.id;
                 const time = new Date(m.created_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const date = new Date(m.created_at + 'Z').toLocaleDateString([], { month: 'short', day: 'numeric' });
@@ -15144,17 +15184,45 @@ async function _loadChatMessages(userId, isBroadcast) {
                             ${isMine ? `<span>${m.read ? '<i class="bi bi-check-all" style="color:#0d6efd;"></i>' : '<i class="bi bi-check"></i>'}</span>` : ''}
                         </div>
                     </div>`;
-            }).join('');
+            };
 
-            // Scroll to bottom
-            container.scrollTop = container.scrollHeight;
+            if (_chatLastMessageId === 0) {
+                // Initial load — render everything
+                container.innerHTML = messages.map(renderOne).join('');
+            } else {
+                // Incremental — append only new messages
+                const newMessages = messages.filter(m => m.id > _chatLastMessageId);
+                if (newMessages.length > 0) {
+                    container.insertAdjacentHTML('beforeend', newMessages.map(renderOne).join(''));
+                }
+            }
+
+            _chatLastMessageId = highestId;
+
+            // Scroll to bottom (only if already near the bottom, or new messages arrived)
+            const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+            if (wasNearBottom || !isInitialLoad) {
+                container.scrollTop = container.scrollHeight;
+            }
 
             // Mark unread messages as read (when current user is the recipient, or for broadcasts being viewed by non-admin)
+            let markedAnyRead = false;
             for (const m of messages) {
                 const isStaff = (STATE.currentUser.role || '').toLowerCase() !== 'admin';
                 if (!m.read && (m.recipient_user_id === STATE.currentUser.id || (m.is_broadcast && isStaff))) {
-                    try { await markChatMessageRead(m.id); } catch (e) { /* ignore */ }
+                    try { await markChatMessageRead(m.id); markedAnyRead = true; } catch (e) { /* ignore */ }
                 }
+            }
+
+            // Immediately refresh conversation list badges and sidebar unread count after marking reads
+            if (markedAnyRead) {
+                const isAdmin = (STATE.currentUser.role || '').toLowerCase() === 'admin';
+                if (isAdmin) {
+                    await _loadChatConversations();
+                } else {
+                    await _loadStaffConversations();
+                }
+                await _pollUnreadChatCount();
             }
         }
     } catch (e) {
@@ -15190,13 +15258,23 @@ window.sendChatMessageFromInput = async function () {
         input.value = '';
         input.style.height = 'auto';
 
-        // Refresh messages
+        // Refresh messages to show the sent message immediately
         await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast);
 
         // Refresh conversation list for admin
         if ((STATE.currentUser.role || '').toLowerCase() === 'admin') {
             await _loadChatConversations();
         }
+
+        // Rapid burst polls to catch any immediate reply (400ms / 800ms / 1200ms)
+        const conv = _chatActiveConversation;
+        [400, 800, 1200].forEach(delay => {
+            setTimeout(async () => {
+                if (_chatActiveConversation === conv) {
+                    await _loadChatMessages(conv.userId, conv.isBroadcast);
+                }
+            }, delay);
+        });
     } catch (e) {
         DOM.showToast('Failed to send message: ' + (e.message || 'Unknown error'), 'error');
     } finally {
