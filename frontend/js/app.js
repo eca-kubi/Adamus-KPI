@@ -18,6 +18,18 @@ function parseOptionalFloatFE(val) {
     return isNaN(n) ? null : n;
 }
 
+/** Escape HTML special characters for safe innerHTML insertion. */
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+/** Escape a string for safe use inside an HTML attribute value. */
+function escapeAttr(str) {
+    return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /** Format and display a save-error toast with the backend's specific message. */
 function showSaveError(error, context) {
     const message = (error && error.message) ? error.message : String(error || 'Unknown error');
@@ -16741,6 +16753,7 @@ function parseCSV(text) {
                     const th = document.createElement('th');
                     th.style.padding = '12px';
                     th.style.textAlign = 'left';
+                    th.style.minWidth = '220px';
                     th.textContent = 'Comment';
                     thead.appendChild(th);
 
@@ -16767,7 +16780,27 @@ function parseCSV(text) {
                             }
                             const td = document.createElement('td');
                             td.style.padding = '12px';
-                            td.textContent = commentText;
+                            td.style.minWidth = '220px';
+                            td.style.overflowWrap = 'break-word';
+                            if (commentText && commentText.length > 20) {
+                                const truncated = commentText.substring(0, 20) + '\u2026';
+                                const truncatedSpan = document.createElement('span');
+                                truncatedSpan.className = 'comment-truncated';
+                                truncatedSpan.title = commentText;
+                                truncatedSpan.textContent = truncated;
+                                const moreSpan = document.createElement('span');
+                                moreSpan.className = 'comment-more';
+                                moreSpan.title = commentText;
+                                moreSpan.textContent = 'more';
+                                moreSpan.onclick = function(ev) {
+                                    ev.stopPropagation();
+                                    window.showCommentTooltip(moreSpan, commentText);
+                                };
+                                td.appendChild(truncatedSpan);
+                                td.appendChild(moreSpan);
+                            } else {
+                                td.textContent = commentText || '';
+                            }
                             tr.appendChild(td);
                         });
                     }
@@ -16794,11 +16827,119 @@ function parseCSV(text) {
                     });
                 }
             }
+
+            // Prevent wrapping in Action, Date, Input By, and Comment columns
+            if (thead && tbody) {
+                const ths = Array.from(thead.querySelectorAll('th'));
+                const noWrapHeaders = ['Action', 'Actions', 'Date', 'Target Month', 'Input By'];
+                const noWrapIndices = [];
+                ths.forEach((th, i) => {
+                    if (noWrapHeaders.includes(th.textContent.trim())) {
+                        th.style.whiteSpace = 'nowrap';
+                        noWrapIndices.push(i);
+                    }
+                });
+                if (noWrapIndices.length > 0) {
+                    const rows = tbody.querySelectorAll('tr');
+                    rows.forEach(tr => {
+                        noWrapIndices.forEach(i => {
+                            if (tr.children[i]) {
+                                tr.children[i].style.whiteSpace = 'nowrap';
+                            }
+                        });
+                    });
+                }
+            }
         } catch (e) {
             console.error("Error post-processing table layout", e);
         }
     };
     window.loadRecentRecords = loadRecentRecords;
+})();
+
+// Comment tooltip for "more" tags — shown on click
+(function() {
+    let activeTooltip = null;
+
+    function dismissTooltip() {
+        if (activeTooltip) {
+            activeTooltip.remove();
+            activeTooltip = null;
+        }
+    }
+
+    window.showCommentTooltip = function(anchorEl, fullComment) {
+        if (!fullComment) return;
+
+        // Toggle off if clicking the same anchor
+        if (activeTooltip && activeTooltip._anchor === anchorEl) {
+            dismissTooltip();
+            return;
+        }
+        dismissTooltip();
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'comment-tooltip';
+        tooltip._anchor = anchorEl;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'comment-tooltip-close';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.onclick = function(ev) {
+            ev.stopPropagation();
+            dismissTooltip();
+        };
+
+        const text = document.createElement('div');
+        text.style.paddingRight = '18px';
+        text.textContent = fullComment;
+
+        tooltip.appendChild(closeBtn);
+        tooltip.appendChild(text);
+        document.body.appendChild(tooltip);
+
+        // Position tooltip above the anchor
+        var rect = anchorEl.getBoundingClientRect();
+        var th = tooltip.getBoundingClientRect().height;
+        var top = rect.top - th - 10;
+        var left = rect.left;
+
+        // Flip below if not enough room above
+        if (top < 10) {
+            top = rect.bottom + 10;
+            tooltip.classList.add('comment-tooltip-below');
+        }
+
+        // Keep within viewport horizontally
+        var tw = tooltip.getBoundingClientRect().width;
+        if (left + tw > window.innerWidth - 10) {
+            left = window.innerWidth - tw - 10;
+        }
+        if (left < 10) left = 10;
+
+        tooltip.style.top = top + 'px';
+        tooltip.style.left = left + 'px';
+        tooltip.style.display = 'block';
+
+        activeTooltip = tooltip;
+    };
+
+    // Dismiss on outside click
+    document.addEventListener('click', function(e) {
+        if (activeTooltip && !e.target.closest('.comment-more') && !e.target.closest('.comment-tooltip')) {
+            dismissTooltip();
+        }
+    });
+
+    // Dismiss on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') dismissTooltip();
+    });
+
+    // Dismiss on scroll
+    window.addEventListener('scroll', function() {
+        dismissTooltip();
+    }, true);
 })();
 
 // Auto-save form drafts as the user types/changes values in any KPI form.

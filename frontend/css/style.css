@@ -458,6 +458,87 @@ a:hover {
     display: none;
 }
 
+/* Comment truncation in daily inputs tables */
+.comment-truncated {
+    vertical-align: middle;
+}
+
+.comment-more {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--bs-primary, #0d6efd);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+    vertical-align: middle;
+    transition: color 0.15s;
+}
+
+.comment-more:hover {
+    color: var(--bs-primary-dark, #0a58ca);
+    text-decoration: none;
+}
+
+/* Comment tooltip popover */
+.comment-tooltip {
+    position: fixed;
+    z-index: 9999;
+    max-width: 380px;
+    min-width: 220px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    padding: 12px 14px;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #1f2937;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.comment-tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 24px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid #fff;
+}
+
+.comment-tooltip.comment-tooltip-below::after {
+    bottom: auto;
+    top: -8px;
+    border-top: none;
+    border-bottom: 8px solid #fff;
+}
+
+.comment-tooltip-close {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: #9ca3af;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+
+.comment-tooltip-close:hover {
+    color: #374151;
+    background: #f3f4f6;
+}
+
 .sidebar .nav-link:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
