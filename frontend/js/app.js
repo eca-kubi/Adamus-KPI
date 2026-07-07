@@ -258,7 +258,7 @@ const DEPT_METRICS = {
     "Milling_CIL": [
         "Fixed Inputs",
         "Gold Contained",
-        "Gold Recovery",
+        "Gold Recovered",
         "Recovery",
         "Plant Feed Grade",
         "Tonnes Treated",
@@ -450,7 +450,7 @@ const IMPORT_CONFIGS = {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
     },
-    'Gold Recovery': {
+    'Gold Recovered': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget', 'Day-2', 'Day-2 Forecast'],
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget', 'day2', 'day2_forecast']
     },
@@ -1782,7 +1782,7 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if ((metric === "Gold Contained" || metric === "Gold Recovery" || metric === "Recovery" || metric === "Plant Feed Grade" || metric === "Tonnes Treated" || metric === "Toll Tonnes" || metric === "Toll Grade") && STATE.currentDept === "Milling_CIL") {
+        } else if ((metric === "Gold Contained" || metric === "Gold Recovered" || metric === "Recovery" || metric === "Plant Feed Grade" || metric === "Tonnes Treated" || metric === "Toll Tonnes" || metric === "Toll Grade") && STATE.currentDept === "Milling_CIL") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -1908,7 +1908,7 @@ function renderKPIForm(dept, metricName) {
         renderMillingGoldContainedForm(dept, metricName, card);
     } else if (dept === "Milling_CIL" && (metricName === "Runtime" || metricName === "Throughput")) {
         renderMillingRuntimeForm(dept, metricName, card);
-    } else if (dept === "Milling_CIL" && metricName === "Gold Recovery") {
+    } else if (dept === "Milling_CIL" && metricName === "Gold Recovered") {
         renderMillingGoldRecoveryForm(dept, metricName, card);
     } else if (dept === "Milling_CIL" && metricName === "Recovery") {
         renderMillingRecoveryForm(dept, metricName, card);
@@ -5918,7 +5918,7 @@ function renderMillingGoldRecoveryForm(dept, metricName, card) {
             updateCalculations();
 
         } catch (e) {
-            console.error("Error fetching context for Gold Recovery", e);
+            console.error("Error fetching context for Gold Recovered", e);
         }
     };
 
@@ -6061,7 +6061,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
     add(outlook); add(fullFcst); add(fullBudg);
     add(budgVar);
 
-    // Logic: Calculate Outlook from Gold Recovery & Gold Contained
+    // Logic: Calculate Outlook from Gold Recovered & Gold Contained
     // Also mirror Daily Forecast to MTD Forecast
 
     // Listener for Daily Forecast mirroring
@@ -6070,7 +6070,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
         mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // Populate derived fields (MTD Actual, Outlook) from Gold Recovery & Gold Contained
+    // Populate derived fields (MTD Actual, Outlook) from Gold Recovered & Gold Contained
     const populateRecoveryDerivedFields = (records, dateVal) => {
         const d = new Date(dateVal);
         const year = d.getFullYear();
@@ -6102,9 +6102,9 @@ function renderMillingRecoveryForm(dept, metricName, card) {
             fullBudg.input.value = '';
         }
 
-        // Find Gold Recovery & Gold Contained records for this date
+        // Find Gold Recovered & Gold Contained records for this date
         const grRecord = records.find(r =>
-            r.metric_name === 'Gold Recovery' &&
+            r.metric_name === 'Gold Recovered' &&
             r.subtype !== 'fixed_input' &&
             isSameDate(r.date, dateVal)
         );
@@ -6119,7 +6119,7 @@ function renderMillingRecoveryForm(dept, metricName, card) {
         // (more robust than relying on stored mtd_actual, which may be stale)
         const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
         const grRunning = records
-            .filter(r => r.metric_name === 'Gold Recovery' && r.subtype !== 'fixed_input' && r.date >= monthStart && r.date <= dateVal)
+            .filter(r => r.metric_name === 'Gold Recovered' && r.subtype !== 'fixed_input' && r.date >= monthStart && r.date <= dateVal)
             .reduce((sum, r) => sum + (parseFloat(r.data?.daily_actual) || 0), 0);
         const gcRunning = records
             .filter(r => r.metric_name === 'Gold Contained' && r.subtype !== 'fixed_input' && r.date >= monthStart && r.date <= dateVal)
@@ -12355,8 +12355,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Gold Recovery
-        if (STATE.currentMetric === 'Gold Recovery') {
+        // Handling for Gold Recovered
+        if (STATE.currentMetric === 'Gold Recovered') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | D.Act | D.Fcst | Var% | Status | Day-2 | Day-2 Fcst | MTD.Act | MTD.Fcst | Var% | Status | Outlook | F.Fcst | F.Budg | Var% | Status | Input By | Action
@@ -13846,7 +13846,7 @@ window.loadDepartmentView = async function(dept) {
 const METRIC_UNITS = {
     // Milling_CIL
     "Gold Contained": "Oz",
-    "Gold Recovery": "Oz",
+    "Gold Recovered": "Oz",
     "Recovery": "%",
     "Plant Feed Grade": "g/t",
     "Tonnes Treated": "t",
@@ -13903,7 +13903,7 @@ const METRIC_UNITS = {
 
 const SUMMARY_METRIC_ORDER = {
     "OHS": ["Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
-    "Milling_CIL": ["Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
+    "Milling_CIL": ["Gold Contained", "Gold Recovered", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],

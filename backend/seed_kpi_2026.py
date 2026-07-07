@@ -18,7 +18,7 @@ DEPARTMENTS = {
         "Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"
     ],
     "Milling_CIL": [
-        "Gold Contained", "Gold Recovery", "Recovery", "Plant Feed Grade", "Tonnes Treated"
+        "Gold Contained", "Gold Recovered", "Recovery", "Plant Feed Grade", "Tonnes Treated"
     ],
     "Crushing": [
         "Ore Crushed", "Grade - Ore Crushed"
