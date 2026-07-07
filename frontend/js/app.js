@@ -12588,8 +12588,8 @@ async function loadRecentRecords(dept) {
                 tr.innerHTML = `
                     <td style="padding: 12px;">${dateDisplay}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.qty_available)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual).replace(/%$/, '')}%</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast).replace(/%$/, '')}%</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
@@ -12840,8 +12840,8 @@ async function loadRecentRecords(dept) {
                 tr.innerHTML = `
                     <td style="padding: 12px;">${dateDisplay}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.qty_available)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual).replace(/%$/, '')}%</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast).replace(/%$/, '')}%</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
@@ -12901,8 +12901,8 @@ async function loadRecentRecords(dept) {
                 tr.innerHTML = `
                     <td style="padding: 12px;">${dateDisplay}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.qty_available)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual).replace(/%$/, '')}%</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast).replace(/%$/, '')}%</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.mtd_actual)}</td>
@@ -12948,11 +12948,12 @@ async function loadRecentRecords(dept) {
         filteredRecords.forEach(r => {
             const tr = document.createElement('tr');
             tr.style.borderTop = '1px solid #e5e7eb';
+            const isEngStdHandling = STATE.currentDept === 'Engineering';
             tr.innerHTML = `
                 <td style="padding: 12px;">${r.date}</td>
                 <td style="padding: 12px;">${r.metric_name}</td>
-                <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual)}</td>
-                <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_actual).replace(/%$/, '')}${isEngStdHandling ? '%' : ''}</td>
+                <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast).replace(/%$/, '')}${isEngStdHandling ? '%' : ''}</td>
                 <td style="padding: 12px;">${formatDailyTableVal(r.data.var1)}</td>
                 <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var1)}</td>
                 <td style="padding: 12px;">${getInputBy(r)}</td>
@@ -13934,6 +13935,21 @@ const DEPT_SECONDARY_LABEL2 = {
     "Mining": "Day-2 Fcst", "Geology": "Day-2 Fcst", "Engineering": ""
 };
 
+/** Maps full-verbosity column header labels to compact print-friendly versions. */
+const PRINT_LABEL_MAP = {
+    "Area": "Area", "KPI": "KPI", "Unit": "Unit",
+    "DAY-2 FCST": "D2 Fcst", "DAY-2 ACT": "D2 Act",
+    "Day-2 Fcst": "D2 Fcst", "Day-2 Act": "D2 Act", "Day-2 Var": "D2 Var",
+    "Qty Available": "Qty Avl",
+    "Daily Actual": "Dly Act", "Daily Forecast": "Dly Fcst",
+    "Variance": "Var", "Status": "Sts",
+    "MTD Actual": "MTD Act", "MTD Forecast": "MTD Fcst",
+    "Outlook (a)": "Outlk(a)", "Forecast (b)": "Fcst(b)", "Budget (c)": "Bud(c)",
+    "Variance (a-b)": "Var(a-b)",
+    "Last 7 Days Trend": "7D Trend",
+    "Comments": "Cmts"
+};
+
 function summarySparkline(vals, isOHS) {
     const valid = (vals || []).map(v => (v !== null && v !== undefined) ? v : null);
     const nums = valid.filter(v => v !== null);
@@ -14647,8 +14663,28 @@ window.renderSummaryDashboardPage = async function () {
         const formattedDate = d.toLocaleDateString(undefined, options);
         titleEl.textContent = `Adamus Resources Limited KPI - ${formattedDate}`;
 
+        // Temporarily shorten column header labels for the print layout.
+        const headerCells = [];
+        const collect = (selector) => {
+            document.querySelectorAll(selector).forEach(function (cell) {
+                const raw = cell.textContent.trim();
+                if (PRINT_LABEL_MAP.hasOwnProperty(raw)) {
+                    headerCells.push({ cell: cell, original: raw });
+                    cell.textContent = PRINT_LABEL_MAP[raw];
+                }
+            });
+        };
+        // KPI table: headers are <td> inside .summary-dept-hdr rows
+        collect('.summary-dept-hdr td');
+        // Comments table: headers are <th> inside .summary-table thead
+        collect('.summary-table thead th');
+
         window.addEventListener('afterprint', () => {
             titleEl.innerHTML = originalHtml;
+            // Restore original header labels.
+            for (var i = 0; i < headerCells.length; i++) {
+                headerCells[i].cell.textContent = headerCells[i].original;
+            }
         }, { once: true });
         window.print();
     });
@@ -16031,13 +16067,14 @@ function renderSummaryTable(departments) {
             }
             // groupMember rows intentionally omit the KPI cell because it is
             // spanned from the preceding base-metric row.
-            html += `<td style="font-size:0.65rem;color:#666;">${unit}</td>`;
+            html += `<td class="unit-cell" style="font-size:0.65rem;color:#666;">${unit}</td>`;
             const secVal = isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name);
             const secVal2 = isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name);
+            const daFormatted = isGradeMetric(m.metric_name) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS);
             html += `<td class="num-cell">${isEng ? '-' : (secVal2 || '-')}</td>`;
             html += `<td class="num-cell">${isEng ? '-' : (secVal || '-')}</td>`;
             html += `<td class="${isEng ? 'num-cell' : svarClass(d.day2_var)}">${isEng ? (['Crusher', 'Mill'].includes(m.metric_name) ? '-' : fmtVal(d.qty_available ?? '')) : (fmtVal(d.day2_var, isOHS) || '-')}</td>`;
-            html += `<td class="num-cell">${isGradeMetric(m.metric_name) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS)}</td>`;
+            html += `<td class="num-cell">${isEng && daFormatted ? daFormatted.replace(/%$/, '') + '%' : daFormatted}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
@@ -16183,9 +16220,10 @@ function renderCommentsTable(departments, dateStr) {
             lastDept = dept;
         }
         html += `<td style="font-weight:500;">${displayName}</td>`;
+        const daFormattedCmt = isGradeMetric(metricName) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS);
         html += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal(dept, d, metricName) || '-')}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal2(dept, d, metricName) || '-')}</td>`;
-        html += `<td class="num-cell">${isGradeMetric(metricName) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS)}</td>`;
+        html += `<td class="num-cell">${dept === 'Engineering' && daFormattedCmt ? daFormattedCmt.replace(/%$/, '') + '%' : daFormattedCmt}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         html += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;

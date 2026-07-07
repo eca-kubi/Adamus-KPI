@@ -1841,7 +1841,7 @@ a:hover {
 
     /* --- Table: fit page width, allow text to wrap, override zoom inline styles --- */
     .summary-table {
-        font-size: 6pt !important;
+        font-size: 5pt !important;
         width: 100% !important;
         table-layout: auto !important;
         white-space: normal !important;
@@ -1854,7 +1854,7 @@ a:hover {
 
     .summary-table th,
     .summary-table td {
-        padding: 1px 4px !important;
+        padding: 0.5px 4px !important;
         white-space: normal !important;
         overflow-wrap: break-word !important;
         word-break: break-word !important;
@@ -1863,9 +1863,20 @@ a:hover {
     .summary-table th {
         background: #e0e0e0 !important;
         color: #000 !important;
-        font-size: 5.5pt !important;
+        font-size: 2pt !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
+    }
+
+    /* Area column labels — compact so they don't dominate the row */
+    .summary-area-cell {
+        font-size: 4pt !important;
+        font-weight: 600 !important;
+    }
+
+    /* Unit column — match the compact area-cell size */
+    .unit-cell {
+        font-size: 4pt !important;
     }
 
     /* Preserve variance cell colors */
@@ -1889,6 +1900,38 @@ a:hover {
     .summary-table .num-cell {
         text-align: right !important;
         font-variant-numeric: tabular-nums !important;
+    }
+
+    /* --- Page-break control: force department sections to start on new pages --- */
+
+    /* Mining starts on its own page */
+    .dept-hdr-mining {
+        break-before: page !important;
+        page-break-before: always !important;
+    }
+
+    /* Geology (followed by Engineering) starts on a fresh page */
+    .dept-hdr-geology {
+        break-before: page !important;
+        page-break-before: always !important;
+    }
+
+    /* Prevent a department header from being orphaned at the bottom of a page */
+    .summary-dept-hdr {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+    }
+
+    /* Area label cells should stay with their department header */
+    .summary-area-cell {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* --- Comments table: keep rows together, let it flow naturally --- */
+    #comments-table-container .summary-table {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
     }
 }
 
