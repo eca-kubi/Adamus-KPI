@@ -14029,7 +14029,10 @@ window.renderSummaryDashboardPage = async function () {
                 <input type="date" id="summary-date-input" value="${selectedDate}">
             </div>
             <div class="summary-header-title">Adamus Resources Limited KPI – <span id="summary-header-year">${selectedDate.substring(0, 4)}</span></div>
-            <div class="d-flex justify-content-end align-items-center" data-html2canvas-ignore>
+            <div class="d-flex justify-content-end align-items-center gap-2" data-html2canvas-ignore>
+                <button class="btn btn-sm btn-outline-light" type="button" id="btn-print-summary" title="Print Summary Dashboard">
+                    <i class="bi bi-printer me-1"></i> Print
+                </button>
                 <div class="dropdown">
                     <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="dropdownExportButton" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-download me-1"></i> Export As...
@@ -14040,6 +14043,7 @@ window.renderSummaryDashboardPage = async function () {
                     </ul>
                 </div>
             </div>
+            <img src="images/adamus_logo.png" alt="Adamus Logo" class="summary-print-logo" data-html2canvas-ignore>
         </div>
 
         <!-- Tab navigation -->
@@ -14614,6 +14618,20 @@ window.renderSummaryDashboardPage = async function () {
 
     document.getElementById('btn-export-pdf').addEventListener('click', handleExport('pdf'));
     document.getElementById('btn-export-png').addEventListener('click', handleExport('png'));
+    document.getElementById('btn-print-summary').addEventListener('click', function () {
+        const titleEl = document.querySelector('.summary-header-title');
+        const originalHtml = titleEl.innerHTML;
+        const dateInput = document.getElementById('summary-date-input');
+        const d = new Date(dateInput.value);
+        const options = { day: 'numeric', month: 'short', year: 'numeric' };
+        const formattedDate = d.toLocaleDateString(undefined, options);
+        titleEl.textContent = `Adamus Resources Limited KPI - ${formattedDate}`;
+
+        window.addEventListener('afterprint', () => {
+            titleEl.innerHTML = originalHtml;
+        }, { once: true });
+        window.print();
+    });
 
     await loadSummaryData(selectedDate);
 };
