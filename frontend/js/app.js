@@ -367,16 +367,16 @@ const IMPORT_CONFIGS = {
         keys: ['date', 'daily_actual']
     },
     'Main Rompad Stockpile': {
-        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)'],
-        keys: ['date', 'daily_actual']
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Forecast (t)'],
+        keys: ['date', 'daily_actual', 'daily_forecast']
     },
     'Near Pit Ore Stockpile Grade': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Actual (g/t)'],
         keys: ['date', 'daily_actual', 'daily_act_grade']
     },
     'Main Rompad Ore Stockpile Grade': {
-        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Actual (g/t)'],
-        keys: ['date', 'daily_actual', 'daily_act_grade']
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual (t)', 'Daily Actual (g/t)', 'Daily Forecast (g/t)'],
+        keys: ['date', 'daily_actual', 'daily_act_grade', 'daily_forecast']
     },
     'Availability - Dump Trucks': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual (%)', 'Daily Forecast (%)'],
@@ -13995,6 +13995,26 @@ function fmtVal(v, isOHS = false) {
     return s;
 }
 
+/**
+ * Format a grade value to exactly two decimal places (e.g. 1.50, 2.30).
+ */
+function fmtGradeVal(v) {
+    if (v === null || v === undefined || v === '' || v === '-') return '';
+    const n = parseFloat(String(v).replace(/,/g, ''));
+    if (isNaN(n)) return String(v);
+    return n.toFixed(2);
+}
+
+/**
+ * Returns true if the metric is a grade-type metric that should always be
+ * displayed with two decimal places on the summary dashboard.
+ */
+function isGradeMetric(metricName) {
+    return metricName === 'Main Rompad Ore Stockpile Grade'
+        || metricName === 'Ore Mined Grade'
+        || metricName === 'Rehandle Grade';
+}
+
 function getSecondaryVal(dept, data, metric) {
     return fmtVal(data.day2 ?? data.day_2 ?? '');
 }
@@ -16017,11 +16037,11 @@ function renderSummaryTable(departments) {
             html += `<td class="num-cell">${isEng ? '-' : (secVal2 || '-')}</td>`;
             html += `<td class="num-cell">${isEng ? '-' : (secVal || '-')}</td>`;
             html += `<td class="${isEng ? 'num-cell' : svarClass(d.day2_var)}">${isEng ? (['Crusher', 'Mill'].includes(m.metric_name) ? '-' : fmtVal(d.qty_available ?? '')) : (fmtVal(d.day2_var, isOHS) || '-')}</td>`;
-            html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
+            html += `<td class="num-cell">${isGradeMetric(m.metric_name) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS)}</td>`;
             html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_actual, isOHS))}</td>`;
+            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : (isGradeMetric(m.metric_name) ? fmtGradeVal(d.mtd_actual) : fmtVal(d.mtd_actual, isOHS)))}</td>`;
             html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_forecast, isOHS))}</td>`;
             html += `<td class="${(isStockpileMetric || isRuntimeThroughput) ? 'svar-na' : svarClass(v2)}">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(v2, isOHS))}</td>`;
             html += `<td style="text-align:right;">${isStockpileMetric || isRuntimeThroughput ? '' : (isEng ? '' : sstatusHtml(v2))}</td>`;
@@ -16165,7 +16185,7 @@ function renderCommentsTable(departments, dateStr) {
         html += `<td style="font-weight:500;">${displayName}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal(dept, d, metricName) || '-')}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal2(dept, d, metricName) || '-')}</td>`;
-        html += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
+        html += `<td class="num-cell">${isGradeMetric(metricName) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS)}</td>`;
         html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         html += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
@@ -16190,7 +16210,7 @@ function renderCommentsTable(departments, dateStr) {
         exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
         exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal(dept, d, metricName) || '-')}</td>`;
         exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal2(dept, d, metricName) || '-')}</td>`;
-        exportRowsHtml += `<td class="num-cell">${fmtVal(d.daily_actual, isOHS)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isGradeMetric(metricName) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS)}</td>`;
         exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
         exportRowsHtml += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         exportRowsHtml += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
@@ -16468,6 +16488,8 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
 
     if (metric === 'Near Pit Ore Stockpile' || metric === 'Near Pit Ore Stockpile Grade') {
         d.mtd_forecast = 0;
+    } else if (metric === 'Main Rompad Stockpile' || metric === 'Main Rompad Ore Stockpile Grade') {
+        d.mtd_forecast = parseFloat(d.daily_forecast) || 0;
     } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
         d.mtd_forecast = "-";
     } else if (metric !== "Rehandle Grade") {
