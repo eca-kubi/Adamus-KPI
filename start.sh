@@ -28,7 +28,11 @@ if [ "${SEED_DB}" = "true" ] || [ "${SEED_DB}" = "1" ]; then
 fi
 
 echo "Starting Gunicorn with Uvicorn workers..."
-# Start the application using Gunicorn for process management
+# --forwarded-allow-ips is set via FORWARDED_ALLOW_IPS so Uvicorn workers
+# trust X-Forwarded-For / X-Real-IP headers from the Coolify reverse proxy.
+# This ensures rate-limiting and access logs show real client IPs instead of
+# the Docker gateway (172.x).
+export FORWARDED_ALLOW_IPS='*'
 exec gunicorn backend.main:app \
     --workers 4 \
     --worker-class uvicorn.workers.UvicornWorker \

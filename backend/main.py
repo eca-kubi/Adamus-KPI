@@ -31,9 +31,28 @@ from .profiler import ProfilingMiddleware, monitor_memory
 import asyncio
 
 # ---------------------------------------------------------------------------
-# Rate limiting — keyed by client IP address
+# Rate limiting — keyed by real client IP (X-Forwarded-For aware)
 # ---------------------------------------------------------------------------
-limiter = Limiter(key_func=get_remote_address)
+def get_real_remote_address(request: Request) -> str:
+    """Extract the real client IP from proxy headers.
+
+    When running behind Coolify/Traefik/Nginx, ``request.client.host`` is the
+    Docker gateway (e.g. 172.21.0.4).  This function reads ``X-Forwarded-For``
+    or ``X-Real-IP`` to get the actual client address so rate-limiting is
+    applied per-user rather than shared across every visitor.
+    """
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+    # Fall back to direct client host (development / no proxy)
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+limiter = Limiter(key_func=get_real_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -538,6 +557,14 @@ def require_admin(current_user: User = Depends(get_current_active_user)):
 def check_setup_required(session: Session = Depends(get_session)):
     user = session.exec(select(User)).first()
     return {"setup_required": user is None}
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Redirect /favicon.ico requests to the Adamus logo PNG, avoiding 404 errors in logs."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/images/adamus_logo.png", status_code=301)
+
 
 @app.post("/api/register", response_model=User)
 def register_user(user: UserCreate, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
@@ -1404,7 +1431,9 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
         session.add(r)
 
 @app.get("/api/summary-dashboard")
+@limiter.limit("30/minute")
 def get_summary_dashboard(
+    request: Request,
     target_date: date = Query(..., description="The date to show the summary for"),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_active_user),
@@ -1815,7 +1844,9 @@ def get_summary_dashboard(
     return {"date": target_date.isoformat(), "departments": result}
 
 @app.get("/api/kpi/{department}", response_model=List[KPIRecordResponse])
+@limiter.limit("60/minute")
 def get_kpi_records(
+    request: Request,
     department: str, 
     start_date: Optional[date] = None, 
     end_date: Optional[date] = None,
@@ -2735,7 +2766,9 @@ def mark_chat_message_read(
 
 
 @app.get("/api/chat/unread-count")
+@limiter.limit("30/minute")
 def get_unread_chat_count(
+    request: Request,
     current_user: User = Depends(get_current_active_user),
     session: Session = Depends(get_session),
 ):

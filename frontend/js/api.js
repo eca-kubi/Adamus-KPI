@@ -235,6 +235,11 @@ async function fetchSummaryDashboard(targetDate) {
 // KPI Records (auth-required reads & writes)
 // ---------------------------------------------------------------------------
 
+// In-flight request cache — deduplicates concurrent fetchKPIRecords calls
+// so multiple code paths requesting the same department + date range share a
+// single network request instead of firing duplicates.
+const _inflightKpiRequests = {};
+
 async function fetchKPIRecords(department, startDate, endDate) {
     let url = `${API_BASE_URL}/kpi/${department}`;
     const params = new URLSearchParams();
@@ -242,10 +247,25 @@ async function fetchKPIRecords(department, startDate, endDate) {
     if (endDate) params.append('end_date', endDate);
     if (params.toString()) url += `?${params.toString()}`;
 
-    const response = await fetch(url, {
-        headers: authHeaders()
-    });
-    return handleResponse(response);
+    // Deduplicate: if an identical request is already in flight, reuse its promise.
+    const cacheKey = url;
+    if (_inflightKpiRequests[cacheKey]) {
+        return _inflightKpiRequests[cacheKey];
+    }
+
+    const promise = (async () => {
+        try {
+            const response = await fetch(url, {
+                headers: authHeaders()
+            });
+            return await handleResponse(response);
+        } finally {
+            delete _inflightKpiRequests[cacheKey];
+        }
+    })();
+
+    _inflightKpiRequests[cacheKey] = promise;
+    return promise;
 }
 
 async function saveKPIRecord(department, record) {
