@@ -8,7 +8,8 @@ const STATE = {
     currentMetric: "Fixed Inputs",
     currentView: 'dept',  // 'dept' | 'users' | 'profile' | 'summary' | 'chat'
     summaryDate: null,
-    chatUnreadCount: 0
+    chatUnreadCount: 0,
+    formCollapsedState: {}  // key: "dept::metricName" -> true (collapsed) / false (expanded)
 };
 
 // Helper for parsing float that returns null instead of NaN for empty strings
@@ -1844,41 +1845,89 @@ window.loadMetricView = async function (metric) {
 function renderKPIForm(dept, metricName) {
     const container = document.getElementById('kpi-forms-container');
     const card = document.createElement('div');
-    card.className = 'card p-4';
+    card.className = 'card kpi-form-card';
 
-    const title = document.createElement('h3');
+    // --- Collapsible Header ---
+    const header = document.createElement('div');
+    header.className = 'kpi-form-header';
+
     let displayTitleName = metricName;
     if (displayTitleName === "Safety Incidents") {
         displayTitleName = "Safety Incidents (Injuries)";
     } else if (displayTitleName === "Near Miss") {
         displayTitleName = "Near Miss / Dangerous Occurance";
     }
-    title.textContent = displayTitleName;
-    card.appendChild(title);
 
+    const titleGroup = document.createElement('div');
+    titleGroup.className = 'd-flex flex-column';
+
+    const title = document.createElement('h3');
+    title.textContent = displayTitleName;
+    title.className = 'mb-0';
+
+    const hint = document.createElement('small');
+    hint.className = 'kpi-form-hint';
+    hint.textContent = 'Click to reveal the entry form';
+
+    titleGroup.appendChild(title);
+    titleGroup.appendChild(hint);
+
+    const toggleIcon = document.createElement('i');
+    toggleIcon.className = 'bi bi-chevron-down kpi-form-toggle-icon';
+
+    header.appendChild(titleGroup);
+    header.appendChild(toggleIcon);
+
+    // --- Collapsible Body (collapsed by default, restored from saved state) ---
+    const stateKey = `${dept}::${metricName}`;
+    const savedCollapsed = STATE.formCollapsedState[stateKey];
+    const startCollapsed = savedCollapsed !== undefined ? savedCollapsed : true;
+
+    const body = document.createElement('div');
+    body.className = 'kpi-form-body';
+    if (startCollapsed) {
+        body.classList.add('collapsed');
+        toggleIcon.classList.add('rotated');
+    } else {
+        toggleIcon.classList.remove('rotated');
+    }
+    hint.textContent = startCollapsed ? 'Click to reveal the entry form' : 'Click to hide the entry form';
+
+    // Toggle collapse on header click
+    header.addEventListener('click', () => {
+        const isCollapsed = body.classList.toggle('collapsed');
+        toggleIcon.classList.toggle('rotated', isCollapsed);
+        hint.textContent = isCollapsed ? 'Click to reveal the entry form' : 'Click to hide the entry form';
+        STATE.formCollapsedState[stateKey] = isCollapsed;
+    });
+
+    card.appendChild(header);
+    card.appendChild(body);
+
+    // All renderers now append to `body` instead of `card`
     // Differentiate form based on metric if needed
     if (metricName === "Fixed Inputs") {
-        renderFixedInputForm(dept, card);
+        renderFixedInputForm(dept, body);
     } else if (dept === "Geology" && (metricName === "Exploration Drilling" || metricName === "Grade Control Drilling")) {
-        renderGeologyDrillingForm(dept, metricName, card);
+        renderGeologyDrillingForm(dept, metricName, body);
     } else if (dept === "Geology" && metricName === "Toll") {
-        renderGeologyTollForm(dept, metricName, card);
+        renderGeologyTollForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Ore Mined") {
-        renderMiningOreForm(dept, metricName, card);
+        renderMiningOreForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Ore Mined Grade") {
-        renderMiningGradeForm(dept, metricName, card);
+        renderMiningGradeForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Rehandle Grade") {
-        renderMiningGradeRehandleForm(dept, metricName, card);
+        renderMiningGradeRehandleForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Rehandle") {
-        renderMiningRehandleForm(dept, metricName, card);
+        renderMiningRehandleForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Near Pit Ore Stockpile") {
-        renderMiningStockPileForm(dept, metricName, card);
+        renderMiningStockPileForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Main Rompad Stockpile") {
-        renderMiningMainRompadStockPileForm(dept, metricName, card);
+        renderMiningMainRompadStockPileForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Near Pit Ore Stockpile Grade") {
-        renderMiningGradeStockPileForm(dept, metricName, card);
+        renderMiningGradeStockPileForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Main Rompad Ore Stockpile Grade") {
-        renderMiningMainRompadGradeStockPileForm(dept, metricName, card);
+        renderMiningMainRompadGradeStockPileForm(dept, metricName, body);
     } else if (dept === "Mining" && (
         metricName === "Availability - Dump Trucks" ||
         metricName === "Utilization - Dump Trucks" ||
@@ -1889,9 +1938,9 @@ function renderKPIForm(dept, metricName) {
         metricName === "Availability - Drill Rigs" ||
         metricName === "Utilization - Drill Rigs"
     )) {
-        renderMiningPctMetricForm(dept, metricName, card);
+        renderMiningPctMetricForm(dept, metricName, body);
     } else if (dept === "Mining" && metricName === "Total Material Mined") {
-        renderMiningMaterialForm(dept, metricName, card);
+        renderMiningMaterialForm(dept, metricName, body);
     } else if (dept === "Mining" && (
         metricName === "Blast Hole Drilling" ||
         metricName === "Productivity - Excavators" ||
@@ -1899,63 +1948,63 @@ function renderKPIForm(dept, metricName) {
         metricName === "Productivity - Tipper Trucks" ||
         metricName === "Productivity - Drill Rigs"
     )) {
-        renderMiningBlastHoleForm(dept, metricName, card);
+        renderMiningBlastHoleForm(dept, metricName, body);
     } else if (dept === "Crushing" && metricName === "Grade - Ore Crushed") {
-        renderCrushingGradeForm(dept, metricName, card);
+        renderCrushingGradeForm(dept, metricName, body);
     } else if (dept === "Crushing" && metricName === "Ore Crushed") {
-        renderCrushingOreForm(dept, metricName, card);
+        renderCrushingOreForm(dept, metricName, body);
     } else if (dept === "Milling_CIL" && (metricName === "Gold Contained" || metricName === "Toll Tonnes" || metricName === "Toll Grade")) {
-        renderMillingGoldContainedForm(dept, metricName, card);
+        renderMillingGoldContainedForm(dept, metricName, body);
     } else if (dept === "Milling_CIL" && (metricName === "Runtime" || metricName === "Throughput")) {
-        renderMillingRuntimeForm(dept, metricName, card);
+        renderMillingRuntimeForm(dept, metricName, body);
     } else if (dept === "Milling_CIL" && metricName === "Gold Recovered") {
-        renderMillingGoldRecoveryForm(dept, metricName, card);
+        renderMillingGoldRecoveryForm(dept, metricName, body);
     } else if (dept === "Milling_CIL" && metricName === "Recovery") {
-        renderMillingRecoveryForm(dept, metricName, card);
+        renderMillingRecoveryForm(dept, metricName, body);
     } else if (dept === "Milling_CIL" && metricName === "Plant Feed Grade") {
-        renderMillingPlantFeedGradeForm(dept, metricName, card);
+        renderMillingPlantFeedGradeForm(dept, metricName, body);
     } else if (dept === "Milling_CIL" && metricName === "Tonnes Treated") {
-        renderMillingTonnesTreatedForm(dept, metricName, card);
+        renderMillingTonnesTreatedForm(dept, metricName, body);
     } else if (dept === "OHS" && (metricName === "Safety Incidents" || metricName === "Near Miss")) {
-        renderOHSSafetyIncidentsForm(dept, metricName, card);
+        renderOHSSafetyIncidentsForm(dept, metricName, body);
     } else if (dept === "OHS" && metricName === "Environmental Incidents") {
-        renderOHSEnvironmentalIncidentsForm(dept, metricName, card);
+        renderOHSEnvironmentalIncidentsForm(dept, metricName, body);
     } else if (dept === "OHS" && metricName === "Property Damage") {
-        renderOHSPropertyDamageForm(dept, metricName, card);
+        renderOHSPropertyDamageForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Light Vehicles") {
-        renderEngineeringLightVehiclesForm(dept, metricName, card);
+        renderEngineeringLightVehiclesForm(dept, metricName, body);
     } else if (dept === "Engineering" && (metricName === "Tipper Trucks" || metricName === "Dewatering Pumps" || metricName === "Drill Rigs")) {
-        renderEngineeringTipperTrucksForm(dept, metricName, card);
+        renderEngineeringTipperTrucksForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Prime Excavators") {
-        renderEngineeringPrimeExcavatorsForm(dept, metricName, card);
+        renderEngineeringPrimeExcavatorsForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Ancillary Excavators") {
-        renderEngineeringAncillaryExcavatorsForm(dept, metricName, card);
+        renderEngineeringAncillaryExcavatorsForm(dept, metricName, body);
     } else if (dept === "Engineering" && (metricName === "Dump Truck (CAT 777E)" || metricName === "Dump Truck (Liebherr T236)")) {
-        renderEngineeringDumpTruckForm(dept, metricName, card);
+        renderEngineeringDumpTruckForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Articulated Dump Trucks") {
-        renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card);
+        renderEngineeringArticulatedDumpTrucksForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Wheel Loaders") {
-        renderEngineeringWheelLoadersForm(dept, metricName, card);
+        renderEngineeringWheelLoadersForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Graders") {
-        renderEngineeringGradersForm(dept, metricName, card);
+        renderEngineeringGradersForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Dozers") {
-        renderEngineeringDozersForm(dept, metricName, card);
+        renderEngineeringDozersForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Crusher") {
-        renderEngineeringCrusherForm(dept, metricName, card);
+        renderEngineeringCrusherForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Mill") {
-        renderEngineeringMillForm(dept, metricName, card);
+        renderEngineeringMillForm(dept, metricName, body);
     } else {
-        renderStandardKPIForm(dept, metricName, card);
+        renderStandardKPIForm(dept, metricName, body);
     }
 
     // Add comment input field to daily input forms (non-Fixed Inputs)
     if (metricName !== "Fixed Inputs") {
         const commentGroup = DOM.createInputGroup("Comment", "input-daily-comment", "text", "Add a comment...");
-        const btnContainer = card.lastElementChild;
+        const btnContainer = body.lastElementChild;
         if (btnContainer) {
-            card.insertBefore(commentGroup.container, btnContainer);
+            body.insertBefore(commentGroup.container, btnContainer);
         } else {
-            card.appendChild(commentGroup.container);
+            body.appendChild(commentGroup.container);
         }
     }
 
@@ -2460,6 +2509,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     let dFcst;
     if (metricName === "Exploration Drilling") {
         dFcst = DOM.createSelect("Daily Forecast", `input-${dept}-daily-fcst`, [
+            { value: "40", label: "40" },
             { value: "80", label: "80" },
             { value: "150", label: "150" },
             { value: "230", label: "230" },
@@ -2799,6 +2849,7 @@ function renderGeologyTollForm(dept, metricName, card) {
     let dFcst;
     if (metricName === "Exploration Drilling") {
         dFcst = DOM.createSelect("Daily Forecast", `input-${dept}-daily-fcst`, [
+            { value: "40", label: "40" },
             { value: "80", label: "80" },
             { value: "150", label: "150" },
             { value: "230", label: "230" },
@@ -8097,7 +8148,7 @@ function renderEngineeringLightVehiclesForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true);
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -8342,7 +8393,7 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true);
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -8589,7 +8640,7 @@ function renderEngineeringPrimeExcavatorsForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true);
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -8835,7 +8886,7 @@ function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true);
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -9113,7 +9164,7 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text");
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true);
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -9382,7 +9433,7 @@ function renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -9644,7 +9695,7 @@ function renderEngineeringWheelLoadersForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -9906,7 +9957,7 @@ function renderEngineeringGradersForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -10168,7 +10219,7 @@ function renderEngineeringDozersForm(dept, metricName, card) {
     // Row 2
     const dQty = DOM.createInputGroup("Qty Available", `input-${dept}-qty-avail`, "number", '', true);
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "text", '', true); // Changed to text
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text"); // Changed to text
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "text", '', true); // Changed to text
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -10342,7 +10393,7 @@ function renderEngineeringCrusherForm(dept, metricName, card) {
 
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "number", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "number");
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "number", '', true);
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -10564,7 +10615,7 @@ function renderEngineeringMillForm(dept, metricName, card) {
 
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual(%)", `input-${dept}-daily-act-pct`, "number", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "number");
+    const dFcst = DOM.createInputGroup("Daily Forecast(%)", `input-${dept}-daily-fcst-pct`, "number", '', true);
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
@@ -11013,6 +11064,9 @@ async function loadRecentRecords(dept) {
                 return true;
             });
         }
+
+        // Sort records in descending date order (newest first)
+        records.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
         const tbody = document.querySelector('#records-table tbody');
         const thead = document.querySelector('#records-table thead tr');

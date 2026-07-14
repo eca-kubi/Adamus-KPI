@@ -2175,3 +2175,74 @@ a:hover {
         max-width: 90%;
     }
 }
+
+/* ===================================
+   Collapsible KPI Input Forms
+   =================================== */
+.kpi-form-card {
+    border: none;
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow var(--transition-normal);
+}
+
+.kpi-form-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.kpi-form-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, var(--bs-primary-light) 0%, #faf8f4 100%);
+    border-bottom: 1px solid #e5e7eb;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition-fast);
+}
+
+.kpi-form-header:hover {
+    background: linear-gradient(135deg, #f0e6d0 0%, #f5f0e5 100%);
+}
+
+.kpi-form-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1a1a2e;
+}
+
+.kpi-form-hint {
+    font-size: 0.8rem;
+    color: #8b8b8b;
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+.kpi-form-toggle-icon {
+    font-size: 1.25rem;
+    color: var(--bs-primary);
+    transition: transform var(--transition-normal);
+    flex-shrink: 0;
+}
+
+.kpi-form-toggle-icon.rotated {
+    transform: rotate(-180deg);
+}
+
+.kpi-form-body {
+    padding: 1.5rem;
+    max-height: 2000px;
+    overflow: hidden;
+    opacity: 1;
+    transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.3s ease;
+}
+
+.kpi-form-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+}
