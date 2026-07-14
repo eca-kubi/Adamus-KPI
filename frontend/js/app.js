@@ -14899,6 +14899,20 @@ async function _pollUnreadChatCount() {
             );
         }
 
+        // When new messages arrive while the user is actively on the chat page,
+        // immediately refresh the conversation list so that new DM senders appear
+        // without waiting for the next 3-second poll cycle.
+        if (newCount > _lastUnreadCount && STATE.currentView === 'chat') {
+            const isAdmin = (STATE.currentUser.role || '').toLowerCase() === 'admin';
+            try {
+                if (isAdmin) {
+                    await _loadChatConversations();
+                } else {
+                    await _loadStaffConversations();
+                }
+            } catch (e) { /* ignore refresh errors during poll */ }
+        }
+
         _lastUnreadCount = newCount;
         STATE.chatUnreadCount = newCount;
         renderSidebar();
@@ -15292,6 +15306,11 @@ async function _loadStaffConversations() {
 window.selectChatConversation = async function (userId, isBroadcast, department) {
     _chatActiveConversation = { userId, isBroadcast, department };
 
+    // Reset the incremental-poll tracker *synchronously* so that any polling
+    // callback that fires before _loadChatMessages completes will do a full
+    // render rather than appending new messages to stale content.
+    _chatLastMessageId = 0;
+
     // Update conversation list highlights
     const items = document.querySelectorAll('.chat-conversation-item');
     items.forEach(item => item.classList.remove('active'));
@@ -15522,9 +15541,12 @@ window.sendChatMessageFromInput = async function () {
         // Refresh messages to show the sent message immediately
         await _loadChatMessages(_chatActiveConversation.userId, _chatActiveConversation.isBroadcast, false, _chatActiveConversation.department);
 
-        // Refresh conversation list for admin
-        if ((STATE.currentUser.role || '').toLowerCase() === 'admin') {
+        // Refresh conversation list so sender sees updated badges / ordering
+        const isAdminSender = (STATE.currentUser.role || '').toLowerCase() === 'admin';
+        if (isAdminSender) {
             await _loadChatConversations();
+        } else {
+            await _loadStaffConversations();
         }
 
         // Rapid burst polls to catch any immediate reply (400ms / 800ms / 1200ms)

@@ -2526,22 +2526,19 @@ def list_chat_conversations(
         ).distinct()
         sender_ids = list(session.exec(stmt).all())
 
-        # Also include broadcast messages from admins (global + department)
-        broadcast_stmt = select(ChatMessage.sender_user_id).where(
-            ChatMessage.is_broadcast.is_(True),
-        ).distinct()
-        broadcast_sender_ids = list(session.exec(broadcast_stmt).all())
-        all_sender_ids = list(set(sender_ids + broadcast_sender_ids))
-
+        # Build the DM conversation list — ONLY from users who have actually
+        # exchanged direct (non-broadcast) messages with the current user.
+        # Broadcast senders are surfaced separately via department_broadcasts
+        # and has_global_broadcast; they must not leak into the DM list.
         users = []
-        if all_sender_ids:
-            user_stmt = select(User).where(User.id.in_(all_sender_ids))
+        if sender_ids:
+            user_stmt = select(User).where(User.id.in_(sender_ids))
             users = [
                 {"id": u.id, "username": u.username, "full_name": u.full_name, "role": u.role}
                 for u in session.exec(user_stmt).all()
             ]
 
-        # Per-conversation unread counts (direct messages)
+        # Per-conversation unread counts (direct messages only)
         for u in users:
             unread_direct = session.exec(
                 select(ChatMessage).where(
@@ -2565,8 +2562,8 @@ def list_chat_conversations(
             if not (read_by and current_user.id in (read_by or []))
         )
 
-        visible_broadcast_depts = {d["department"] for d in dept_broadcasts if d["unread_count"] > 0}
-        has_broadcast = len(broadcast_sender_ids) > 0
+        # Determine whether the user has any visible broadcast channels
+        has_broadcast = has_global_broadcast or len(dept_broadcasts) > 0
 
         return {
             "conversations": users,
