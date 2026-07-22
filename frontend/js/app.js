@@ -3448,9 +3448,15 @@ function renderMiningGradeForm(dept, metricName, card) {
     // Row 2
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
     const dActGrade = DOM.createInputGroup("Daily Actual(g/t)", `input-${dept}-daily-act-gt`, "number", '', true);
-    const dFcst = DOM.createInputGroup("Daily Forecast", `input-${dept}-daily-fcst`, "number");
+    const dFcstTonnes = DOM.createInputGroup("Daily Forecast tonnes", `input-${dept}-daily-fcst-tonnes`, "number");
+    const dFcst = DOM.createInputGroup("Daily Forecast (g/t)", `input-${dept}-daily-fcst`, "number");
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
+    // Hint text below the input
+    const dVarHint = document.createElement('small');
+    dVarHint.className = 'text-muted';
+    dVarHint.textContent = 'Daily Actual (g/t) vs Daily Forecast (g/t)';
+    dVar.container.appendChild(dVarHint);
     attachVarianceListener(dActGrade.input, dFcst.input, dVar.input);
 
     // Row 3 (3 cols to stretch) -> lets keep 4 col grid and use spacers or spans
@@ -3487,12 +3493,9 @@ function renderMiningGradeForm(dept, metricName, card) {
             );
 
             if (fixedRecord && fixedRecord.data) {
-                dFcst.input.value = fixedRecord.data.full_forecast || '';
-                dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
-
-                // MTD Forecast for Grade matches Full Forecast (Target Grade)
-                mFcst.input.value = fixedRecord.data.full_forecast || '';
-                mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+                // Daily Forecast (g/t) is NOT auto-populated — user must provide it manually.
+                // MTD Forecast is NOT auto-filled from the fixed input — it is computed
+                // by the weighted-average formula in calculateMTD() below.
 
                 if (!fullFcst.input.value) fullFcst.input.value = fixedRecord.data.full_forecast || '';
                 if (!fullBudg.input.value) fullBudg.input.value = fixedRecord.data.full_budget || '';
@@ -3504,27 +3507,58 @@ function renderMiningGradeForm(dept, metricName, card) {
 
     // Auto-populate form when date changes (load existing daily record if any)
     date.input.addEventListener('change', async () => {
-        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+        const dateVal = date.input.value;
+        // First, load any existing Ore Mined Grade record for this date
+        const existing = await autoPopulateDailyForm(dept, metricName, dateVal, {
             daily_actual: `input-${dept}-daily-act`,
             daily_act_grade: `input-${dept}-daily-act-gt`,
-            daily_forecast: `input-${dept}-daily-fcst`
+            daily_forecast: `input-${dept}-daily-fcst`,
+            daily_forecast_tonnes: `input-${dept}-daily-fcst-tonnes`
         });
+        // Always auto-populate tonnes from Ore Mined metric for the selected date.
+        // Only fills blank fields — never overwrites a value the user has already
+        // typed (including an explicit 0).
+        if (dateVal) {
+            try {
+                const records = await fetchKPIRecords(dept);
+                const oreMinedRec = records.find(r =>
+                    r.metric_name === 'Ore Mined' &&
+                    r.date === dateVal &&
+                    r.subtype !== 'fixed_input'
+                );
+                if (oreMinedRec && oreMinedRec.data) {
+                    if (!dAct.input.value) {
+                        dAct.input.value = oreMinedRec.data.daily_actual ?? '';
+                    }
+                    if (!dFcstTonnes.input.value) {
+                        dFcstTonnes.input.value = oreMinedRec.data.daily_forecast ?? '';
+                    }
+                }
+            } catch (e) {
+                console.warn('Ore Mined auto-populate failed', e);
+            }
+        }
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dActGrade.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        dFcstTonnes.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     date.input.addEventListener('change', fetchFixedInputs);
 
-    // Auto-Calculate MTD Actual (Weighted Average Formula)
+    // Auto-Calculate MTD Actual & MTD Forecast (Weighted Average Formula)
     const calculateMTD = async () => {
         const dateVal = date.input.value;
         const currentDailyActGrade = parseFloat(dActGrade.input.value) || 0;
-        const currentDailyForecast = parseFloat(dFcst.input.value) || 0;
+        const currentDailyAct = parseFloat(dAct.input.value) || 0;
+        const currentDailyFcst = parseFloat(dFcst.input.value) || 0;
+        const currentDailyFcstTonnes = parseFloat(dFcstTonnes.input.value) || 0;
 
         if (!dateVal) {
             mAct.input.value = currentDailyActGrade.toFixed(2);
             mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+            mFcst.input.value = currentDailyFcst.toFixed(2);
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
             return;
         }
 
@@ -3545,32 +3579,59 @@ function renderMiningGradeForm(dept, metricName, card) {
                 r.subtype !== 'fixed_input'
             );
 
-            // Numerator: SumProduct = Σ (DailyActualGrade * DailyForecast)
-            let sumProduct = relevantRecords.reduce((sum, r) => {
-                const rGrade = parseFloat(r.data.daily_act_grade) || 0; // Using daily_act_grade for Grade (g/t)
-                const rFcst = parseFloat(r.data.daily_forecast) || 0; // Using daily_forecast
-                return sum + (rGrade * rFcst);
+            // ---- Build Ore Mined tonne maps (authoritative source for tonnage) ----
+            const oreMinedActByDate = {};
+            const oreMinedFcstByDate = {};
+            records.forEach(r => {
+                if (r.metric_name === 'Ore Mined' && r.subtype !== 'fixed_input') {
+                    oreMinedActByDate[r.date] = parseFloat(r.data.daily_actual) || 0;
+                    oreMinedFcstByDate[r.date] = parseFloat(r.data.daily_forecast) || 0;
+                }
+            });
+
+            // ---- MTD Actual: Σ (DailyActualGrade × ActualTonnes) / Σ ActualTonnes ----
+            // Prefer Ore Mined daily_actual, fall back to record's daily_actual
+            let sumProductAct = relevantRecords.reduce((sum, r) => {
+                const rGrade = parseFloat(r.data.daily_act_grade) || 0;
+                const rWeight = oreMinedActByDate[r.date] || parseFloat(r.data.daily_actual) || 0;
+                return sum + (rGrade * rWeight);
             }, 0);
+            const currentActWeight = oreMinedActByDate[dateVal] || currentDailyAct;
+            sumProductAct += (currentDailyActGrade * currentActWeight);
 
-            // Add Current Day Product
-            sumProduct += (currentDailyActGrade * currentDailyForecast);
-
-            // Denominator: Sum = Σ (DailyForecast)
-            let sumWeights = relevantRecords.reduce((sum, r) => {
-                return sum + (parseFloat(r.data.daily_forecast) || 0);
+            let sumWeightsAct = relevantRecords.reduce((sum, r) => {
+                return sum + (oreMinedActByDate[r.date] || parseFloat(r.data.daily_actual) || 0);
             }, 0);
+            sumWeightsAct += currentActWeight;
 
-            // Add Current Day Weight
-            sumWeights += currentDailyForecast;
-
-            // Result
-            if (sumWeights !== 0) {
-                const weightedAvg = sumProduct / sumWeights;
-                mAct.input.value = weightedAvg.toFixed(2);
+            if (sumWeightsAct !== 0) {
+                mAct.input.value = (sumProductAct / sumWeightsAct).toFixed(2);
             } else {
                 mAct.input.value = 0;
             }
             mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // ---- MTD Forecast: Σ (DailyForecast × ForecastTonnes) / Σ ForecastTonnes ----
+            // Prefer Ore Mined daily_forecast, fall back to form/record value
+            let sumProductFcst = relevantRecords.reduce((sum, r) => {
+                const rFcst = parseFloat(r.data.daily_forecast) || 0;
+                const rWeight = oreMinedFcstByDate[r.date] || parseFloat(r.data.daily_forecast_tonnes) || 0;
+                return sum + (rFcst * rWeight);
+            }, 0);
+            const currentFcstWeight = oreMinedFcstByDate[dateVal] || currentDailyFcstTonnes;
+            sumProductFcst += (currentDailyFcst * currentFcstWeight);
+
+            let sumWeightsFcst = relevantRecords.reduce((sum, r) => {
+                return sum + (oreMinedFcstByDate[r.date] || parseFloat(r.data.daily_forecast_tonnes) || 0);
+            }, 0);
+            sumWeightsFcst += currentFcstWeight;
+
+            if (sumWeightsFcst !== 0) {
+                mFcst.input.value = (sumProductFcst / sumWeightsFcst).toFixed(2);
+            } else {
+                mFcst.input.value = 0;
+            }
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
 
         } catch (e) {
             console.warn("Auto-calc MTD failed", e);
@@ -3578,7 +3639,9 @@ function renderMiningGradeForm(dept, metricName, card) {
     };
 
     dActGrade.input.addEventListener('input', calculateMTD);
+    dAct.input.addEventListener('input', calculateMTD);
     dFcst.input.addEventListener('input', calculateMTD);
+    dFcstTonnes.input.addEventListener('input', calculateMTD);
     date.input.addEventListener('change', calculateMTD);
 
     // Auto-Calculate Outlook (Mirror MTD Actual)
@@ -3590,7 +3653,8 @@ function renderMiningGradeForm(dept, metricName, card) {
 
     // Add to Grid
     add(kpi); add(date); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Spacers
-    add(dAct); add(dActGrade); add(dFcst); add(dVar);
+    add(dAct); add(dActGrade); add(dFcstTonnes); add(dFcst);
+    add(dVar); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); grid.appendChild(document.createElement('div')); // Spacers
     add(mAct); add(mFcst); add(mVar); grid.appendChild(document.createElement('div')); // Spacer
     add(outlook); add(fullFcst); add(fullBudg); add(budgVar);
 
@@ -3611,6 +3675,7 @@ function renderMiningGradeForm(dept, metricName, card) {
                 daily_actual: parseFloat(dAct.input.value) || 0,
                 daily_act_grade: parseFloat(dActGrade.input.value) || 0,
                 daily_forecast: parseFloat(dFcst.input.value) || 0,
+                daily_forecast_tonnes: parseFloat(dFcstTonnes.input.value) || 0,
                 var1: dVar.input.value,
                 mtd_actual: parseFloat(mAct.input.value) || 0,
                 mtd_forecast: parseFloat(mFcst.input.value) || 0,
@@ -3631,6 +3696,7 @@ function renderMiningGradeForm(dept, metricName, card) {
             dAct.input.value = '';
             dActGrade.input.value = '';
             dFcst.input.value = '';
+            dFcstTonnes.input.value = '';
             dVar.input.value = '';
             mAct.input.value = '';
             mFcst.input.value = '';

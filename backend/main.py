@@ -1129,6 +1129,27 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
     running_act = 0.0
     running_weights = 0.0
     running_weighted_sum = 0.0
+    running_fcst_wsum = 0.0
+    running_fcst_weights = 0.0
+
+    # For Ore Mined Grade: pre-fetch Ore Mined daily records to look up
+    # actual and forecast tonnes per date for weighting.
+    # Ore Mined is the authoritative source for tonnage data.
+    ore_mined_fcst_by_date: dict[date, float] = {}
+    ore_mined_act_by_date: dict[date, float] = {}
+    if department == "Mining" and metric_name == "Ore Mined Grade":
+        ore_mined_stmt = select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.date >= month_start,
+            KPIRecord.date < next_month_start,
+            KPIRecord.metric_name == "Ore Mined",
+            or_(KPIRecord.subtype != 'fixed_input', KPIRecord.subtype == None)
+        ).order_by(KPIRecord.date)
+        ore_mined_records = session.exec(ore_mined_stmt).all()
+        for om in ore_mined_records:
+            if om.data:
+                ore_mined_fcst_by_date[om.date] = parse_float(om.data.get('daily_forecast'))
+                ore_mined_act_by_date[om.date] = parse_float(om.data.get('daily_actual'))
 
     # For Recovery metric, pre-fetch Gold Recovered and Gold Contained daily records
     # so we can compute Recovery MTD Actual = (GR MTD / GC MTD) * 100
@@ -1201,6 +1222,14 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             mtd_forecast = daily_fcst
         elif department == "Milling_CIL" and metric_name == "Recovery":
             mtd_forecast = daily_fcst
+        elif department == "Mining" and metric_name == "Ore Mined Grade":
+            # Prefer Ore Mined daily_forecast (forecast tonnes), fall back to saved value
+            om_fcst_tonnes = ore_mined_fcst_by_date.get(r.date, 0.0)
+            if om_fcst_tonnes == 0.0:
+                om_fcst_tonnes = parse_float(d.get('daily_forecast_tonnes'))
+            running_fcst_wsum += (daily_fcst * om_fcst_tonnes)
+            running_fcst_weights += om_fcst_tonnes
+            mtd_forecast = running_fcst_wsum / running_fcst_weights if running_fcst_weights != 0 else 0.0
         elif department == "Milling_CIL" and metric_name == "Plant Feed Grade":
             # MTD Forecast = GC_MTD_Forecast / (accrued daily_forecast_tonnes) * 31.1035
             # GC_MTD_Forecast = sum of Gold Contained daily_forecast up to current date
@@ -1226,8 +1255,12 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             mtd_actual = running_act
         elif department == "Mining" and metric_name == "Ore Mined Grade":
             daily_act_grade = parse_float(d.get('daily_act_grade'))
-            running_weighted_sum += (daily_act_grade * daily_fcst)
-            running_weights += daily_fcst
+            # Prefer Ore Mined daily_actual (actual tonnes), fall back to record's daily_actual
+            om_act_tonnes = ore_mined_act_by_date.get(r.date, 0.0)
+            if om_act_tonnes == 0.0:
+                om_act_tonnes = daily_act
+            running_weighted_sum += (daily_act_grade * om_act_tonnes)
+            running_weights += om_act_tonnes
             mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
         elif department == "Mining" and metric_name == "Rehandle Grade":
             daily_act_tonnes = parse_float(d.get('daily_actual'))
@@ -1583,6 +1616,18 @@ def get_summary_dashboard(
                 mtd_forecast = parse_optional_float(target_rec.data.get('daily_forecast')) if (target_rec and target_rec.data.get('daily_forecast') is not None) else None
             elif dept == "Milling_CIL" and metric_name == "Recovery":
                 mtd_forecast = parse_float(daily_forecast) if daily_forecast is not None else 0.0
+            elif dept == "Mining" and metric_name == "Ore Mined Grade":
+                # MTD Forecast = weighted avg of daily_forecast (grade g/t) by forecast tonnes
+                # Prefer Ore Mined daily_forecast (forecast tonnes), fall back to saved value
+                ore_mined_daily = {r.date: parse_float(r.data.get('daily_forecast')) for r in dept_records if r.metric_name == "Ore Mined" and r.subtype != 'fixed_input' and r.date >= month_start and r.date <= target_date}
+                def get_fcst_tonnes(r):
+                    om_val = ore_mined_daily.get(r.date, 0.0)
+                    if om_val != 0.0:
+                        return om_val
+                    return parse_float(r.data.get('daily_forecast_tonnes'))
+                sum_prod = sum_or_none(parse_float(r.data.get('daily_forecast')) * get_fcst_tonnes(r) for r in daily_records)
+                sum_weights = sum_or_none(get_fcst_tonnes(r) for r in daily_records)
+                mtd_forecast = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
             elif dept == "Milling_CIL" and metric_name == "Plant Feed Grade":
                 # MTD Forecast = GC_MTD_Forecast / (accrued daily_forecast_tonnes) * 31.1035
                 # Use parse_float consistently (matching recalculate_metric_month) so
@@ -1606,8 +1651,16 @@ def get_summary_dashboard(
                     return round(da * 0.85) if da is not None else None
                 mtd_actual = sum_or_none(get_dry_tonnes(r) for r in daily_records)
             elif dept == "Mining" and metric_name == "Ore Mined Grade":
-                sum_prod = sum_or_none(parse_float(r.data.get('daily_act_grade')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
-                sum_weights = sum_or_none(parse_optional_float(r.data.get('daily_forecast')) for r in daily_records)
+                # MTD Actual = weighted avg of daily_act_grade by actual tonnes
+                # Prefer Ore Mined daily_actual (actual tonnes), fall back to record's daily_actual
+                ore_mined_act_daily = {r.date: parse_float(r.data.get('daily_actual')) for r in dept_records if r.metric_name == "Ore Mined" and r.subtype != 'fixed_input' and r.date >= month_start and r.date <= target_date}
+                def get_act_tonnes(r):
+                    om_val = ore_mined_act_daily.get(r.date, 0.0)
+                    if om_val != 0.0:
+                        return om_val
+                    return parse_float(r.data.get('daily_actual'))
+                sum_prod = sum_or_none(parse_float(r.data.get('daily_act_grade')) * get_act_tonnes(r) for r in daily_records)
+                sum_weights = sum_or_none(get_act_tonnes(r) for r in daily_records)
                 mtd_actual = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
             elif dept == "Mining" and metric_name == "Rehandle Grade":
                 sum_prod = sum_or_none(parse_float(r.data.get('daily_act_grade')) * parse_float(r.data.get('daily_actual')) for r in daily_records)
