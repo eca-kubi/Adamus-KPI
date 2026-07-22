@@ -16575,7 +16575,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         if (d.day2 !== undefined && d.day2 !== null && d.day2_forecast !== undefined && d.day2_forecast !== null) {
             d.day2_var = calcVar(d.day2, d.day2_forecast);
         }
-    } else if (metric === 'Rehandle Grade') {
+    } else if (metric === 'Ore Mined Grade' || metric === 'Rehandle Grade' || metric === 'Main Rompad Ore Stockpile Grade') {
         if (d.daily_act_grade !== undefined && d.daily_forecast !== undefined) {
             d.var1 = calcVar(d.daily_act_grade, d.daily_forecast);
             d.daily_var = d.var1;

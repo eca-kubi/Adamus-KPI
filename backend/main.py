@@ -1340,12 +1340,15 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 var1 = f"{round(daily_act - daily_fcst)}%"
             var2 = "-"
             var3 = "-"
-        elif department == "Mining" and metric_name in ("Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade"):
-            if metric_name in ("Rehandle Grade", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+        elif department == "Mining" and metric_name in ("Ore Mined Grade", "Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade"):
+            if metric_name in ("Ore Mined Grade", "Rehandle Grade", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
                 daily_act_grade = parse_float(d.get('daily_act_grade'))
                 var1 = calc_var(daily_act_grade, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
-                var3 = "-"
+                if metric_name == "Ore Mined Grade":
+                    var3 = calc_var(outlook, full_fcst, is_ohs_dept, use_act_denom=True)
+                else:
+                    var3 = "-"
             else:
                 var1 = calc_var(daily_act, daily_fcst, is_ohs_dept, use_act_denom=is_ohs_dept)
                 var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -1748,12 +1751,15 @@ def get_summary_dashboard(
                     var1 = f"{round(parse_float(daily_actual) - parse_float(daily_forecast))}%"
                 var2 = "-"
                 var3 = "-"
-            elif dept == "Mining" and metric_name in ("Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
-                if metric_name in ("Rehandle Grade", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+            elif dept == "Mining" and metric_name in ("Ore Mined Grade", "Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+                if metric_name in ("Ore Mined Grade", "Rehandle Grade", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
                     daily_act_grade = parse_float(target_rec.data.get('daily_act_grade')) if target_rec else 0.0
                     var1 = calc_var(daily_act_grade, parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
                     var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
-                    var3 = "-"
+                    if metric_name == "Ore Mined Grade":
+                        var3 = calc_var(outlook, full_fcst, is_ohs_dept, use_act_denom=True)
+                    else:
+                        var3 = "-"
                 else:
                     var1 = calc_var(parse_float(daily_actual), parse_float(daily_forecast), is_ohs_dept, use_act_denom=is_ohs_dept)
                     var2 = calc_var(mtd_actual, mtd_forecast, is_ohs_dept, use_act_denom=True)
@@ -2419,6 +2425,8 @@ def cascade_fixed_input(
             if department == "Milling_CIL":
                 new_data['var1'] = calc_var(new_data.get('daily_actual'), new_data.get('daily_forecast'), is_ohs_dept, use_act_denom=is_ohs_dept)
                 new_data['day2_var'] = calc_var(new_data.get('day2'), new_data.get('day2_forecast'), is_ohs_dept, use_act_denom=is_ohs_dept)
+            elif department == "Mining" and payload.metric_name in ("Ore Mined Grade", "Rehandle Grade", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
+                new_data['var1'] = calc_var(new_data.get('daily_act_grade'), new_data.get('daily_forecast'), is_ohs_dept, use_act_denom=is_ohs_dept)
             elif 'daily_actual' in new_data and 'daily_forecast' in new_data:
                 new_data['var1'] = calc_var(new_data['daily_actual'], new_data['daily_forecast'], is_ohs_dept, use_act_denom=is_ohs_dept)
 
@@ -2428,9 +2436,9 @@ def cascade_fixed_input(
                  new_data['var2'] = calc_var(new_data['mtd_actual'], new_data['mtd_forecast'], is_ohs_dept, use_act_denom=True)
 
             # Recalculate Budget Variance (var3)
-            # For Geology department: third variance is Outlook (a) vs Full Forecast (b)
+            # For Geology / OHS / Mining Ore Mined Grade: third variance is Outlook (a) vs Full Forecast (b)
             # For other departments: standard Budget Variance (Full Forecast vs Full Budget)
-            if department in ("Geology", "OHS") or (department == "Milling_CIL" and payload.metric_name == "Plant Feed Grade"):
+            if department in ("Geology", "OHS") or (department == "Milling_CIL" and payload.metric_name == "Plant Feed Grade") or (department == "Mining" and payload.metric_name == "Ore Mined Grade"):
                 fcst_target = payload.full_forecast if not is_ohs_dept else (annual_target / 12.0)
                 new_data['var3'] = calc_var(new_data.get('outlook'), fcst_target, is_ohs_dept, use_act_denom=True)
             else:
