@@ -33,6 +33,35 @@ services:
         condition: service_healthy
     networks:
       - arl-kpi-network
+    # -----------------------------------------------------------------------
+    # Traefik DDoS protection (edge-level — cheapest rejection layer)
+    #
+    # Defines a rate-limit middleware scoped to this Docker service.
+    # Coolify auto-generates the router, so you must attach the middleware
+    # via the Coolify dashboard:
+    #   Service → Edit → Advanced → Traefik Labels →
+    #     traefik.http.routers.<coolify-router>.middlewares=arl-kpi-ratelimit@docker
+    #
+    # Tiers applied *per client IP*:
+    #   • average=20 / period=1s  →  sustained 20 req/s  (plenty for any
+    #     legitimate browser; blocks scripted floods)
+    #   • burst=40                →  allow brief spikes before the average
+    #     rate-limiter activates
+    #   • excludedips              →  never rate-limit internal/private IPs
+    #     (health checks, DB container, internal services)
+    # -----------------------------------------------------------------------
+    labels:
+      - "traefik.http.middlewares.arl-kpi-ratelimit.ratelimit.average=20"
+      - "traefik.http.middlewares.arl-kpi-ratelimit.ratelimit.period=1s"
+      - "traefik.http.middlewares.arl-kpi-ratelimit.ratelimit.burst=40"
+      - "traefik.http.middlewares.arl-kpi-ratelimit.ratelimit.sourcecriterion.ipstrategy.excludedips=127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      - "coolify.traefik.middlewares=arl-kpi-ratelimit"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   db:
     image: mariadb:10.11

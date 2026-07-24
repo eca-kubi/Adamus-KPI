@@ -56,6 +56,144 @@ limiter = Limiter(key_func=get_real_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ---------------------------------------------------------------------------
+# DDoS Protection — Global in-memory rate limiter (applied before all routes)
+# ---------------------------------------------------------------------------
+# This middleware sits BEFORE ProfilingMiddleware and the slowapi limiter so
+# that abusive IPs are blocked with minimal CPU cost — no route matching, no
+# DB queries, no static-file serving.  It uses two sliding-window tiers:
+#
+#   • STRICT  (10 req / 5 s)  — applied to every request.  This catches the
+#     "random URL → 404" DDoS pattern because unmatched paths never reach a
+#     per-route slowapi decorator and would otherwise consume a full worker.
+#   • MODERATE (120 req / 60 s) — applied once the strict window is passed.
+#
+# IPs that exceed either window receive HTTP 429 with a short Retry-After.
+# The tracker is a plain dict[ip → deque[timestamp]], auto-cleaned every 60 s
+# so memory does not grow unboundedly.
+
+import time as _time
+from collections import deque as _deque
+from ipaddress import ip_address as _ip_address, ip_network as _ip_network
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import PlainTextResponse
+
+# Private / loopback / link-local networks — healthcheck probes from these
+# ranges are always allowed, even when the global DDoS limiter would otherwise
+# block the IP.  This prevents Docker / Traefik / Coolify healthchecks from
+# being throttled and falsely marking the container as unhealthy.
+_PRIVATE_NETS = [
+    _ip_network("127.0.0.0/8"),       # loopback
+    _ip_network("10.0.0.0/8"),        # private (Docker, internal networks)
+    _ip_network("172.16.0.0/12"),     # private (Docker bridge)
+    _ip_network("192.168.0.0/16"),    # private
+    _ip_network("169.254.0.0/16"),    # link-local
+    _ip_network("::1/128"),           # IPv6 loopback
+    _ip_network("fc00::/7"),          # IPv6 unique-local
+    _ip_network("fe80::/10"),         # IPv6 link-local
+]
+
+def _is_private_ip(ip_str: str) -> bool:
+    """Return True if *ip_str* belongs to a private / loopback / link-local network."""
+    try:
+        addr = _ip_address(ip_str)
+    except ValueError:
+        return False
+    return any(addr in net for net in _PRIVATE_NETS)
+
+_DDOS_WINDOW_STRICT_S = 5       # window for the strict tier
+_DDOS_MAX_STRICT = 10            # max requests per IP in that window
+_DDOS_WINDOW_MODERATE_S = 60    # window for the moderate tier
+_DDOS_MAX_MODERATE = 120         # max requests per IP in that window
+_DDOS_CLEANUP_INTERVAL_S = 60   # how often stale entries are purged
+_DDOS_BLOCKED_IPS: dict[str, float] = {}  # IP → block-until timestamp (for repeat offenders)
+
+# Per-IP sliding windows  (ip → deque of monotonic timestamps)
+_ddos_strict: dict[str, _deque] = {}
+_ddos_moderate: dict[str, _deque] = {}
+_last_cleanup = _time.monotonic()
+
+def _ddos_check_ip(ip: str) -> bool:
+    """Return True if the IP is allowed, False if it should be blocked (429)."""
+    global _last_cleanup
+
+    # 1. Hard-block repeat offenders for 5 minutes
+    blocked_until = _DDOS_BLOCKED_IPS.get(ip)
+    if blocked_until and _time.monotonic() < blocked_until:
+        return False
+
+    now = _time.monotonic()
+
+    # 2. Periodic cleanup of stale entries
+    if now - _last_cleanup > _DDOS_CLEANUP_INTERVAL_S:
+        _last_cleanup = now
+        for bucket in (_ddos_strict, _ddos_moderate):
+            stale = [k for k, dq in bucket.items() if not dq or dq[-1] < now - max(_DDOS_WINDOW_STRICT_S, _DDOS_WINDOW_MODERATE_S)]
+            for k in stale:
+                bucket.pop(k, None)
+        # also expire hard-blocks
+        expired = [k for k, v in _DDOS_BLOCKED_IPS.items() if now >= v]
+        for k in expired:
+            _DDOS_BLOCKED_IPS.pop(k, None)
+
+    # 3. Strict window check
+    dq = _ddos_strict.get(ip)
+    if dq is None:
+        _ddos_strict[ip] = dq = _deque()
+    # prune old entries
+    cutoff = now - _DDOS_WINDOW_STRICT_S
+    while dq and dq[0] < cutoff:
+        dq.popleft()
+    dq.append(now)
+    if len(dq) > _DDOS_MAX_STRICT:
+        _DDOS_BLOCKED_IPS[ip] = now + 300  # 5-minute hard block
+        return False
+
+    # 4. Moderate window check
+    dq2 = _ddos_moderate.get(ip)
+    if dq2 is None:
+        _ddos_moderate[ip] = dq2 = _deque()
+    cutoff2 = now - _DDOS_WINDOW_MODERATE_S
+    while dq2 and dq2[0] < cutoff2:
+        dq2.popleft()
+    dq2.append(now)
+    if len(dq2) > _DDOS_MAX_MODERATE:
+        _DDOS_BLOCKED_IPS[ip] = now + 300
+        return False
+
+    return True
+
+
+class DDoSProtectionMiddleware(BaseHTTPMiddleware):
+    """Block abusive IPs before they reach any route or static file handler.
+
+    Healthcheck requests (``/health``) from private / loopback IPs are always
+    allowed so that Docker, Traefik and Coolify probes never get throttled.
+    External requests to ``/health`` are still subject to the global rate
+    limits AND the per-route slowapi limit.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        ip = get_real_remote_address(request)
+
+        # Always allow healthcheck probes from internal infrastructure.
+        # If these get rate-limited, Docker marks the container unhealthy
+        # and restarts it — making the outage worse.
+        if request.url.path == "/health" and _is_private_ip(ip):
+            return await call_next(request)
+
+        if not _ddos_check_ip(ip):
+            return PlainTextResponse(
+                "Too Many Requests",
+                status_code=429,
+                headers={"Retry-After": "60", "X-RateLimit-IP": ip},
+            )
+        return await call_next(request)
+
+
+# DDoS middleware MUST be added first so it runs outermost (cheapest reject).
+app.add_middleware(DDoSProtectionMiddleware)
 app.add_middleware(ProfilingMiddleware)
 
 # ---------------------------------------------------------------------------
@@ -551,6 +689,21 @@ def require_admin(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 # API Endpoints
+
+
+@app.get("/health")
+@limiter.limit("30/minute")
+async def health(request: Request):
+    """Lightweight health-check — no DB, no auth, no dependencies.
+
+    Used by Docker / Coolify / Traefik to verify the app process is alive.
+    Returns 200 with a minimal JSON body.
+
+    Rate-limited at 30 req/min per IP for external callers.  Internal probes
+    (private IPs) are unconditionally whitelisted by DDoSProtectionMiddleware
+    so Docker healthchecks never get throttled.
+    """
+    return {"status": "ok"}
 
 
 @app.get("/api/setup-required")
