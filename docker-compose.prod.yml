@@ -3,8 +3,9 @@ services:
     image: ghcr.io/eca-kubi/arl-kpi-app:latest
     restart: unless-stopped
     environment:
+      - ALEMBIC_USER=${ALEMBIC_USER}
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db/${MYSQL_DATABASE}
-      - ALEMBIC_DATABASE_URL=mysql+pymysql://alembic_user:${ALEMBIC_PASSWORD}@db/${MYSQL_DATABASE}
+      - ALEMBIC_DATABASE_URL=mysql+pymysql://${ALEMBIC_USER}:${ALEMBIC_PASSWORD}@db/${MYSQL_DATABASE}
       - MARIADB_DATABASE=${MYSQL_DATABASE}
       - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_USER=${MYSQL_USER}
@@ -79,6 +80,48 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: unless-stopped
+    environment:
+      - PMA_HOST=db
+      - PMA_PORT=3306
+      - UPLOAD_LIMIT=64M
+      # Required so phpMyAdmin builds correct cookie/redirect URLs
+      # when served through the Traefik proxy.
+      - PMA_ABSOLUTE_URI=http://${PMA_DOMAIN}/
+    # Suppress Apache's AH00558 "Could not reliably determine the server's
+    # fully qualified domain name" warning by defining a global ServerName.
+    command: >
+      sh -c "echo 'ServerName ${PMA_DOMAIN}' > /etc/apache2/conf-enabled/servername.conf
+      && exec apache2-foreground"
+    # Loopback-only publish for debugging from the server itself.
+    # External access goes exclusively through Traefik (HTTPS).
+    ports:
+      - "127.0.0.1:${PMA_PORT:-8080}:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - coolify
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=coolify"
+      - "traefik.http.routers.arl-kpi-pma.rule=Host(`${PMA_DOMAIN}`)"
+      - "traefik.http.routers.arl-kpi-pma.entrypoints=http"
+      - "traefik.http.services.arl-kpi-pma.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(fsockopen('127.0.0.1', 80) ? 0 : 1);"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  # Traefik proxy network managed by Coolify; must exist on the server.
+  coolify:
+    external: true
 
 volumes:
   db_data:

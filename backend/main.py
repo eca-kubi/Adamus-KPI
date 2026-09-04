@@ -1247,7 +1247,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                     break
         
     total_days = (next_month_start - month_start).days
-            
+
     def calc_var(act, fcst, is_ohs=False, use_act_denom=False):
         if act is None or fcst is None or act == "-" or fcst == "-":
             return "-"
@@ -1256,21 +1256,19 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             fcst_f = float(str(fcst).replace("%", "").replace(",", "").strip())
         except (ValueError, TypeError):
             return "-"
-            
+
         if is_ohs:
             # Round both inputs to the nearest whole number first
             act_f = float(round(act_f))
             fcst_f = float(round(fcst_f))
-            if use_act_denom:
-                if act_f == 0:
-                    return "0%"
-                var = ((fcst_f - act_f) / act_f) * 100
-                return f"{round(var)}%"
-            else:
-                if fcst_f == 0:
-                    return "0%" if act_f == 0 else "-100%"
-                var = ((fcst_f - act_f) / fcst_f) * 100
-                return f"{round(var)}%"
+            # Lower-is-better variance measured against the forecast. OHS
+            # forecasts are small (never exceed 2), so the forecast is the
+            # denominator: dividing by actual produced unstable results
+            # (e.g. actual 1 vs forecast 2 => +100%).
+            if fcst_f == 0:
+                return "0%" if act_f == 0 else "-100%"
+            var = ((fcst_f - act_f) / fcst_f) * 100
+            return f"{round(var)}%"
         else:
             if fcst_f == 0:
                 return "0%"
@@ -1658,21 +1656,19 @@ def get_summary_dashboard(
             fcst_f = float(str(fcst).replace("%", "").replace(",", "").strip())
         except (ValueError, TypeError):
             return "-"
-            
+
         if is_ohs:
             # Round both inputs to the nearest whole number first
             act_f = float(round(act_f))
             fcst_f = float(round(fcst_f))
-            if use_act_denom:
-                if act_f == 0:
-                    return "0%"
-                var = ((fcst_f - act_f) / act_f) * 100
-                return f"{round(var)}%"
-            else:
-                if fcst_f == 0:
-                    return "0%" if act_f == 0 else "-100%"
-                var = ((fcst_f - act_f) / fcst_f) * 100
-                return f"{round(var)}%"
+            # Lower-is-better variance measured against the forecast. OHS
+            # forecasts are small (never exceed 2), so the forecast is the
+            # denominator: dividing by actual produced unstable results
+            # (e.g. actual 1 vs forecast 2 => +100%).
+            if fcst_f == 0:
+                return "0%" if act_f == 0 else "-100%"
+            var = ((fcst_f - act_f) / fcst_f) * 100
+            return f"{round(var)}%"
         else:
             if fcst_f == 0:
                 return "0%"
@@ -2523,27 +2519,23 @@ def cascade_fixed_input(
                         # Round both inputs to the nearest whole number first
                         act = float(round(act))
                         fcst = float(round(fcst))
-                        if use_act_denom:
+                        # OHS Logic (Lower is Better), measured against the
+                        # forecast. OHS forecasts are small (never exceed 2),
+                        # so the forecast is the denominator: dividing by
+                        # actual produced unstable results (e.g. actual 1 vs
+                        # forecast 2 => +100%).
+                        if fcst == 0:
+                            # Actual 0 -> 0% (Green/Good); Actual > 0 -> -100% (Red/Bad)
                             if act == 0:
                                 return "0%"
-                            var = ((fcst - act) / act) * 100
-                            return f"{round(var)}%"
-                        else:
-                            # OHS Logic (Lower is Better)
-                            # If Forecast is 0:
-                            # - Actual 0 -> 0% (Green/Good)
-                            # - Actual > 0 -> -100% (Red/Bad)
-                            if fcst == 0:
-                                if act == 0:
-                                    return "0%"
-                                else:
-                                    return "-100%"
-                            
-                            # Normal OHS Logic: ((Forecast - Actual) / Forecast) * 100
-                            # Example: Fcst 10, Act 5. (5/10)*100 = 50% (Good)
-                            # Example: Fcst 10, Act 15. (-5/10)*100 = -50% (Bad)
-                            var = ((fcst - act) / fcst) * 100
-                            return f"{round(var)}%"
+                            else:
+                                return "-100%"
+                        
+                        # (Forecast - Actual) / Forecast * 100
+                        # Example: Fcst 2, Act 1. (1/2)*100 = 50% (Good)
+                        # Example: Fcst 2, Act 3. (-1/2)*100 = -50% (Bad)
+                        var = ((fcst - act) / fcst) * 100
+                        return f"{round(var)}%"
                     
                     else:
                         # Standard Logic (Higher is Better/Production)

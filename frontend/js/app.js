@@ -7282,8 +7282,11 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     const date = DOM.createInputGroup("Date", `input-${dept}-date`, "date");
     date.input.value = ''; // Ensure empty by default
 
-    // Custom Variance Logic: (Forecast - Actual) / Forecast for "Lower is Better"
-    const updateSafetyVariance = (actInput, fcstInput, varInput, useActDenom = false) => {
+    // Custom Variance Logic for "Lower is Better" metrics:
+    // (Forecast - Actual) / Forecast * 100. OHS forecasts are small (never
+    // exceed 2), so the forecast is the denominator: dividing by actual
+    // produced unstable results (e.g. actual 1 vs forecast 2 => +100%).
+    const updateSafetyVariance = (actInput, fcstInput, varInput) => {
         let act = parseFloat(actInput.value);
         let fcst = parseFloat(fcstInput.value);
 
@@ -7295,24 +7298,15 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
         act = Math.round(act);
         fcst = Math.round(fcst);
 
-        if (useActDenom) {
-            if (act === 0) {
-                varInput.value = '0%';
-                return;
-            }
-            const variance = ((fcst - act) / act) * 100;
-            varInput.value = Math.round(variance) + '%';
-        } else {
-            if (fcst === 0) {
-                if (act === 0) varInput.value = '0%';
-                else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
-                return;
-            }
-
-            // Favorable if Actual < Forecast
-            const variance = ((fcst - act) / fcst) * 100;
-            varInput.value = Math.round(variance) + '%';
+        if (fcst === 0) {
+            if (act === 0) varInput.value = '0%';
+            else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
+            return;
         }
+
+        // Favorable if Actual < Forecast
+        const variance = ((fcst - act) / fcst) * 100;
+        varInput.value = Math.round(variance) + '%';
     };
 
     // Row 2
@@ -7324,8 +7318,8 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
 
-    dAct.input.addEventListener('input', () => updateSafetyVariance(dAct.input, dFcst.input, dVar.input, true));
-    dFcst.input.addEventListener('input', () => updateSafetyVariance(dAct.input, dFcst.input, dVar.input, true));
+    dAct.input.addEventListener('input', () => updateSafetyVariance(dAct.input, dFcst.input, dVar.input));
+    dFcst.input.addEventListener('input', () => updateSafetyVariance(dAct.input, dFcst.input, dVar.input));
 
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "number");
@@ -7336,8 +7330,8 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     mVar.input.readOnly = true;
 
     // Use same logic for MTD
-    mAct.input.addEventListener('input', () => updateSafetyVariance(mAct.input, mFcst.input, mVar.input, true));
-    mFcst.input.addEventListener('input', () => updateSafetyVariance(mAct.input, mFcst.input, mVar.input, true));
+    mAct.input.addEventListener('input', () => updateSafetyVariance(mAct.input, mFcst.input, mVar.input));
+    mFcst.input.addEventListener('input', () => updateSafetyVariance(mAct.input, mFcst.input, mVar.input));
 
     // Row 4
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
@@ -7353,8 +7347,8 @@ function renderOHSSafetyIncidentsForm(dept, metricName, card) {
     const budgVar = DOM.createInputGroup("Var %", `input-${dept}-budg-var`, "text");
 
     // OHS Budget variance is Outlook vs Monthly Forecast (Full Forecast)
-    outlook.input.addEventListener('input', () => updateSafetyVariance(outlook.input, fullFcst.input, budgVar.input, true));
-    fullFcst.input.addEventListener('input', () => updateSafetyVariance(outlook.input, fullFcst.input, budgVar.input, true));
+    outlook.input.addEventListener('input', () => updateSafetyVariance(outlook.input, fullFcst.input, budgVar.input));
+    fullFcst.input.addEventListener('input', () => updateSafetyVariance(outlook.input, fullFcst.input, budgVar.input));
 
     // Add to Form Container
     // Row 1: KPI (Hidden) + Date
@@ -7611,8 +7605,11 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
 
-    // Custom Variance Logic: (Forecast - Actual) / Forecast for "Lower is Better"
-    const updateEnvVariance = (actInput, fcstInput, varInput, useActDenom = false) => {
+    // Custom Variance Logic for "Lower is Better" metrics:
+    // (Forecast - Actual) / Forecast * 100. OHS forecasts are small (never
+    // exceed 2), so the forecast is the denominator: dividing by actual
+    // produced unstable results (e.g. actual 1 vs forecast 2 => +100%).
+    const updateEnvVariance = (actInput, fcstInput, varInput) => {
         let act = parseFloat(actInput.value);
         let fcst = parseFloat(fcstInput.value);
 
@@ -7624,28 +7621,19 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
         act = Math.round(act);
         fcst = Math.round(fcst);
 
-        if (useActDenom) {
-            if (act === 0) {
-                varInput.value = '0%';
-                return;
-            }
-            const variance = ((fcst - act) / act) * 100;
-            varInput.value = Math.round(variance) + '%';
-        } else {
-            if (fcst === 0) {
-                if (act === 0) varInput.value = '0%';
-                else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
-                return;
-            }
-
-            // Favorable if Actual < Forecast
-            const variance = ((fcst - act) / fcst) * 100;
-            varInput.value = Math.round(variance) + '%';
+        if (fcst === 0) {
+            if (act === 0) varInput.value = '0%';
+            else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
+            return;
         }
+
+        // Favorable if Actual < Forecast
+        const variance = ((fcst - act) / fcst) * 100;
+        varInput.value = Math.round(variance) + '%';
     };
 
-    dAct.input.addEventListener('input', () => updateEnvVariance(dAct.input, dFcst.input, dVar.input, true));
-    dFcst.input.addEventListener('input', () => updateEnvVariance(dAct.input, dFcst.input, dVar.input, true));
+    dAct.input.addEventListener('input', () => updateEnvVariance(dAct.input, dFcst.input, dVar.input));
+    dFcst.input.addEventListener('input', () => updateEnvVariance(dAct.input, dFcst.input, dVar.input));
     // attachVarianceListener(dAct.input, dFcst.input, dVar.input);
 
     // Row 3
@@ -7654,8 +7642,8 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
 
-    mAct.input.addEventListener('input', () => updateEnvVariance(mAct.input, mFcst.input, mVar.input, true));
-    mFcst.input.addEventListener('input', () => updateEnvVariance(mAct.input, mFcst.input, mVar.input, true));
+    mAct.input.addEventListener('input', () => updateEnvVariance(mAct.input, mFcst.input, mVar.input));
+    mFcst.input.addEventListener('input', () => updateEnvVariance(mAct.input, mFcst.input, mVar.input));
     // attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
     // Row 4
@@ -7672,8 +7660,8 @@ function renderOHSEnvironmentalIncidentsForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
 
     // Custom logic for Outlook Variance: compare Outlook vs monthly target (Full Forecast)
-    outlook.input.addEventListener('input', () => updateEnvVariance(outlook.input, fullFcst.input, budgVar.input, true));
-    fullFcst.input.addEventListener('input', () => updateEnvVariance(outlook.input, fullFcst.input, budgVar.input, true));
+    outlook.input.addEventListener('input', () => updateEnvVariance(outlook.input, fullFcst.input, budgVar.input));
+    fullFcst.input.addEventListener('input', () => updateEnvVariance(outlook.input, fullFcst.input, budgVar.input));
     // attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
 
     // Add to Form Container
@@ -7922,8 +7910,11 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     const dVar = DOM.createInputGroup("Var %", `input-${dept}-daily-var`, "text");
     dVar.input.readOnly = true;
 
-    // Custom Variance Logic: (Forecast - Actual) / Forecast for "Lower is Better"
-    const updatePropDamVariance = (actInput, fcstInput, varInput, useActDenom = false) => {
+    // Custom Variance Logic for "Lower is Better" metrics:
+    // (Forecast - Actual) / Forecast * 100. OHS forecasts are small (never
+    // exceed 2), so the forecast is the denominator: dividing by actual
+    // produced unstable results (e.g. actual 1 vs forecast 2 => +100%).
+    const updatePropDamVariance = (actInput, fcstInput, varInput) => {
         let act = parseFloat(actInput.value);
         let fcst = parseFloat(fcstInput.value);
 
@@ -7935,28 +7926,19 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
         act = Math.round(act);
         fcst = Math.round(fcst);
 
-        if (useActDenom) {
-            if (act === 0) {
-                varInput.value = '0%';
-                return;
-            }
-            const variance = ((fcst - act) / act) * 100;
-            varInput.value = Math.round(variance) + '%';
-        } else {
-            if (fcst === 0) {
-                if (act === 0) varInput.value = '0%';
-                else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
-                return;
-            }
-
-            // Favorable if Actual < Forecast
-            const variance = ((fcst - act) / fcst) * 100;
-            varInput.value = Math.round(variance) + '%';
+        if (fcst === 0) {
+            if (act === 0) varInput.value = '0%';
+            else varInput.value = '-100%'; // Any incidents against 0 forecast is bad
+            return;
         }
+
+        // Favorable if Actual < Forecast
+        const variance = ((fcst - act) / fcst) * 100;
+        varInput.value = Math.round(variance) + '%';
     };
 
-    dAct.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dFcst.input, dVar.input, true));
-    dFcst.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dFcst.input, dVar.input, true));
+    dAct.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dFcst.input, dVar.input));
+    dFcst.input.addEventListener('input', () => updatePropDamVariance(dAct.input, dFcst.input, dVar.input));
     // attachVarianceListener(dAct.input, dFcst.input, dVar.input);
 
     // Row 3
@@ -7965,8 +7947,8 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     const mVar = DOM.createInputGroup("Var %", `input-${dept}-mtd-var`, "text");
     mVar.input.readOnly = true;
 
-    mAct.input.addEventListener('input', () => updatePropDamVariance(mAct.input, mFcst.input, mVar.input, true));
-    mFcst.input.addEventListener('input', () => updatePropDamVariance(mAct.input, mFcst.input, mVar.input, true));
+    mAct.input.addEventListener('input', () => updatePropDamVariance(mAct.input, mFcst.input, mVar.input));
+    mFcst.input.addEventListener('input', () => updatePropDamVariance(mAct.input, mFcst.input, mVar.input));
     // attachVarianceListener(mAct.input, mFcst.input, mVar.input);
 
     // Row 4
@@ -7983,8 +7965,8 @@ function renderOHSPropertyDamageForm(dept, metricName, card) {
     budgVar.input.readOnly = true;
 
     // Compare Outlook vs monthly target (Full Forecast)
-    outlook.input.addEventListener('input', () => updatePropDamVariance(outlook.input, fullFcst.input, budgVar.input, true));
-    fullFcst.input.addEventListener('input', () => updatePropDamVariance(outlook.input, fullFcst.input, budgVar.input, true));
+    outlook.input.addEventListener('input', () => updatePropDamVariance(outlook.input, fullFcst.input, budgVar.input));
+    fullFcst.input.addEventListener('input', () => updatePropDamVariance(outlook.input, fullFcst.input, budgVar.input));
 
 
     // attachVarianceListener(outlook.input, fullBudg.input, budgVar.input);
@@ -16551,12 +16533,22 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
     }
 
     // 2. Variances logic
-    const calcVar = (act, fcst) => {
-        const a = parseOptionalFloatFE(act);
-        const f = parseOptionalFloatFE(fcst);
-        if (f === null || a === null || f === 0) return "-";
-        const v = ((a - f) / f) * 100;
-        return Math.round(v) + "%";
+    // OHS (lower-is-better) variance is measured against the forecast, not the
+    // actual, because OHS forecasts are small (never exceed 2) and dividing by
+    // actual produced unstable results (e.g. actual 1 vs forecast 2 => +100%).
+    const isOHSDept = dept === 'OHS';
+    const calcVar = (act, fcst, isOHS = false) => {
+        let a = parseOptionalFloatFE(act);
+        let f = parseOptionalFloatFE(fcst);
+        if (a === null || f === null) return "-";
+        if (isOHS) {
+            a = Math.round(a);
+            f = Math.round(f);
+            if (f === 0) return a === 0 ? "0%" : "-100%";
+            return Math.round(((f - a) / f) * 100) + "%";
+        }
+        if (f === 0) return "-";
+        return Math.round(((a - f) / f) * 100) + "%";
     };
 
     // a. Daily Variance
@@ -16595,7 +16587,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         }
     } else {
         if (d.daily_actual !== undefined && d.daily_forecast !== undefined) {
-            d.var1 = calcVar(d.daily_actual, d.daily_forecast);
+            d.var1 = calcVar(d.daily_actual, d.daily_forecast, isOHSDept);
             d.daily_var = d.var1;
         }
     }
@@ -16686,7 +16678,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
             d.var2 = "-";
         } else {
-            d.var2 = calcVar(d.mtd_actual, d.mtd_forecast);
+            d.var2 = calcVar(d.mtd_actual, d.mtd_forecast, isOHSDept);
         }
         d.mtd_var = d.var2;
     }
@@ -16751,8 +16743,11 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
             }
 
             // Outlook Variance
-            if (d.outlook !== undefined && fullBudg) {
-                d.var3 = calcVar(d.outlook, fullBudg);
+            // OHS compares outlook against the monthly forecast; other
+            // departments compare outlook against the full budget.
+            const var3Target = isOHSDept ? fullFcst : fullBudg;
+            if (d.outlook !== undefined && var3Target) {
+                d.var3 = calcVar(d.outlook, var3Target, isOHSDept);
                 d.budget_var = d.var3;
             }
         }

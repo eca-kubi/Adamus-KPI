@@ -1,0 +1,7 @@
+# Normalize line endings so scripts copied into Linux containers never get CRLF.
+# Shell scripts and the Dockerfile must always use LF.
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-compose*.yml text eol=lf
+init-db.sh text eol=lf
+start.sh text eol=lf
