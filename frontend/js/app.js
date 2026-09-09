@@ -1443,8 +1443,16 @@ window.loadDepartmentView = async function (dept) {
     const content = document.getElementById('content');
     content.className = 'main-content fade-in';
     content.innerHTML = `
-        <div class="d-flex align-items-center justify-content-between mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
             <h2 class="mb-0"><i class="bi ${DEPT_ICONS[dept] || 'bi-speedometer2'} me-2 text-primary"></i>${dept.replace('_', ' ')} Dashboard</h2>
+            ${dept === 'OHS' ? `
+            <a href="https://hse.adamusgh.com/dashboard" target="_blank" rel="noopener noreferrer"
+               class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-2"
+               style="border-radius: 0.5rem;" title="Open HSE Suite Dashboard">
+                <i class="bi bi-shield-plus"></i> HSE Suite
+                <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+            ` : ''}
         </div>
         
         <!-- Submenu Navigation -->
