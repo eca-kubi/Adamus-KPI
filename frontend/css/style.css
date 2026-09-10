@@ -421,6 +421,12 @@ a:hover {
     display: none;
 }
 
+/* When collapsed, only the leading icon should remain — hide the trailing
+   "external link" indicator used by the HSE Suite shortcut. */
+.sidebar.collapsed .nav-link .sidebar-external-indicator {
+    display: none;
+}
+
 .sidebar .nav-link i {
     font-size: 1.25rem;
     width: 24px;

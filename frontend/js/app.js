@@ -228,10 +228,30 @@ async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap, option
 const DEPARTMENTS = ["OHS", "Geology", "Mining", "Crushing", "Milling_CIL", "Engineering"];
 const METRIC_ACCESS_OPTIONS = ["All", ...DEPARTMENTS];
 
-/** Return the list of departments visible to the current user.
+/**
+ * Departments temporarily hidden from the UI (side menu, Summary Dashboard and
+ * its PDF/PNG exports). Their data is retained in the database; only the
+ * navigation and summary presentation are suppressed. Remove a value here to
+ * re-enable the department everywhere.
+ */
+const HIDDEN_DEPARTMENTS = ["OHS"];
+
+/**
+ * Shortcut links that replace a hidden department's side-menu item, keyed by
+ * department name.
+ */
+const HIDDEN_DEPT_SHORTCUTS = {
+    "OHS": {
+        label: "HSE Suite",
+        url: "https://hse.adamusgh.com/dashboard",
+        icon: "bi-shield-plus"
+    }
+};
+
+/** Return the departments the current user may access, ignoring temporary hiding.
  *  Admin users (or users with "All" in departments) see all departments.
  *  Other users see only the departments explicitly assigned to them. */
-function getVisibleDepartments() {
+function getAccessibleDepartments() {
     if (!STATE.currentUser) return [];
     const role = (STATE.currentUser.role || '').toLowerCase();
     const depts = STATE.currentUser.departments || [];
@@ -239,6 +259,12 @@ function getVisibleDepartments() {
         return [...DEPARTMENTS];
     }
     return depts.filter(d => DEPARTMENTS.includes(d));
+}
+
+/** Return the list of departments visible to the current user.
+ *  Excludes any department listed in HIDDEN_DEPARTMENTS. */
+function getVisibleDepartments() {
+    return getAccessibleDepartments().filter(d => !HIDDEN_DEPARTMENTS.includes(d));
 }
 
 const DEPT_ICONS = {
@@ -1309,7 +1335,7 @@ function renderSidebar() {
     const userDisplay = STATE.currentUser ? STATE.currentUser.username : 'User';
     const userRole = STATE.currentUser ? STATE.currentUser.role : '';
     const isAdmin = (userRole || '').toLowerCase() === 'admin';
-    const visibleDepts = getVisibleDepartments();
+    const accessibleDepts = getAccessibleDepartments();
 
     nav.innerHTML = `
         <div class="d-flex align-items-center justify-content-between mb-4 w-100">
@@ -1334,14 +1360,28 @@ function renderSidebar() {
 
             <hr style="border-color: rgba(255,255,255,0.1); margin: 0.5rem 0;">
 
-            ${visibleDepts.map(dept => `
+            ${DEPARTMENTS.filter(d => accessibleDepts.includes(d)).map(dept => {
+                // Hidden departments are replaced by an external shortcut link.
+                if (HIDDEN_DEPARTMENTS.includes(dept)) {
+                    const shortcut = HIDDEN_DEPT_SHORTCUTS[dept];
+                    if (!shortcut) return '';
+                    return `
+                <a href="${shortcut.url}" target="_blank" rel="noopener noreferrer"
+                   class="nav-link"
+                   data-tooltip="${shortcut.label}">
+                   <i class="bi ${shortcut.icon || 'bi-box-arrow-up-right'}"></i>
+                   <span>${shortcut.label}</span>
+                   <i class="bi bi-box-arrow-up-right sidebar-external-indicator ms-auto" style="font-size:0.7rem;opacity:0.7;"></i>
+                </a>`;
+                }
+                return `
                 <a href="#" onclick="sidebarNavigate(() => loadDepartmentView('${dept}')); return false;" 
                    class="nav-link ${STATE.currentView === 'dept' && STATE.currentDept === dept ? 'active' : ''}"
                    data-tooltip="${dept.replace('_', ' ')}">
                    <i class="bi ${DEPT_ICONS[dept] || 'bi-folder2'}"></i>
                    <span>${dept.replace('_', ' ')}</span>
-                </a>
-            `).join('')}
+                </a>`;
+            }).join('')}
 
             <a href="#" onclick="sidebarNavigate(renderChatPage); return false;"
                class="nav-link chat-nav-link ${STATE.currentView === 'chat' ? 'active' : ''}"
@@ -16121,7 +16161,8 @@ function renderSummaryTable(departments) {
     const container = document.getElementById('summary-table-container');
     if (!container) return;
 
-    const DEPT_ORDER = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"];
+    const DEPT_ORDER = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"]
+        .filter(d => !HIDDEN_DEPARTMENTS.includes(d));
     let html = '<table class="summary-table"><tbody>';
 
     for (const dept of DEPT_ORDER) {
@@ -16281,7 +16322,8 @@ function renderCommentsTable(departments, dateStr) {
     const container = document.getElementById('comments-table-container');
     if (!container) return;
 
-    const DEPT_ORDER = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"];
+    const DEPT_ORDER = ["OHS", "Milling_CIL", "Crushing", "Mining", "Geology", "Engineering"]
+        .filter(d => !HIDDEN_DEPARTMENTS.includes(d));
 
     // Collect all rows that have a comment
     const rows = [];
