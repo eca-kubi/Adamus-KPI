@@ -2027,6 +2027,16 @@ function renderKPIForm(dept, metricName) {
         if (dailyFcstEl) dailyFcstEl.readOnly = true;
         if (mtdFcstEl) mtdFcstEl.readOnly = true;
         if (fullFcstEl) fullFcstEl.readOnly = true;
+
+        // Qty Available is mandatory for the equipment metrics that capture it
+        // (Crusher/Mill do not have this field).
+        // Note: Daily Actual is marked required generically in dom.js for every
+        // department's daily input form.
+        const qtyAvailEl = document.getElementById(`input-${dept}-qty-avail`);
+        if (qtyAvailEl) {
+            qtyAvailEl.dataset.requiredLabel = 'Qty Available';
+            qtyAvailEl.required = true;
+        }
     }
 
     // Restore any previously saved draft for this department/metric.
@@ -8454,51 +8464,6 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
 
-    date.input.addEventListener('change', async () => {
-        const dateVal = date.input.value;
-        if (!dateVal) return;
-
-        try {
-            const records = await fetchKPIRecords(dept);
-            const fixedInputs = records.filter(r => r.subtype === 'fixed_input');
-
-            // Find matching fixed input for this metric and month
-            const selectedDate = new Date(dateVal);
-            const selectedMonth = selectedDate.getMonth();
-            const selectedYear = selectedDate.getFullYear();
-
-            const target = fixedInputs.find(r => {
-                if (r.metric_name !== metricName) return false;
-
-                // Parse record date
-                const rDate = new Date(r.date);
-                return rDate.getMonth() === selectedMonth && rDate.getFullYear() === selectedYear;
-            });
-
-            if (target && target.data) {
-                // Set Full Forecast (b) & Daily Forecast
-                if (target.data.full_forecast != null) {
-                    const val = target.data.full_forecast + '%';
-                    dFcst.input.value = val;
-                    // Trigger variance update
-                    dFcst.input.dispatchEvent(new Event('input'));
-
-                    fullFcst.input.value = val;
-                    fullFcst.input.dispatchEvent(new Event('input'));
-                }
-
-                // Set Full Budget (c)
-                if (target.data.full_budget != null) {
-                    fullBudg.input.value = target.data.full_budget;
-                    fullBudg.input.dispatchEvent(new Event('input')); // Trigger variance
-                }
-            }
-
-        } catch (e) {
-            console.error("Error fetching fixed inputs for auto-forecast", e);
-        }
-    });
-
     // Row 3
     const mAct = DOM.createInputGroup("MTD Actual", `input-${dept}-mtd-act`, "text");
     const mFcst = DOM.createInputGroup("MTD Forecast", `input-${dept}-mtd-fcst`, "text");
@@ -8606,6 +8571,60 @@ function renderEngineeringTipperTrucksForm(dept, metricName, card) {
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Auto-populate Daily/Full Forecast from the monthly Fixed Input.
+    // This listener is registered AFTER the daily-record auto-populate above so
+    // that the Fixed Input value always wins: for Engineering metrics the Daily
+    // Forecast is driven by the monthly Fixed Input, not by the saved daily
+    // record. It also accepts the legacy "Pumps" metric name used by older
+    // Dewatering Pumps records.
+    date.input.addEventListener('change', async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) return;
+
+        try {
+            const records = await fetchKPIRecords(dept);
+            const fixedInputs = records.filter(r => r.subtype === 'fixed_input');
+
+            const normalizeMetric = (name) => String(name || '').trim().toLowerCase();
+            const metricAliases = normalizeMetric(metricName) === 'dewatering pumps'
+                ? ['dewatering pumps', 'pumps']
+                : [normalizeMetric(metricName)];
+            const searchMonth = dateVal.slice(0, 7); // YYYY-MM
+
+            const target = fixedInputs.find(r =>
+                metricAliases.includes(normalizeMetric(r.metric_name)) &&
+                typeof r.date === 'string' &&
+                r.date.startsWith(searchMonth)
+            );
+
+            if (target && target.data) {
+                // Daily Forecast mirrors the monthly Fixed Input Full Forecast.
+                // Dispatching 'input' also refreshes MTD Forecast and Full Forecast.
+                const fcstRaw = target.data.full_forecast;
+                if (fcstRaw != null && fcstRaw !== '') {
+                    const fcstVal = typeof fcstRaw === 'string'
+                        ? fcstRaw.replace(/,/g, '').replace('%', '') + '%'
+                        : fcstRaw + '%';
+                    dFcst.input.value = fcstVal;
+                    dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
+                // Set Full Budget (c)
+                const budgRaw = target.data.full_budget;
+                if (budgRaw != null && budgRaw !== '') {
+                    const budgVal = typeof budgRaw === 'string'
+                        ? budgRaw.replace(/,/g, '').replace('%', '')
+                        : budgRaw;
+                    fullBudg.input.value = budgVal;
+                    fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+
+        } catch (e) {
+            console.error("Error fetching fixed inputs for auto-forecast", e);
+        }
     });
 
     // Attach listeners
@@ -12910,8 +12929,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Light Vehicles and Tipper Trucks
-        if (STATE.currentMetric === 'Light Vehicles' || STATE.currentMetric === 'Tipper Trucks' || STATE.currentMetric === 'Pumps' || STATE.currentMetric === 'Drill Rigs') {
+        // Handling for Light Vehicles, Tipper Trucks, Dewatering Pumps and Drill Rigs
+        if (STATE.currentMetric === 'Light Vehicles' || STATE.currentMetric === 'Tipper Trucks' || STATE.currentMetric === 'Dewatering Pumps' || STATE.currentMetric === 'Pumps' || STATE.currentMetric === 'Drill Rigs') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | Qty Avail | D.Act(%) | D.Fcst(%) | Var% | MTD.Act | MTD.Fcst | Var% | F.Fcst | F.Budg | Action

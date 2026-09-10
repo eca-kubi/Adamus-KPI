@@ -36,6 +36,14 @@ const DOM = {
             input.required = true;
         }
 
+        // "Daily Actual" is mandatory on every daily input form. Flag it so that
+        // DOM.createButton enforces it on save; the native `required` attribute is
+        // inert here because these forms are not native <form> submissions.
+        if (/^Daily Actual/i.test(labelText)) {
+            input.dataset.requiredLabel = labelText.trim();
+            input.required = true;
+        }
+
         div.appendChild(label);
         div.appendChild(input);
         return { container: div, input: input };
@@ -183,7 +191,26 @@ const DOM = {
             btn.textContent = text;
         }
 
-        btn.addEventListener('click', onClick);
+        btn.addEventListener('click', (event) => {
+            // Enforce fields explicitly flagged as required for saving (e.g. the
+            // Engineering "Qty Available" input). Scoped to the current KPI form
+            // so unrelated buttons are unaffected.
+            const scope = btn.closest('.kpi-form-body') || btn.closest('.kpi-form-card');
+            if (scope) {
+                const requiredField = Array.from(scope.querySelectorAll('[data-required-label]'))
+                    .find((input) => {
+                        if (input.disabled || input.readOnly) return false;
+                        const value = (input.value ?? '').toString().trim();
+                        return value === '' || value === '-';
+                    });
+                if (requiredField) {
+                    DOM.showToast(`${requiredField.dataset.requiredLabel} is required.`, 'error');
+                    requiredField.focus();
+                    return;
+                }
+            }
+            return onClick(event);
+        });
         return btn;
     },
 
