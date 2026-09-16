@@ -86,14 +86,15 @@ def seed_data():
             print(f"Generating data for {dept}...")
             
             # State trackers for month-to-date
-            mtd_state = {m: {"actual": 0.0, "forecast": 0.0} for m in metrics}
+            # "days" counts accumulated days; Engineering uses it to average.
+            mtd_state = {m: {"actual": 0.0, "forecast": 0.0, "days": 0} for m in metrics}
             current_month = start_date.month
             
             curr_date = start_date
             while curr_date <= end_date:
                 # Reset MTD on new month
                 if curr_date.month != current_month:
-                    mtd_state = {m: {"actual": 0.0, "forecast": 0.0} for m in metrics}
+                    mtd_state = {m: {"actual": 0.0, "forecast": 0.0, "days": 0} for m in metrics}
                     current_month = curr_date.month
                 
                 for metric in metrics:
@@ -109,7 +110,14 @@ def seed_data():
                         mtd_state[metric]["forecast"] = 0
                     else:
                         mtd_state[metric]["actual"] += actual_val
-                        mtd_state[metric]["forecast"] += forecast_val
+                        mtd_state[metric]["days"] += 1
+                        if dept == "Engineering":
+                            # Engineering MTD Forecast mirrors the single daily
+                            # forecast (matches recalculate_metric_month), so it is
+                            # held rather than accumulated.
+                            mtd_state[metric]["forecast"] = forecast_val
+                        else:
+                            mtd_state[metric]["forecast"] += forecast_val
                     
                     actual_str = format_val(actual_val, metric)
                     forecast_str = format_val(forecast_val, metric)
@@ -129,6 +137,11 @@ def seed_data():
                     
                     # MTD Variance
                     mtd_a = mtd_state[metric]["actual"]
+                    if dept == "Engineering":
+                        # Engineering MTD Actual is the plain average of the daily
+                        # actuals entered so far (matches recalculate_metric_month).
+                        _days = mtd_state[metric]["days"] or 1
+                        mtd_a = mtd_state[metric]["actual"] / _days
                     if dept == "OHS":
                         annual_target = 0 if metric == "Environmental Incidents" else 24
                         mtd_f = annual_target / 12

@@ -201,6 +201,73 @@ def verify_variance_logic():
         assert r_tonnes_rehandle_2.data.get('mtd_forecast') == 2700
         assert r_tonnes_rehandle_2.data.get('var2') == "11%"
 
+        # Setup Data for Engineering (MTD Actual = plain average of daily_actual,
+        # MTD Forecast = that day's single daily forecast)
+        dept_eng = "Engineering"
+        metric_eng = "Ancillary Excavators"
+        r_eng_1 = KPIRecord(
+            department=dept_eng,
+            metric_name=metric_eng,
+            date=date(2026, 1, 1),
+            subtype="daily_input",
+            data={"qty_available": 5, "daily_actual": "90%", "daily_forecast": "88%"}
+        )
+        r_eng_2 = KPIRecord(
+            department=dept_eng,
+            metric_name=metric_eng,
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"qty_available": 4, "daily_actual": "80%", "daily_forecast": "90%"}
+        )
+        r_eng_3 = KPIRecord(
+            department=dept_eng,
+            metric_name=metric_eng,
+            date=date(2026, 1, 3),
+            subtype="daily_input",
+            data={"qty_available": 4, "daily_actual": "70%", "daily_forecast": "86%"}
+        )
+        # Day 4 has no actual — it must be skipped, not counted as 0.
+        r_eng_4 = KPIRecord(
+            department=dept_eng,
+            metric_name=metric_eng,
+            date=date(2026, 1, 4),
+            subtype="daily_input",
+            data={"qty_available": 4, "daily_actual": "", "daily_forecast": "88%"}
+        )
+        session.add(r_eng_1)
+        session.add(r_eng_2)
+        session.add(r_eng_3)
+        session.add(r_eng_4)
+        session.commit()
+
+        recalculate_metric_month(dept_eng, metric_eng, 2026, 1, session)
+        session.commit()
+
+        session.refresh(r_eng_1)
+        session.refresh(r_eng_2)
+        session.refresh(r_eng_3)
+        session.refresh(r_eng_4)
+
+        print("\n--- Verifying Engineering (MTD Actual = plain average, MTD Forecast = daily forecast) ---")
+        print(f"Day 1 MTD Actual (Expected 90) / MTD Forecast (Expected 88): {r_eng_1.data.get('mtd_actual')} / {r_eng_1.data.get('mtd_forecast')}")
+        print(f"Day 2 MTD Actual (Expected 85) / MTD Forecast (Expected 90): {r_eng_2.data.get('mtd_actual')} / {r_eng_2.data.get('mtd_forecast')}")
+        print(f"Day 3 MTD Actual (Expected 80) / MTD Forecast (Expected 86): {r_eng_3.data.get('mtd_actual')} / {r_eng_3.data.get('mtd_forecast')}")
+        print(f"Day 4 MTD Actual (Expected 80) / MTD Forecast (Expected 88): {r_eng_4.data.get('mtd_actual')} / {r_eng_4.data.get('mtd_forecast')}")
+
+        # (90 + 80) / 2 and (90 + 80 + 70) / 3 — NOT the old
+        # sum(actual * forecast) / sum(actual) weighting (which gave 87.95 / 86.7).
+        assert r_eng_1.data.get('mtd_actual') == 90, f"Expected 90 but got {r_eng_1.data.get('mtd_actual')}"
+        assert r_eng_2.data.get('mtd_actual') == 85, f"Expected 85 but got {r_eng_2.data.get('mtd_actual')}"
+        assert r_eng_3.data.get('mtd_actual') == 80, f"Expected 80 but got {r_eng_3.data.get('mtd_actual')}"
+        assert r_eng_4.data.get('mtd_actual') == 80, f"Expected 80 but got {r_eng_4.data.get('mtd_actual')}"
+
+        # MTD Forecast mirrors that day's own forecast — it must never accumulate
+        # (a running sum would give 88 / 178 / 264 / 352 here).
+        assert r_eng_1.data.get('mtd_forecast') == 88, f"Expected 88 but got {r_eng_1.data.get('mtd_forecast')}"
+        assert r_eng_2.data.get('mtd_forecast') == 90, f"Expected 90 but got {r_eng_2.data.get('mtd_forecast')}"
+        assert r_eng_3.data.get('mtd_forecast') == 86, f"Expected 86 but got {r_eng_3.data.get('mtd_forecast')}"
+        assert r_eng_4.data.get('mtd_forecast') == 88, f"Expected 88 but got {r_eng_4.data.get('mtd_forecast')}"
+
         # Setup Data for Stockpile (Near Pit Ore Stockpile)
         metric_stockpile = "Near Pit Ore Stockpile"
         r_stockpile_1 = KPIRecord(

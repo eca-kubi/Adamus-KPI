@@ -185,6 +185,13 @@ function setFormInputValue(input, value) {
  * @param {string} metricName - Metric name
  * @param {string} dateVal - Selected date (YYYY-MM-DD)
  * @param {Object<string, string>} fieldMap - Maps record data keys to DOM element IDs
+ * @param {Object} [options]
+ * @param {string[]} [options.preserveKeys] - Record data keys that must NEVER be
+ *   written from the saved record. For Engineering metrics the Daily Forecast is
+ *   driven by the monthly Fixed Input, so restoring a stale/blank saved value
+ *   here would wipe out the Fixed Input forecast that was already loaded by the
+ *   Fixed Input listener. Preserved keys are therefore skipped in BOTH branches
+ *   (record found and record absent) so the Fixed Input value always wins.
  * @returns {Object|null} The existing record if found, null otherwise
  */
 async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap, options = {}) {
@@ -204,6 +211,9 @@ async function autoPopulateDailyForm(dept, metricName, dateVal, fieldMap, option
 
         if (existingRecord && existingRecord.data) {
             for (const [dataKey, elementId] of Object.entries(fieldMap)) {
+                // Never let the saved record clobber a value owned by the
+                // monthly Fixed Input (e.g. Engineering Daily Forecast).
+                if (preserveSet.has(dataKey)) continue;
                 const el = document.getElementById(elementId);
                 if (!el) continue;
                 setFormInputValue(el, existingRecord.data[dataKey]);
@@ -9077,6 +9087,7 @@ function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
 
     // Auto-Calculate MTD Actual (Average) for Anx Excavators
     const updateMTDActual = async () => {
+        const dateVal = date.input.value;
         const currentDailyValStr = dAct.input.value;
 
         if (!dateVal) return;

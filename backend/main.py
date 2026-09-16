@@ -1282,6 +1282,10 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
     running_weighted_sum = 0.0
     running_fcst_wsum = 0.0
     running_fcst_weights = 0.0
+    # Engineering MTD Actual is a plain (unweighted) average, so it needs its
+    # own accumulator plus a count of the days that actually had an actual.
+    eng_act_sum = 0.0
+    eng_act_days = 0
 
     # For Ore Mined Grade: pre-fetch Ore Mined daily records to look up
     # actual and forecast tonnes per date for weighting.
@@ -1391,6 +1395,10 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 mtd_forecast = (gc_running / running_fcst) * 31.1035
             else:
                 mtd_forecast = 0.0
+        elif department == "Engineering":
+            # Engineering MTD Forecast mirrors the single daily forecast for the
+            # day (it is driven by the monthly Fixed Input), not a running sum.
+            mtd_forecast = daily_fcst
         else:
             running_fcst += daily_fcst
             mtd_forecast = running_fcst
@@ -1429,9 +1437,14 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             running_weights += daily_act_tonnes
             mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
         elif department == "Engineering":
-            running_weighted_sum += (daily_act * daily_fcst)
-            running_weights += daily_act
-            mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
+            # Engineering MTD Actual = plain (unweighted) average of the
+            # daily_actual values entered so far this month. This mirrors the
+            # client-side preview in the Engineering entry forms. Days with no
+            # actual are skipped so a blank day cannot drag the average down.
+            if d.get('daily_actual') not in (None, "", "-"):
+                eng_act_sum += daily_act
+                eng_act_days += 1
+            mtd_actual = eng_act_sum / eng_act_days if eng_act_days else 0.0
         elif department == "Milling_CIL" and metric_name == "Recovery":
             # Recovery MTD Actual = (Gold Recovered MTD Actual / Gold Contained MTD Actual) * 100
             # Look up Gold Recovered and Gold Contained daily records up to this date
@@ -1791,6 +1804,10 @@ def get_summary_dashboard(
                     mtd_forecast = (gc_mtd_fcst / pfg_fcst_tonnes) * 31.1035
                 else:
                     mtd_forecast = 0.0
+            elif dept == "Engineering":
+                # Engineering MTD Forecast mirrors the single daily forecast for the
+                # target date, matching recalculate_metric_month and the entry forms.
+                mtd_forecast = parse_float(daily_forecast) if daily_forecast is not None else 0.0
             else:
                 mtd_forecast = sum_or_none(parse_optional_float(r.data.get('daily_forecast')) for r in daily_records)
 
@@ -1831,9 +1848,12 @@ def get_summary_dashboard(
                 sum_weights = sum(parse_float(r.data.get('daily_act_tonnes')) for r in daily_records)
                 mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
             elif dept == "Engineering":
-                sum_prod = sum_or_none(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_forecast')) for r in daily_records)
-                sum_weights = sum_or_none(parse_optional_float(r.data.get('daily_actual')) for r in daily_records)
-                mtd_actual = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
+                # Engineering MTD Actual = plain (unweighted) average of the
+                # daily_actual values entered up to the target date, matching
+                # recalculate_metric_month and the Engineering entry forms.
+                eng_vals = [parse_optional_float(r.data.get('daily_actual')) for r in daily_records]
+                eng_vals = [v for v in eng_vals if v is not None]
+                mtd_actual = (sum(eng_vals) / len(eng_vals)) if eng_vals else None
             elif dept == "Milling_CIL" and metric_name == "Recovery":
                 # Recovery MTD Actual = (Gold Recovered MTD Actual / Gold Contained MTD Actual) * 100
                 # Use parse_float consistently (matching recalculate_metric_month) so
