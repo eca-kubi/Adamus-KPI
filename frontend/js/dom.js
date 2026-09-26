@@ -199,7 +199,11 @@ const DOM = {
             if (scope) {
                 const requiredField = Array.from(scope.querySelectorAll('[data-required-label]'))
                     .find((input) => {
-                        if (input.disabled || input.readOnly) return false;
+                        // Skip disabled/hidden fields, but still validate fields that
+                        // are explicitly flagged as required even when they are
+                        // read-only (e.g. the Engineering Daily Forecast, which is
+                        // auto-populated from the monthly Fixed Input).
+                        if (input.disabled) return false;
                         const value = (input.value ?? '').toString().trim();
                         return value === '' || value === '-';
                     });

@@ -2241,6 +2241,30 @@ def _validate_previous_day_submitted(session: Session, department: str, metric_n
     return None
 
 
+def _validate_engineering_daily_forecast(department: str, record: KPIRecord) -> Optional[str]:
+    """Ensure Engineering daily inputs carry a Daily Forecast.
+
+    The Engineering Daily Forecast is driven by the monthly Fixed Input and is
+    required so the variance against the daily actual is computed accurately.
+    Saving a daily record without it would make ``var1``/``var2`` meaningless,
+    so such records are rejected.
+
+    Returns an error message string if validation fails, or ``None`` if it passes.
+    """
+    if department != "Engineering" or record.subtype == 'fixed_input':
+        return None
+    if record.metric_name == "Fixed Inputs":
+        return None
+
+    forecast = (record.data or {}).get('daily_forecast')
+    if forecast is None:
+        return "Daily Forecast is required for Engineering metrics. Enter the monthly Fixed Input first."
+    if isinstance(forecast, str) and forecast.strip() in ("", "-"):
+        return "Daily Forecast is required for Engineering metrics. Enter the monthly Fixed Input first."
+
+    return None
+
+
 def _deduplicate_daily_records(session: Session, department: str, record_date: date, metric_name: str, keep_id: int) -> None:
     """Remove duplicate daily rows for the same department/date/metric.
 
@@ -2281,6 +2305,13 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
             )
             if prev_day_error:
                 raise HTTPException(status_code=400, detail=prev_day_error)
+
+            # Engineering daily inputs require a Daily Forecast (driven by the
+            # monthly Fixed Input) so the variance against the daily actual is
+            # meaningful.
+            fcst_error = _validate_engineering_daily_forecast(department, record)
+            if fcst_error:
+                raise HTTPException(status_code=400, detail=fcst_error)
 
         # Check for existing record to prevent duplicates (Upsert logic).
         # Daily records created before the subtype column was fully populated

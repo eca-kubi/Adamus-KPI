@@ -2078,6 +2078,15 @@ function renderKPIForm(dept, metricName) {
         if (mtdFcstEl) mtdFcstEl.readOnly = true;
         if (fullFcstEl) fullFcstEl.readOnly = true;
 
+        // Daily Forecast is mandatory for every Engineering metric. It is driven
+        // by the monthly Fixed Input and must be present so the variance against
+        // the daily actual is computed accurately. Because the field is read-only,
+        // DOM.createButton is instructed to still validate it on save.
+        if (dailyFcstEl) {
+            dailyFcstEl.dataset.requiredLabel = 'Daily Forecast';
+            dailyFcstEl.required = true;
+        }
+
         // Qty Available is mandatory for the equipment metrics that capture it
         // (Crusher/Mill do not have this field).
         // Note: Daily Actual is marked required generically in dom.js for every
