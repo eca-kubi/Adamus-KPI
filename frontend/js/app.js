@@ -5723,35 +5723,69 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
     // Logic Variables
     let priorMtdAct = 0;
     let priorMtdFcst = 0;
+    // Toll Grade MTD Actual/Forecast are tonne-weighted averages, weighted by
+    // the Toll Tonnes recorded for the same date, so this form needs weighted
+    // accumulators (numerator/denominator) instead of plain running sums.
+    const isTollGrade = (metricName === "Toll Grade");
+    let priorActNum = 0;        // Σ(daily_actual grade * Toll Tonnes daily_actual)
+    let priorActWeight = 0;     // Σ(Toll Tonnes daily_actual)
+    let priorFcstNum = 0;       // Σ(daily_forecast grade * Toll Tonnes daily_forecast)
+    let priorFcstWeight = 0;    // Σ(Toll Tonnes daily_forecast)
+    let currentActWeight = 0;   // Toll Tonnes daily_actual for the selected date
+    let currentFcstWeight = 0;  // Toll Tonnes daily_forecast for the selected date
 
     const updateCalculations = () => {
         const curDAct = parseFloat(dAct.input.value) || 0;
         const curDFcst = parseFloat(dFcst.input.value) || 0;
 
-        // MTD Actual = History Sum + Current Daily
-        const currentMtdAct = priorMtdAct + curDAct;
-        mAct.input.value = currentMtdAct.toFixed(0);
-        mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+        let currentMtdAct;
+        if (isTollGrade) {
+            // MTD Actual = Σ(grade * Toll Tonnes actual) / Σ(Toll Tonnes actual).
+            // A day with no Toll Tonnes record has a weight of 0, so it drops out
+            // of both the numerator and the denominator.
+            const actDen = priorActWeight + currentActWeight;
+            currentMtdAct = actDen !== 0 ? (priorActNum + curDAct * currentActWeight) / actDen : 0;
+            mAct.input.value = currentMtdAct.toFixed(2);
+            mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // MTD Forecast = History Sum + Current Forecast
-        mFcst.input.value = (priorMtdFcst + curDFcst).toFixed(0);
-        mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+            // MTD Forecast = Σ(grade forecast * Toll Tonnes forecast) / Σ(Toll Tonnes forecast)
+            const fcstDen = priorFcstWeight + currentFcstWeight;
+            const currentMtdFcst = fcstDen !== 0 ? (priorFcstNum + curDFcst * currentFcstWeight) / fcstDen : 0;
+            mFcst.input.value = currentMtdFcst.toFixed(2);
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            // MTD Actual = History Sum + Current Daily
+            currentMtdAct = priorMtdAct + curDAct;
+            mAct.input.value = currentMtdAct.toFixed(0);
+            mAct.input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // MTD Forecast = History Sum + Current Forecast
+            mFcst.input.value = (priorMtdFcst + curDFcst).toFixed(0);
+            mFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
 
         // Outlook Logic
         const dateVal = date.input.value;
         if (dateVal) {
-            const d = new Date(dateVal);
-            const totalDays = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-            const currentDay = d.getDate();
-
-            if (currentDay > 0) {
-                const remainingDays = totalDays - currentDay;
-                const ratio = remainingDays / currentDay;
-                const adjustment = ratio * currentMtdAct;
-                const finalVal = adjustment + currentMtdAct;
-
-                outlook.input.value = finalVal.toFixed(0);
+            if (isTollGrade) {
+                // Toll Grade outlook mirrors the weighted MTD Actual, matching
+                // recalculate_metric_month on the backend.
+                outlook.input.value = currentMtdAct.toFixed(2);
                 outlook.input.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                const d = new Date(dateVal);
+                const totalDays = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+                const currentDay = d.getDate();
+
+                if (currentDay > 0) {
+                    const remainingDays = totalDays - currentDay;
+                    const ratio = remainingDays / currentDay;
+                    const adjustment = ratio * currentMtdAct;
+                    const finalVal = adjustment + currentMtdAct;
+
+                    outlook.input.value = finalVal.toFixed(0);
+                    outlook.input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             }
         }
     };
@@ -5791,6 +5825,37 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
 
             priorMtdAct = historicRecords.reduce((sum, r) => sum + (parseFloat(r.data.daily_actual) || 0), 0);
             priorMtdFcst = historicRecords.reduce((sum, r) => sum + (parseFloat(r.data.daily_forecast) || 0), 0);
+
+            if (isTollGrade) {
+                // Toll Grade MTD is a tonne-weighted average, so accumulate the
+                // weighted numerator/denominator from the Toll Tonnes records.
+                const tollTonnesByDate = {};
+                records.forEach(r => {
+                    if (r.metric_name === 'Toll Tonnes' && r.subtype !== 'fixed_input' && r.data) {
+                        tollTonnesByDate[r.date] = r.data;
+                    }
+                });
+
+                priorActNum = 0;
+                priorActWeight = 0;
+                priorFcstNum = 0;
+                priorFcstWeight = 0;
+                historicRecords.forEach(r => {
+                    const tt = tollTonnesByDate[r.date] || {};
+                    const actTonnes = parseFloat(tt.daily_actual) || 0;
+                    const fcstTonnes = parseFloat(tt.daily_forecast) || 0;
+                    priorActNum += (parseFloat(r.data.daily_actual) || 0) * actTonnes;
+                    priorActWeight += actTonnes;
+                    priorFcstNum += (parseFloat(r.data.daily_forecast) || 0) * fcstTonnes;
+                    priorFcstWeight += fcstTonnes;
+                });
+
+                // The current day's weights come from the Toll Tonnes record
+                // saved for the selected date (if any).
+                const currentTt = tollTonnesByDate[dateVal] || {};
+                currentActWeight = parseFloat(currentTt.daily_actual) || 0;
+                currentFcstWeight = parseFloat(currentTt.daily_forecast) || 0;
+            }
 
             // 2. Fetch Full Forecast/Budget from Fixed Inputs
             const fixedRecord = records.find(r =>
@@ -5915,6 +5980,12 @@ function renderMillingGoldContainedForm(dept, metricName, card) {
             // Reset logic variables
             priorMtdAct = 0;
             priorMtdFcst = 0;
+            priorActNum = 0;
+            priorActWeight = 0;
+            priorFcstNum = 0;
+            priorFcstWeight = 0;
+            currentActWeight = 0;
+            currentFcstWeight = 0;
 
         } catch (e) {
             console.error(e);
@@ -16722,6 +16793,11 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         }
         
         d.mtd_forecast = parseFloat((parseFloat(d.daily_forecast) || 0).toFixed(2));
+    } else if (metric === 'Toll Grade') {
+        // Toll Grade MTD Actual/Forecast are tonne-weighted averages driven by
+        // the separate Toll Tonnes metric. The import batch does not carry the
+        // per-day Toll Tonnes values, so leave these unset here and let the
+        // backend (recalculate_metric_month) compute them after import.
     } else if (metric === 'Near Pit Ore Stockpile' || metric === 'Main Rompad Stockpile') {
         if (d.daily_actual !== undefined) {
             d.mtd_actual = parseFloat(d.daily_actual) || 0;
@@ -16745,7 +16821,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         d.mtd_forecast = parseFloat(d.daily_forecast) || 0;
     } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
         d.mtd_forecast = "-";
-    } else if (metric !== "Rehandle Grade") {
+    } else if (metric !== "Rehandle Grade" && metric !== "Toll Grade") {
         if (d.daily_forecast !== undefined) {
             const prevMtdFcst = pd ? (parseFloat(pd.mtd_forecast) || 0) : 0;
             d.mtd_forecast = prevMtdFcst + parseFloat(d.daily_forecast);

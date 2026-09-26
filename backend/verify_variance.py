@@ -3,7 +3,7 @@ import os
 from datetime import date
 from sqlmodel import Session, SQLModel, create_engine
 from backend.models import KPIRecord
-from backend.main import cascade_fixed_input, CascadeFixedRequest
+from backend.main import cascade_fixed_input, recalculate_metric_month, CascadeFixedRequest
 
 # Use in-memory SQLite for testing
 engine = create_engine("sqlite:///:memory:")
@@ -440,7 +440,8 @@ def verify_variance_logic():
             subtype="daily_input",
             data={"daily_actual": 110, "daily_forecast": 95}
         )
-        # Day 3: day2/day2_forecast explicitly provided — should use those values
+        # Day 3: any day2/day2_forecast supplied here is ignored — Milling/CIL day2
+        # is always the previous day's daily_actual/daily_forecast (Day 2: 110 / 95).
         r_mill_3 = KPIRecord(
             department=dept_mill,
             metric_name=metric_mill,
@@ -461,30 +462,192 @@ def verify_variance_logic():
         session.refresh(r_mill_2)
         session.refresh(r_mill_3)
 
-        print("\n--- Verifying Milling_CIL (day2 auto-population and var1 formula) ---")
+        print("\n--- Verifying Milling_CIL (day2 auto-population and var1/day2_var formulas) ---")
 
-        # Day 1: idx=0, no previous record → var1 should be "-" (no day2 value available)
-        print(f"Day 1 var1 (Expected '-'): {r_mill_1.data.get('var1')}")
-        assert r_mill_1.data.get('var1') == "-", f"Expected '-' but got {r_mill_1.data.get('var1')}"
+        # Day 1: var1 is the plain daily variance; idx=0 has no previous record so
+        # day2/day2_forecast are absent and day2_var must be "-".
+        print(f"Day 1 var1 (Expected '11%'): {r_mill_1.data.get('var1')}")
+        print(f"Day 1 day2_var (Expected '-'): {r_mill_1.data.get('day2_var')}")
+        assert r_mill_1.data.get('var1') == "11%", f"Expected '11%' but got {r_mill_1.data.get('var1')}"
+        assert r_mill_1.data.get('day2_var') == "-", f"Expected '-' but got {r_mill_1.data.get('day2_var')}"
 
         # Day 2: day2 auto-populated from Day 1 daily_actual=100, day2_forecast from Day 1 daily_forecast=90
-        # var1 = (100 - 90) / 90 * 100 = 11.11... → 11%
+        # day2_var = (100 - 90) / 90 * 100 = 11.11... → 11%
+        # var1 = (110 - 95) / 95 * 100 = 15.78... → 16%
         print(f"Day 2 day2 (Expected 100): {r_mill_2.data.get('day2')}")
         print(f"Day 2 day2_forecast (Expected 90): {r_mill_2.data.get('day2_forecast')}")
-        print(f"Day 2 var1 (Expected '11%'): {r_mill_2.data.get('var1')}")
-        assert str(r_mill_2.data.get('day2')) == str(100), f"Expected day2=100 but got {r_mill_2.data.get('day2')}"
-        assert str(r_mill_2.data.get('day2_forecast')) == str(90), f"Expected day2_forecast=90 but got {r_mill_2.data.get('day2_forecast')}"
-        assert r_mill_2.data.get('var1') == "11%", f"Expected '11%' but got {r_mill_2.data.get('var1')}"
+        print(f"Day 2 var1 (Expected '16%'): {r_mill_2.data.get('var1')}")
+        print(f"Day 2 day2_var (Expected '11%'): {r_mill_2.data.get('day2_var')}")
+        assert float(r_mill_2.data.get('day2')) == 100.0, f"Expected day2=100 but got {r_mill_2.data.get('day2')}"
+        assert float(r_mill_2.data.get('day2_forecast')) == 90.0, f"Expected day2_forecast=90 but got {r_mill_2.data.get('day2_forecast')}"
+        assert r_mill_2.data.get('var1') == "16%", f"Expected '16%' but got {r_mill_2.data.get('var1')}"
+        assert r_mill_2.data.get('day2_var') == "11%", f"Expected '11%' but got {r_mill_2.data.get('day2_var')}"
 
-        # Day 3: explicit day2=50, day2_forecast=100 → var1 = (50-100)/100*100 = -50%
-        print(f"Day 3 day2 (Expected 50): {r_mill_3.data.get('day2')}")
-        print(f"Day 3 day2_forecast (Expected 100): {r_mill_3.data.get('day2_forecast')}")
-        print(f"Day 3 var1 (Expected '-50%'): {r_mill_3.data.get('var1')}")
-        assert str(r_mill_3.data.get('day2')) == str(50), f"Expected day2=50 but got {r_mill_3.data.get('day2')}"
-        assert str(r_mill_3.data.get('day2_forecast')) == str(100), f"Expected day2_forecast=100 but got {r_mill_3.data.get('day2_forecast')}"
-        assert r_mill_3.data.get('var1') == "-50%", f"Expected '-50%' but got {r_mill_3.data.get('var1')}"
+        # Day 3: day2/day2_forecast come from Day 2 (110 / 95), not the supplied 50 / 100.
+        # day2_var = (110 - 95) / 95 * 100 = 15.78... → 16%
+        # var1 = (120 - 100) / 100 * 100 = 20%
+        print(f"Day 3 day2 (Expected 110): {r_mill_3.data.get('day2')}")
+        print(f"Day 3 day2_forecast (Expected 95): {r_mill_3.data.get('day2_forecast')}")
+        print(f"Day 3 var1 (Expected '20%'): {r_mill_3.data.get('var1')}")
+        print(f"Day 3 day2_var (Expected '16%'): {r_mill_3.data.get('day2_var')}")
+        assert float(r_mill_3.data.get('day2')) == 110.0, f"Expected day2=110 but got {r_mill_3.data.get('day2')}"
+        assert float(r_mill_3.data.get('day2_forecast')) == 95.0, f"Expected day2_forecast=95 but got {r_mill_3.data.get('day2_forecast')}"
+        assert r_mill_3.data.get('var1') == "20%", f"Expected '20%' but got {r_mill_3.data.get('var1')}"
+        assert r_mill_3.data.get('day2_var') == "16%", f"Expected '16%' but got {r_mill_3.data.get('day2_var')}"
 
         print("\nSUCCESS: All variance logic verified!")
 
+
+def verify_toll_grade_weighted_mtd():
+    """Toll Grade MTD Actual/Forecast must be tonne-weighted averages by Toll Tonnes."""
+    # Use a dedicated in-memory DB so this check is independent of the other
+    # (currently stale) sections in this script.
+    toll_engine = create_engine("sqlite:///:memory:")
+    SQLModel.metadata.create_all(toll_engine)
+
+    with Session(toll_engine) as session:
+        dept = "Milling_CIL"
+        grade_records = [
+            KPIRecord(
+                department=dept,
+                metric_name="Toll Grade",
+                date=date(2026, 1, 1),
+                subtype="daily_input",
+                data={"daily_actual": 1.50, "daily_forecast": 1.60},
+            ),
+            KPIRecord(
+                department=dept,
+                metric_name="Toll Grade",
+                date=date(2026, 1, 2),
+                subtype="daily_input",
+                data={"daily_actual": 1.80, "daily_forecast": 1.70},
+            ),
+        ]
+        # Toll Tonnes is the weight for the grade; actual and forecast weight separately.
+        tonnes_records = [
+            KPIRecord(
+                department=dept,
+                metric_name="Toll Tonnes",
+                date=date(2026, 1, 1),
+                subtype="daily_input",
+                data={"daily_actual": 1000, "daily_forecast": 1200},
+            ),
+            KPIRecord(
+                department=dept,
+                metric_name="Toll Tonnes",
+                date=date(2026, 1, 2),
+                subtype="daily_input",
+                data={"daily_actual": 2000, "daily_forecast": 800},
+            ),
+        ]
+        for rec in grade_records + tonnes_records:
+            session.add(rec)
+        session.commit()
+
+        recalculate_metric_month(dept, "Toll Grade", 2026, 1, session)
+        session.commit()
+
+        for rec in grade_records:
+            session.refresh(rec)
+
+        day1, day2 = grade_records
+
+        print("\n--- Verifying Milling_CIL Toll Grade (tonne-weighted average by Toll Tonnes) ---")
+        # Day 1: a single record, so the weighted average equals the daily value.
+        print(f"Day 1 MTD Actual (Expected 1.5): {day1.data.get('mtd_actual')}")
+        print(f"Day 1 MTD Forecast (Expected 1.6): {day1.data.get('mtd_forecast')}")
+        # Day 2 actual: (1.50*1000 + 1.80*2000) / (1000 + 2000) = 5100/3000 = 1.70
+        print(f"Day 2 MTD Actual (Expected 1.7): {day2.data.get('mtd_actual')}")
+        # Day 2 forecast: (1.60*1200 + 1.70*800) / (1200 + 800) = 3280/2000 = 1.64
+        print(f"Day 2 MTD Forecast (Expected 1.64): {day2.data.get('mtd_forecast')}")
+        # Outlook mirrors the weighted MTD Actual for Toll Grade.
+        print(f"Day 2 Outlook (Expected 1.7): {day2.data.get('outlook')}")
+
+        assert day1.data.get("mtd_actual") == 1.5
+        assert day1.data.get("mtd_forecast") == 1.6
+        assert day2.data.get("mtd_actual") == 1.7
+        assert day2.data.get("mtd_forecast") == 1.64
+        assert day2.data.get("outlook") == 1.7
+
+        print("\nSUCCESS: Toll Grade weighted-average MTD verified!")
+
+
+def verify_toll_grade_zero_weight_days():
+    """A day with no Toll Tonnes record gets a weight of 0 and drops out of the average."""
+    zero_weight_engine = create_engine("sqlite:///:memory:")
+    SQLModel.metadata.create_all(zero_weight_engine)
+
+    with Session(zero_weight_engine) as session:
+        dept = "Milling_CIL"
+        grade_records = [
+            # Day 1 has no Toll Tonnes record -> weight 0 -> excluded.
+            KPIRecord(
+                department=dept,
+                metric_name="Toll Grade",
+                date=date(2026, 1, 1),
+                subtype="daily_input",
+                data={"daily_actual": 1.50, "daily_forecast": 1.60},
+            ),
+            # Day 2 is the only day that carries a weight.
+            KPIRecord(
+                department=dept,
+                metric_name="Toll Grade",
+                date=date(2026, 1, 2),
+                subtype="daily_input",
+                data={"daily_actual": 1.80, "daily_forecast": 1.70},
+            ),
+            # Day 3 has no Toll Tonnes record -> weight 0 -> excluded.
+            KPIRecord(
+                department=dept,
+                metric_name="Toll Grade",
+                date=date(2026, 1, 3),
+                subtype="daily_input",
+                data={"daily_actual": 2.00, "daily_forecast": 1.90},
+            ),
+        ]
+        tonnes_records = [
+            KPIRecord(
+                department=dept,
+                metric_name="Toll Tonnes",
+                date=date(2026, 1, 2),
+                subtype="daily_input",
+                data={"daily_actual": 1000, "daily_forecast": 1200},
+            ),
+        ]
+        for rec in grade_records + tonnes_records:
+            session.add(rec)
+        session.commit()
+
+        recalculate_metric_month(dept, "Toll Grade", 2026, 1, session)
+        session.commit()
+
+        for rec in grade_records:
+            session.refresh(rec)
+
+        day1, day2, day3 = grade_records
+
+        print("\n--- Verifying Toll Grade zero-weight days (missing Toll Tonnes -> weight 0) ---")
+        # Day 1: the only recorded day has weight 0, so there is no weighted data yet.
+        print(f"Day 1 MTD Actual (Expected 0): {day1.data.get('mtd_actual')}")
+        print(f"Day 1 MTD Forecast (Expected 0): {day1.data.get('mtd_forecast')}")
+        # Day 2: only day 2 carries a weight, so the MTD equals day 2's own grade.
+        print(f"Day 2 MTD Actual (Expected 1.8): {day2.data.get('mtd_actual')}")
+        print(f"Day 2 MTD Forecast (Expected 1.7): {day2.data.get('mtd_forecast')}")
+        # Day 3: weight 0, so it is excluded and the MTD is unchanged from day 2.
+        print(f"Day 3 MTD Actual (Expected 1.8): {day3.data.get('mtd_actual')}")
+        print(f"Day 3 MTD Forecast (Expected 1.7): {day3.data.get('mtd_forecast')}")
+
+        assert day1.data.get("mtd_actual") == 0.0
+        assert day1.data.get("mtd_forecast") == 0.0
+        assert day2.data.get("mtd_actual") == 1.8
+        assert day2.data.get("mtd_forecast") == 1.7
+        assert day3.data.get("mtd_actual") == 1.8
+        assert day3.data.get("mtd_forecast") == 1.7
+
+        print("\nSUCCESS: Toll Grade zero-weight-day handling verified!")
+
+
 if __name__ == "__main__":
+    verify_toll_grade_weighted_mtd()
+    verify_toll_grade_zero_weight_days()
     verify_variance_logic()

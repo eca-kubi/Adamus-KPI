@@ -1271,7 +1271,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             return f"{round(var)}%"
         else:
             if fcst_f == 0:
-                return "0%"
+                return "0%" if act_f == 0 else "-"
             var = ((act_f - fcst_f) / fcst_f) * 100
             return f"{round(var)}%"
     
@@ -1339,6 +1339,24 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             running_gc += parse_float(gc_r.data.get('daily_forecast'))
             gc_fcst_by_date[gc_r.date] = running_gc
 
+    # For Toll Grade, MTD Actual/Forecast are tonne-weighted averages of the
+    # daily grade, weighted by the Toll Tonnes recorded for the same date.
+    # Pre-fetch the Toll Tonnes daily records so the loop can look them up.
+    toll_tonnes_act_by_date: dict[date, float] = {}
+    toll_tonnes_fcst_by_date: dict[date, float] = {}
+    if department == "Milling_CIL" and metric_name == "Toll Grade":
+        tt_stmt = select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.date >= month_start,
+            KPIRecord.date < next_month_start,
+            KPIRecord.metric_name == "Toll Tonnes",
+            or_(KPIRecord.subtype != 'fixed_input', KPIRecord.subtype == None)
+        ).order_by(KPIRecord.date)
+        for tt in session.exec(tt_stmt).all():
+            if tt.data:
+                toll_tonnes_act_by_date[tt.date] = parse_float(tt.data.get('daily_actual'))
+                toll_tonnes_fcst_by_date[tt.date] = parse_float(tt.data.get('daily_forecast'))
+
     for idx, r in enumerate(daily_records):
         d = dict(r.data)
         
@@ -1395,6 +1413,15 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 mtd_forecast = (gc_running / running_fcst) * 31.1035
             else:
                 mtd_forecast = 0.0
+        elif department == "Milling_CIL" and metric_name == "Toll Grade":
+            # MTD Forecast = tonne-weighted average of the daily forecast grade,
+            # weighted by the Toll Tonnes daily_forecast for the same date. When a
+            # day has no Toll Tonnes record its weight is 0, so it drops out of
+            # both the numerator and the denominator.
+            tt_fcst_tonnes = toll_tonnes_fcst_by_date.get(r.date, 0.0)
+            running_fcst_wsum += (daily_fcst * tt_fcst_tonnes)
+            running_fcst_weights += tt_fcst_tonnes
+            mtd_forecast = running_fcst_wsum / running_fcst_weights if running_fcst_weights != 0 else 0.0
         elif department == "Engineering":
             # Engineering MTD Forecast mirrors the single daily forecast for the
             # day (it is driven by the monthly Fixed Input), not a running sum.
@@ -1435,6 +1462,15 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             daily_act_tonnes = parse_float(d.get('daily_act_tonnes'))
             running_weighted_sum += (daily_act * daily_act_tonnes)
             running_weights += daily_act_tonnes
+            mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
+        elif department == "Milling_CIL" and metric_name == "Toll Grade":
+            # MTD Actual = tonne-weighted average of the daily actual grade,
+            # weighted by the Toll Tonnes daily_actual for the same date. When a
+            # day has no Toll Tonnes record its weight is 0, so it drops out of
+            # both the numerator and the denominator.
+            tt_act_tonnes = toll_tonnes_act_by_date.get(r.date, 0.0)
+            running_weighted_sum += (daily_act * tt_act_tonnes)
+            running_weights += tt_act_tonnes
             mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
         elif department == "Engineering":
             # Engineering MTD Actual = plain (unweighted) average of the
@@ -1684,7 +1720,7 @@ def get_summary_dashboard(
             return f"{round(var)}%"
         else:
             if fcst_f == 0:
-                return "0%"
+                return "0%" if act_f == 0 else "-"
             var = ((act_f - fcst_f) / fcst_f) * 100
             return f"{round(var)}%"
 
@@ -1804,6 +1840,14 @@ def get_summary_dashboard(
                     mtd_forecast = (gc_mtd_fcst / pfg_fcst_tonnes) * 31.1035
                 else:
                     mtd_forecast = 0.0
+            elif dept == "Milling_CIL" and metric_name == "Toll Grade":
+                # MTD Forecast = tonne-weighted average of the daily_forecast grade,
+                # weighted by the Toll Tonnes daily_forecast for the same date. Days
+                # with no Toll Tonnes record get a weight of 0 and drop out.
+                tt_fcst_by_date = {r.date: parse_float(r.data.get('daily_forecast')) for r in dept_records if r.metric_name == "Toll Tonnes" and r.subtype != 'fixed_input' and r.date >= month_start and r.date <= target_date}
+                sum_prod = sum(parse_float(r.data.get('daily_forecast')) * tt_fcst_by_date.get(r.date, 0.0) for r in daily_records)
+                sum_weights = sum(tt_fcst_by_date.get(r.date, 0.0) for r in daily_records)
+                mtd_forecast = sum_prod / sum_weights if sum_weights != 0 else 0.0
             elif dept == "Engineering":
                 # Engineering MTD Forecast mirrors the single daily forecast for the
                 # target date, matching recalculate_metric_month and the entry forms.
@@ -1846,6 +1890,14 @@ def get_summary_dashboard(
                 # instead of None when no tonnage data is available.
                 sum_prod = sum(parse_float(r.data.get('daily_actual')) * parse_float(r.data.get('daily_act_tonnes')) for r in daily_records)
                 sum_weights = sum(parse_float(r.data.get('daily_act_tonnes')) for r in daily_records)
+                mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+            elif dept == "Milling_CIL" and metric_name == "Toll Grade":
+                # MTD Actual = tonne-weighted average of the daily_actual grade,
+                # weighted by the Toll Tonnes daily_actual for the same date. Days
+                # with no Toll Tonnes record get a weight of 0 and drop out.
+                tt_act_by_date = {r.date: parse_float(r.data.get('daily_actual')) for r in dept_records if r.metric_name == "Toll Tonnes" and r.subtype != 'fixed_input' and r.date >= month_start and r.date <= target_date}
+                sum_prod = sum(parse_float(r.data.get('daily_actual')) * tt_act_by_date.get(r.date, 0.0) for r in daily_records)
+                sum_weights = sum(tt_act_by_date.get(r.date, 0.0) for r in daily_records)
                 mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
             elif dept == "Engineering":
                 # Engineering MTD Actual = plain (unweighted) average of the
@@ -2262,6 +2314,9 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 # If Gold Recovered or Gold Contained changed, also recalculate Recovery
                 if department == "Milling_CIL" and existing.metric_name in ("Gold Recovered", "Gold Contained"):
                     recalculate_metric_month(department, "Recovery", rec_date.year, rec_date.month, session)
+                # If Toll Tonnes changed, also recalculate Toll Grade (weighted by it)
+                if department == "Milling_CIL" and existing.metric_name == "Toll Tonnes":
+                    recalculate_metric_month(department, "Toll Grade", rec_date.year, rec_date.month, session)
                 session.commit()
                 session.refresh(existing)
                 
@@ -2284,6 +2339,9 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 # If Gold Recovered or Gold Contained changed, also recalculate Recovery
                 if department == "Milling_CIL" and record.metric_name in ("Gold Recovered", "Gold Contained"):
                     recalculate_metric_month(department, "Recovery", rec_date.year, rec_date.month, session)
+                # If Toll Tonnes changed, also recalculate Toll Grade (weighted by it)
+                if department == "Milling_CIL" and record.metric_name == "Toll Tonnes":
+                    recalculate_metric_month(department, "Toll Grade", rec_date.year, rec_date.month, session)
                 session.commit()
                 session.refresh(record)
                 
@@ -2394,11 +2452,14 @@ def import_kpi_records(
     
     # Recalculate mutated metric months
     recovery_months = set()
+    toll_grade_months = set()
     for m_name, y, m in mutated_keys:
         try:
             recalculate_metric_month(department, m_name, y, m, session)
             if department == "Milling_CIL" and m_name in ("Gold Recovered", "Gold Contained"):
                 recovery_months.add((y, m))
+            if department == "Milling_CIL" and m_name == "Toll Tonnes":
+                toll_grade_months.add((y, m))
         except Exception as e:
             print(f"Error recalculating imported metric {m_name} in {y}-{m}: {e}")
 
@@ -2408,6 +2469,13 @@ def import_kpi_records(
             recalculate_metric_month(department, "Recovery", y, m, session)
         except Exception as e:
             print(f"Error recalculating Recovery after import in {y}-{m}: {e}")
+
+    # Recalculate Toll Grade for any months where Toll Tonnes changed (it depends on it)
+    for y, m in toll_grade_months:
+        try:
+            recalculate_metric_month(department, "Toll Grade", y, m, session)
+        except Exception as e:
+            print(f"Error recalculating Toll Grade after import in {y}-{m}: {e}")
             
     if mutated_keys:
         session.commit()
@@ -2466,6 +2534,9 @@ def delete_kpi_record(record_id: int, session: Session = Depends(get_session), _
             # If Gold Recovered or Gold Contained deleted, also recalculate Recovery
             if dept == "Milling_CIL" and metric_name in ("Gold Recovered", "Gold Contained"):
                 recalculate_metric_month(dept, "Recovery", rec_date.year, rec_date.month, session)
+            # If Toll Tonnes deleted, also recalculate Toll Grade (weighted by it)
+            if dept == "Milling_CIL" and metric_name == "Toll Tonnes":
+                recalculate_metric_month(dept, "Toll Grade", rec_date.year, rec_date.month, session)
             session.commit()
         except Exception as e:
             print(f"Error recalculating metric month after deletion: {e}")
@@ -2559,11 +2630,11 @@ def cascade_fixed_input(
                     
                     else:
                         # Standard Logic (Higher is Better/Production)
-                        # If Forecast is 0, we can't calculate variance. Return "-" or maybe "0%"?
-                        # Standard practice in this app seems to be "-" if invalid.
-                        # If Forecast is 0, variance is undefined; treat as 0% (consistent with daily entry form).
+                        # A 0 forecast makes the variance undefined: report "0%"
+                        # when there is no actual either, otherwise "-" (not
+                        # applicable). Mirrors the daily entry forms and tables.
                         if fcst == 0:
-                            return "0%"
+                            return "0%" if act == 0 else "-"
 
                         var = ((act - fcst) / fcst) * 100
                         return f"{round(var)}%"
@@ -2625,6 +2696,9 @@ def cascade_fixed_input(
             # If Gold Recovered or Gold Contained cascade, also recalculate Recovery
             if department == "Milling_CIL" and payload.metric_name in ("Gold Recovered", "Gold Contained"):
                 recalculate_metric_month(department, "Recovery", year, month, session)
+            # If Toll Tonnes cascade, also recalculate Toll Grade (weighted by it)
+            if department == "Milling_CIL" and payload.metric_name == "Toll Tonnes":
+                recalculate_metric_month(department, "Toll Grade", year, month, session)
             session.commit()
         except Exception as e:
             print(f"Error recalculating metric month after cascade: {e}")

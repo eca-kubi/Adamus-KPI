@@ -10,7 +10,10 @@ function calculateVariance(actual, forecast) {
     }
 
     if (fc === 0) {
-        return '0%';
+        // A 0 forecast makes the variance undefined: report '0%' when there is
+        // no actual either, otherwise '-' (not applicable). Mirrors the backend
+        // and the stockpile / availability tables.
+        return act === 0 ? '0%' : '-';
     }
 
     const variance = ((act - fc) / fc) * 100;
