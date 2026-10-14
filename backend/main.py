@@ -2076,6 +2076,8 @@ def get_summary_dashboard(
                 data["daily_act_grade"] = target_rec.data["daily_act_grade"]
             if target_rec and 'daily_act_tonnes' in target_rec.data:
                 data["daily_act_tonnes"] = target_rec.data["daily_act_tonnes"]
+            if target_rec and 'drill_type' in target_rec.data:
+                data["drill_type"] = target_rec.data["drill_type"]
             # Aggregate comments from any daily record for the target date.
             # This handles legacy duplicate rows where the comment may live on a
             # different row than the one selected as target_rec.

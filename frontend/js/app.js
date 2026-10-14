@@ -2574,6 +2574,17 @@ function renderGeologyDrillingForm(dept, metricName, card) {
         rigs.container.classList.add('kpi-hidden-field');
     }
 
+    // Drill Type selector (Exploration Drilling only). Records whether the
+    // metres drilled were Reverse Circulation (RC) or Diamond Drilling (DD).
+    let drillType = null;
+    if (metricName === "Exploration Drilling") {
+        drillType = DOM.createSelect("Drill Type", `input-${dept}-drill-type`, [
+            { value: "RC", label: "RC" },
+            { value: "DD", label: "DD" }
+        ], "Select Drill Type...");
+        drillType.input = drillType.select;
+    }
+
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
 
     // Row 2
@@ -2621,11 +2632,13 @@ function renderGeologyDrillingForm(dept, metricName, card) {
 
     // Auto-populate form when date changes (load existing daily record if any)
     date.input.addEventListener('change', async () => {
-        await autoPopulateDailyForm(dept, metricName, date.input.value, {
+        const fieldMap = {
             num_rigs: `input-${dept}-rigs`,
             daily_actual: `input-${dept}-daily-act`,
             daily_forecast: `input-${dept}-daily-fcst`
-        });
+        };
+        if (drillType) fieldMap.drill_type = `input-${dept}-drill-type`;
+        await autoPopulateDailyForm(dept, metricName, date.input.value, fieldMap);
         // Dispatch input events so variance/MTD/outlook recalculate
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2832,8 +2845,11 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     date.input.addEventListener('change', calculateOutlook);
 
 
-    // Add to Grid (order matters)
-    add(date); add(rigs); add(dAct);
+    // Add to Grid (order matters). For Exploration Drilling the (hidden) Number
+    // of Rigs slot is replaced by the Drill Type selector.
+    add(date);
+    if (drillType) { add(drillType); } else { add(rigs); }
+    add(dAct);
     add(dFcst); add(dVar); add(mAct);
     add(mFcst); add(mVar); add(outlook);
     add(fullFcst); add(fullBudg); add(budgVar);
@@ -2866,6 +2882,9 @@ function renderGeologyDrillingForm(dept, metricName, card) {
             }
         };
 
+        // Persist the Drill Type for Exploration Drilling.
+        if (drillType) record.data.drill_type = drillType.input.value;
+
         try {
             await saveKPIRecord(dept, record);
             DOM.showToast("Record saved successfully!");
@@ -2874,6 +2893,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
             // Clear inputs
             date.input.value = '';
             rigs.input.value = '';
+            if (drillType) drillType.input.value = '';
             dAct.input.value = '';
             dFcst.input.value = '';
             dVar.input.value = '';
@@ -11207,7 +11227,8 @@ window.editRecord = (id) => {
             num_rigs: [`input-${dept}-rigs`],
             wet_tonnes: [`input-${dept}-wet-tonnes`],
             grade: [`input-${dept}-grade`],
-            grade_7: [`input-${dept}-grade-7`]
+            grade_7: [`input-${dept}-grade-7`],
+            drill_type: [`input-${dept}-drill-type`]
         };
 
         if (record.data) {
@@ -16313,6 +16334,10 @@ function renderSummaryTable(departments) {
             let displayName = m.metric_name;
             if (displayName === "Near Miss") {
                 displayName = "Near Miss / Dangerous Occurance";
+            }
+            // Surface the Drill Type on the Exploration Drilling row.
+            if (m.metric_name === 'Exploration Drilling' && d.drill_type) {
+                displayName = `${displayName} (${d.drill_type})`;
             }
 
             const groupRole = groupFlags[idx];

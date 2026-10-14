@@ -1,5 +1,5 @@
 services:
-  app:
+  arl-kpi-app:
     image: ghcr.io/eca-kubi/arl-kpi-app:latest
     restart: unless-stopped
     environment:
@@ -30,7 +30,7 @@ services:
       - SMS_ONLINE_GH_RECIPIENT=${SMS_ONLINE_GH_RECIPIENT}
       - SIMULATE_NOTIFICATIONS=${SIMULATE_NOTIFICATIONS}
     depends_on:
-      db:
+      arl-kpi-db:
         condition: service_healthy
 
     # -----------------------------------------------------------------------
@@ -63,7 +63,7 @@ services:
       retries: 3
       start_period: 40s
 
-  db:
+  arl-kpi-db:
     image: mariadb:10.11
     restart: unless-stopped
     environment:
@@ -85,7 +85,7 @@ services:
     image: phpmyadmin/phpmyadmin:latest
     restart: unless-stopped
     environment:
-      - PMA_HOST=db
+      - PMA_HOST=arl-kpi-db
       - PMA_PORT=3306
       - UPLOAD_LIMIT=64M
       # Required so phpMyAdmin builds correct cookie/redirect URLs
