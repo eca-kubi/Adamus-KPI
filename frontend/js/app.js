@@ -2583,6 +2583,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
             { value: "40", label: "40" },
             { value: "80", label: "80" },
             { value: "150", label: "150" },
+            { value: "190", label: "190" },
             { value: "230", label: "230" },
             { value: "300", label: "300" }
         ], "Select Daily Forecast...");
@@ -2923,6 +2924,7 @@ function renderGeologyTollForm(dept, metricName, card) {
             { value: "40", label: "40" },
             { value: "80", label: "80" },
             { value: "150", label: "150" },
+            { value: "190", label: "190" },
             { value: "230", label: "230" },
             { value: "300", label: "300" }
         ], "Select Daily Forecast...");
