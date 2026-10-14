@@ -2124,12 +2124,8 @@ function renderFixedInputForm(dept, card) {
         return selectedKPI !== 'Exploration Drilling' && selectedKPI !== 'Toll';
     };
 
-    // Plant Feed Grade does not have a Full Forecast field — its full forecast is
-    // always the daily forecast value for each day.
-    let shouldShowFullForecast = () => {
-        const selectedKPI = selectKPI.value;
-        return selectedKPI !== 'Plant Feed Grade';
-    };
+    // Every KPI (including Plant Feed Grade) has a Full Forecast field.
+    let shouldShowFullForecast = () => true;
 
     const thead = document.createElement('thead');
     let headerHTML = `
@@ -2214,7 +2210,7 @@ function renderFixedInputForm(dept, card) {
         }
     };
 
-    // Function to update Full Forecast visibility (hidden for Plant Feed Grade)
+    // Function to update Full Forecast visibility
     const updateFullForecastVisibility = () => {
         const fullForecastCell = document.getElementById('full-forecast-cell');
         const fullForecastHeader = document.getElementById('full-forecast-header');
@@ -2437,7 +2433,7 @@ function renderFixedInputForm(dept, card) {
         setTimeout(() => updateForecastPerRigVisibility(), 0);
     }
 
-    // Set initial Full Forecast visibility (hidden for Plant Feed Grade)
+    // Set initial Full Forecast visibility
     setTimeout(() => updateFullForecastVisibility(), 0);
 
     tbody.appendChild(tr);
@@ -2458,17 +2454,15 @@ function renderFixedInputForm(dept, card) {
             return;
         }
 
-        // Plant Feed Grade does not have a Full Forecast — skip validation for it
-        const isPlantFeedGrade = (kpiVal === 'Plant Feed Grade');
-        if (!daysVal || !budgVal || (!isPlantFeedGrade && !fcstVal)) {
-            const fieldMsg = isOHS ? "Number of Days, Full Forecast, Annual Target" : (isPlantFeedGrade ? "Number of Days, Full Budget" : "Number of Days, Full Forecast, Full Budget");
+        if (!daysVal || !budgVal || !fcstVal) {
+            const fieldMsg = isOHS ? "Number of Days, Full Forecast, Annual Target" : "Number of Days, Full Forecast, Full Budget";
             DOM.showToast(`Please fill in all fields (${fieldMsg}) before saving.`, "error");
             return;
         }
 
         const dataPayload = {
             num_days: dept === 'Crushing' ? (parseFloat(daysVal) || 0) : (parseInt(daysVal) || 0),
-            full_forecast: isPlantFeedGrade ? 0 : (parseFloat(fcstVal.toString().replace(/,/g, '')) || 0),
+            full_forecast: parseFloat(fcstVal.toString().replace(/,/g, '')) || 0,
             full_budget: parseFloat(budgVal.toString().replace(/,/g, '')) || 0
         };
 
@@ -6579,7 +6573,7 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     // Row 5
     const outlook = DOM.createInputGroup("Outlook (a)", `input-${dept}-outlook`, "number");
     outlook.input.readOnly = true;
-    // Full Forecast: for Plant Feed Grade, always mirrors Daily Forecast (read-only)
+    // Full Forecast is read-only here: it is driven by the monthly Fixed Input.
     const fullFcst = DOM.createInputGroup("Full Forecast (b)", `input-${dept}-full-fcst`, "number");
     fullFcst.input.readOnly = true;
     const fullBudg = DOM.createInputGroup("Full Budget (c)", `input-${dept}-full-budg`, "number");
@@ -6616,13 +6610,7 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
         day2Forecast.input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // Full Forecast for Plant Feed Grade always mirrors Daily Forecast
-    dFcst.input.addEventListener('input', () => {
-        fullFcst.input.value = dFcst.input.value;
-        fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-
-    // Fetch Full Budget from Fixed Inputs when Date changes
+    // Fetch Full Forecast and Full Budget from Fixed Inputs when Date changes
     date.input.addEventListener('change', async () => {
         const dateVal = date.input.value;
         if (!dateVal) return;
@@ -6642,11 +6630,16 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             );
 
             if (fixedRecord && fixedRecord.data) {
+                if (fixedRecord.data.full_forecast !== undefined) {
+                    fullFcst.input.value = fixedRecord.data.full_forecast;
+                    fullFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
                 if (fixedRecord.data.full_budget !== undefined) {
                     fullBudg.input.value = fixedRecord.data.full_budget;
                     fullBudg.input.dispatchEvent(new Event('input', { bubbles: true }));
                 }
             } else {
+                fullFcst.input.value = '';
                 fullBudg.input.value = '';
             }
 
@@ -11399,7 +11392,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${r.metric_name}</td>
                     <td style="padding: 12px;">${dateDisplay}</td>
                     <td style="padding: 12px;">${r.data.num_days || '-'}</td>
-                    <td style="padding: 12px;">${r.metric_name === 'Plant Feed Grade' ? '-' : formatNum(r.data.full_forecast)}</td>
+                    <td style="padding: 12px;">${formatNum(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatNum(r.data.full_budget)}</td>
                     ${!hideRigColumn ? `<td style="padding: 12px;">${forecastPerRigValue}</td>` : ''}
                     <td style="padding: 12px;">${getInputBy(r)}</td>
@@ -12529,7 +12522,7 @@ async function loadRecentRecords(dept) {
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var2)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var2)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.outlook)}</td>
-                    <td style="padding: 12px;">${formatDailyTableVal(r.data.daily_forecast)}</td>
+                    <td style="padding: 12px;">${formatDailyTableVal(r.data.full_forecast)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.full_budget)}</td>
                     <td style="padding: 12px;">${formatDailyTableVal(r.data.var3)}</td>
                     <td style="padding: 12px; text-align: center;">${window.getStatusEmoji(r.data.var3)}</td>

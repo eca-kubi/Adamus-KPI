@@ -1,16 +1,39 @@
 services:
-  app:
+  arl-kpi-db:
+    image: mariadb:10.11
+    container_name: arl-kpi-db
+    restart: always
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_ROOT_HOST: '%'
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      ALEMBIC_PASSWORD: ${ALEMBIC_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+     # - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh  # DB users will be created manually on first run
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+      
+  arl-kpi-app:
     build:
       context: .
       dockerfile: Dockerfile
     image: arl-kpi-app
+    container_name: arl-kpi-app
     environment:
-      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db/${MYSQL_DATABASE}
-      - ALEMBIC_DATABASE_URL=mysql+pymysql://alembic_user:${ALEMBIC_PASSWORD}@db/${MYSQL_DATABASE}
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}/${MYSQL_DATABASE}
+      - ALEMBIC_DATABASE_URL=mysql+pymysql://alembic_user:${ALEMBIC_PASSWORD}@${MYSQL_HOST}/${MYSQL_DATABASE}
       - MARIADB_DATABASE=${MYSQL_DATABASE}
       - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_HOST=${MYSQL_HOST}
       - ALEMBIC_PASSWORD=${ALEMBIC_PASSWORD}
       - APP_URL=${APP_URL}
       - SECRET_KEY=${SECRET_KEY}
@@ -31,47 +54,8 @@ services:
       - SMS_ONLINE_GH_RECIPIENT=${SMS_ONLINE_GH_RECIPIENT}
       - SIMULATE_NOTIFICATIONS=${SIMULATE_NOTIFICATIONS}
     depends_on:
-      db:
+      arl-kpi-db:
         condition: service_healthy
-
-  db:
-    image: mariadb:10.11
-    restart: always
-    environment:
-      MARIADB_DATABASE: ${MYSQL_DATABASE}
-      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MARIADB_ROOT_HOST: '%'
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      ALEMBIC_PASSWORD: ${ALEMBIC_PASSWORD}
-    volumes:
-      - db_data:/var/lib/mysql
-     # - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh  # DB users will be created manually on first run
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin:latest
-    restart: unless-stopped
-    environment:
-      - PMA_HOST=db
-      - PMA_PORT=3306
-      - UPLOAD_LIMIT=64M
-    ports:
-      - "8181:80"
-    depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
 
 volumes:
   db_data:
