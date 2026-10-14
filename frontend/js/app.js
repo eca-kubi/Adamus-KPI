@@ -2580,7 +2580,8 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     if (metricName === "Exploration Drilling") {
         drillType = DOM.createSelect("Drill Type", `input-${dept}-drill-type`, [
             { value: "RC", label: "RC" },
-            { value: "DD", label: "DD" }
+            { value: "DD", label: "DD" },
+            { value: "RC, DD", label: "RC, DD" }
         ], "Select Drill Type...");
         drillType.input = drillType.select;
     }
