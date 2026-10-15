@@ -306,7 +306,8 @@ const DEPT_METRICS = {
     ],
     "Geology": [
         "Fixed Inputs",
-        "Exploration Drilling",
+        "Exploration Drilling (RC)",
+        "Exploration Drilling (DD)",
         "Grade Control Drilling",
         "Toll"
     ],
@@ -366,12 +367,24 @@ const DEPT_METRICS = {
     ]
 };
 
+// The Geology exploration programme is tracked as two separate metrics so the
+// RC (Reverse Circulation) and DD (Diamond Drilling) metres each get their own
+// entry form (tab) and their own row on the Summary Dashboard.
+const EXPLORATION_DRILLING_METRICS = ["Exploration Drilling (RC)", "Exploration Drilling (DD)"];
+function isExplorationDrillingMetric(name) {
+    return EXPLORATION_DRILLING_METRICS.includes(name);
+}
+
 const IMPORT_CONFIGS = {
     'Fixed Inputs': {
         headers: ['KPI', 'Target Month (YYYY-MM)', 'Days', 'Full Forecast', 'Full Budget', 'Forecast Per Rig'],
         keys: ['metric_name', 'date', 'num_days', 'full_forecast', 'full_budget', 'forecast_per_rig']
     },
-    'Exploration Drilling': {
+    'Exploration Drilling (RC)': {
+        headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
+        keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
+    },
+    'Exploration Drilling (DD)': {
         headers: ['Date (YYYY-MM-DD)', 'Daily Actual', 'Daily Forecast', 'Outlook', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'daily_actual', 'daily_forecast', 'outlook', 'full_forecast', 'full_budget']
     },
@@ -1614,7 +1627,7 @@ window.loadMetricView = async function (metric) {
                     <th style="padding: 12px; text-align: left;">Full Budget</th>
                 `;
             }
-        } else if (metric === "Exploration Drilling" || metric === "Grade Control Drilling") {
+        } else if (isExplorationDrillingMetric(metric) || metric === "Grade Control Drilling") {
             const showRigs = metric === "Grade Control Drilling";
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
@@ -1966,7 +1979,7 @@ function renderKPIForm(dept, metricName) {
     // Differentiate form based on metric if needed
     if (metricName === "Fixed Inputs") {
         renderFixedInputForm(dept, body);
-    } else if (dept === "Geology" && (metricName === "Exploration Drilling" || metricName === "Grade Control Drilling")) {
+    } else if (dept === "Geology" && (isExplorationDrillingMetric(metricName) || metricName === "Grade Control Drilling")) {
         renderGeologyDrillingForm(dept, metricName, body);
     } else if (dept === "Geology" && metricName === "Toll") {
         renderGeologyTollForm(dept, metricName, body);
@@ -2120,8 +2133,8 @@ function renderFixedInputForm(dept, card) {
     let shouldShowForecastPerRig = () => {
         if (!isGeology) return false;
         const selectedKPI = selectKPI.value;
-        // Hide for Exploration Drilling and Toll
-        return selectedKPI !== 'Exploration Drilling' && selectedKPI !== 'Toll';
+        // Hide for Exploration Drilling (RC/DD) and Toll
+        return !isExplorationDrillingMetric(selectedKPI) && selectedKPI !== 'Toll';
     };
 
     // Every KPI (including Plant Feed Grade) has a Full Forecast field.
@@ -2570,27 +2583,15 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     // date.input.valueAsDate = new Date(); // Keep empty by default
 
     const rigs = DOM.createInputGroup("Number of Rigs", `input-${dept}-rigs`, "number");
-    if (metricName === "Exploration Drilling") {
+    if (isExplorationDrillingMetric(metricName)) {
         rigs.container.classList.add('kpi-hidden-field');
-    }
-
-    // Drill Type selector (Exploration Drilling only). Records whether the
-    // metres drilled were Reverse Circulation (RC) or Diamond Drilling (DD).
-    let drillType = null;
-    if (metricName === "Exploration Drilling") {
-        drillType = DOM.createSelect("Drill Type", `input-${dept}-drill-type`, [
-            { value: "RC", label: "RC" },
-            { value: "DD", label: "DD" },
-            { value: "RC, DD", label: "RC, DD" }
-        ], "Select Drill Type...");
-        drillType.input = drillType.select;
     }
 
     const dAct = DOM.createInputGroup("Daily Actual", `input-${dept}-daily-act`, "number", '', true);
 
     // Row 2
     let dFcst;
-    if (metricName === "Exploration Drilling") {
+    if (isExplorationDrillingMetric(metricName)) {
         dFcst = DOM.createSelect("Daily Forecast", `input-${dept}-daily-fcst`, [
             { value: "40", label: "40" },
             { value: "80", label: "80" },
@@ -2638,7 +2639,6 @@ function renderGeologyDrillingForm(dept, metricName, card) {
             daily_actual: `input-${dept}-daily-act`,
             daily_forecast: `input-${dept}-daily-fcst`
         };
-        if (drillType) fieldMap.drill_type = `input-${dept}-drill-type`;
         await autoPopulateDailyForm(dept, metricName, date.input.value, fieldMap);
         // Dispatch input events so variance/MTD/outlook recalculate
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2646,7 +2646,7 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     });
 
     // Auto-calculate MTD Actual and MTD Forecast for Exploration Drilling and Grade Control Drilling
-    if (metricName === "Exploration Drilling" || metricName === "Grade Control Drilling") {
+    if (isExplorationDrillingMetric(metricName) || metricName === "Grade Control Drilling") {
         const calculateMTD = async () => {
             const dateVal = date.input.value;
             const currentDailyActStr = dAct.input.value;
@@ -2846,11 +2846,8 @@ function renderGeologyDrillingForm(dept, metricName, card) {
     date.input.addEventListener('change', calculateOutlook);
 
 
-    // Add to Grid (order matters). For Exploration Drilling the (hidden) Number
-    // of Rigs slot is replaced by the Drill Type selector.
-    add(date);
-    if (drillType) { add(drillType); } else { add(rigs); }
-    add(dAct);
+    // Add to Grid (order matters)
+    add(date); add(rigs); add(dAct);
     add(dFcst); add(dVar); add(mAct);
     add(mFcst); add(mVar); add(outlook);
     add(fullFcst); add(fullBudg); add(budgVar);
@@ -2883,9 +2880,6 @@ function renderGeologyDrillingForm(dept, metricName, card) {
             }
         };
 
-        // Persist the Drill Type for Exploration Drilling.
-        if (drillType) record.data.drill_type = drillType.input.value;
-
         try {
             await saveKPIRecord(dept, record);
             DOM.showToast("Record saved successfully!");
@@ -2894,7 +2888,6 @@ function renderGeologyDrillingForm(dept, metricName, card) {
             // Clear inputs
             date.input.value = '';
             rigs.input.value = '';
-            if (drillType) drillType.input.value = '';
             dAct.input.value = '';
             dFcst.input.value = '';
             dVar.input.value = '';
@@ -2940,7 +2933,7 @@ function renderGeologyTollForm(dept, metricName, card) {
 
     // Row 2
     let dFcst;
-    if (metricName === "Exploration Drilling") {
+    if (isExplorationDrillingMetric(metricName)) {
         dFcst = DOM.createSelect("Daily Forecast", `input-${dept}-daily-fcst`, [
             { value: "40", label: "40" },
             { value: "80", label: "80" },
@@ -11228,8 +11221,7 @@ window.editRecord = (id) => {
             num_rigs: [`input-${dept}-rigs`],
             wet_tonnes: [`input-${dept}-wet-tonnes`],
             grade: [`input-${dept}-grade`],
-            grade_7: [`input-${dept}-grade-7`],
-            drill_type: [`input-${dept}-drill-type`]
+            grade_7: [`input-${dept}-grade-7`]
         };
 
         if (record.data) {
@@ -11405,7 +11397,7 @@ async function loadRecentRecords(dept) {
                 };
 
                 // Show "-" for Forecast Per Rig for Exploration Drilling and Toll
-                const shouldShowForecastPerRig = r.metric_name !== 'Exploration Drilling' && r.metric_name !== 'Toll';
+                const shouldShowForecastPerRig = !isExplorationDrillingMetric(r.metric_name) && r.metric_name !== 'Toll';
                 const forecastPerRigValue = shouldShowForecastPerRig ? formatNum(r.data.forecast_per_rig) : '-';
 
                 tr.innerHTML = `
@@ -11427,9 +11419,9 @@ async function loadRecentRecords(dept) {
         }
 
         // Handling for Exploration Drilling and Grade Control Drilling (Extended View)
-        if (STATE.currentMetric === 'Exploration Drilling' || STATE.currentMetric === 'Grade Control Drilling') {
+        if (isExplorationDrillingMetric(STATE.currentMetric) || STATE.currentMetric === 'Grade Control Drilling') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
-            const isExploration = STATE.currentMetric === 'Exploration Drilling';
+            const isExploration = isExplorationDrillingMetric(STATE.currentMetric);
 
             // Table headers matching form placeholders
             thead.innerHTML = `
@@ -14161,7 +14153,8 @@ const METRIC_UNITS = {
     // Geology
     "Grade Control Drilling": "m",
     "Toll": "t",
-    "Exploration Drilling": "m",
+    "Exploration Drilling (RC)": "m",
+    "Exploration Drilling (DD)": "m",
     // Engineering
     "Tipper Trucks": "%",
     "Prime Excavators": "%",
@@ -14184,7 +14177,7 @@ const SUMMARY_METRIC_ORDER = {
     "Milling_CIL": ["Gold Contained", "Gold Recovered", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
-    "Geology": ["Grade Control Drilling", "Toll", "Exploration Drilling"],
+    "Geology": ["Exploration Drilling (RC)", "Exploration Drilling (DD)", "Grade Control Drilling", "Toll"],
     "Engineering": ["Tipper Trucks", "Light Vehicles", "Prime Excavators", "Ancillary Excavators", "Articulated Dump Trucks", "Drill Rigs", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Dozers", "Graders", "Wheel Loaders", "Dewatering Pumps", "Crusher", "Mill"]
 };
 
@@ -16335,10 +16328,6 @@ function renderSummaryTable(departments) {
             let displayName = m.metric_name;
             if (displayName === "Near Miss") {
                 displayName = "Near Miss / Dangerous Occurance";
-            }
-            // Surface the Drill Type on the Exploration Drilling row.
-            if (m.metric_name === 'Exploration Drilling' && d.drill_type) {
-                displayName = `${displayName} (${d.drill_type})`;
             }
 
             const groupRole = groupFlags[idx];

@@ -27,7 +27,7 @@ DEPARTMENTS = {
         "Ore Mined", "Ore Mined Grade", "Rehandle Grade", "Rehandle", "Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Total Material Mined", "Blast Hole Drilling"
     ],
     "Geology": [
-        "Grade Control Drilling", "Toll", "Exploration Drilling"
+        "Grade Control Drilling", "Toll", "Exploration Drilling (RC)", "Exploration Drilling (DD)"
     ],
     "Engineering": [
         "Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", 

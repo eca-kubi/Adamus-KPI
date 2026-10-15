@@ -15,10 +15,11 @@ For details on setting up your local environment and running the application, pl
 
 ## 2. KPI Calculation Logic: Geology Department
 
-The Geology department tracks three primary metrics with automated calculation and cascading rules:
-1.  **Exploration Drilling**
-2.  **Grade Control Drilling**
-3.  **Toll Geology**
+The Geology department tracks the following metrics with automated calculation and cascading rules:
+1.  **Exploration Drilling (RC)** — Reverse Circulation metres
+2.  **Exploration Drilling (DD)** — Diamond Drilling metres
+3.  **Grade Control Drilling**
+4.  **Toll Geology**
 
 ### A. Outlook (a) Calculation
 
@@ -44,7 +45,7 @@ While the Outlook formula is identical across these three metrics, their daily i
 
 | Metric | Daily Actual | Daily Forecast | Full Forecast / Budget |
 | :--- | :--- | :--- | :--- |
-| **Exploration Drilling** | Manually entered by user. | Manually entered or selected from pre-set rig targets (e.g., `80`, `150`, `230`, `300`). | Fetched from monthly Fixed Inputs. |
+| **Exploration Drilling (RC)** / **(DD)** | Manually entered by user. | Manually entered or selected from pre-set rig targets (e.g., `80`, `150`, `190`, `230`, `300`). | Fetched from monthly Fixed Inputs (a separate Fixed Input per drilling type). |
 | **Grade Control Drilling** | Manually entered by user. | **Auto-calculated:**<br> $\text{Rigs} \times \text{Forecast Per Rig}$<br> *(where Forecast Per Rig is set in monthly Fixed Inputs)* | Fetched from monthly Fixed Inputs. |
 | **Toll Geology** | Manually entered by user (labelled "Daily Actual (Wet Tonnes)"). Dry Tonnes is auto-calculated: $\text{Daily Actual (Wet Tonnes)} \times 0.85$ | **Auto-calculated:**<br> $\frac{\text{Full Forecast}}{\text{Days in Month}}$ | Fetched from monthly Fixed Inputs. |
 
@@ -52,7 +53,7 @@ While the Outlook formula is identical across these three metrics, their daily i
     $$\text{Dry Tonnes} = \text{Daily Actual (Wet Tonnes)} \times 0.85$$
     The **MTD Actual** for Toll is computed as the month-to-date sum of the **Dry Tonnes** values.
 
-*   **Exploration Drilling Note**: The **Number of Rigs** field is temporarily hidden in the form UI and daily records table as it is not currently used for any calculations.
+*   **Exploration Drilling Note**: Exploration Drilling is tracked as two separate metrics — **Exploration Drilling (RC)** and **Exploration Drilling (DD)** — each with its own entry form (tab) and its own row on the Summary Dashboard. The **Number of Rigs** field is temporarily hidden in the form UI and daily records table as it is not currently used for any calculations.
 
 ---
 
