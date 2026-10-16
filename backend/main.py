@@ -614,7 +614,7 @@ class ResetPasswordRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 DEPARTMENT_METRICS = {
-    "Milling_CIL": ["Fixed Inputs", "Gold Contained", "Gold Recovered", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
+    "Milling_CIL": ["Fixed Inputs", "Gold Contained", "Gold Recovered", "Recovery", "Tonnes Treated", "Plant Feed Grade", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Geology": ["Fixed Inputs", "Exploration Drilling (RC)", "Exploration Drilling (DD)", "Grade Control Drilling", "Toll"],
     "Mining": ["Fixed Inputs", "Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
@@ -1339,6 +1339,23 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             running_gc += parse_float(gc_r.data.get('daily_forecast'))
             gc_fcst_by_date[gc_r.date] = running_gc
 
+    # For Plant Feed Grade the daily forecast tonnage is sourced from the
+    # Tonnes Treated metric for the same date.  Pre-fetch its daily_forecast
+    # per date so the loop can look it up and fall back to the value stored on
+    # the Plant Feed Grade record when no Tonnes Treated record exists.
+    pfg_fcst_tonnes_by_date: dict[date, float] = {}
+    if department == "Milling_CIL" and metric_name == "Plant Feed Grade":
+        pfg_tt_stmt = select(KPIRecord).where(
+            KPIRecord.department == department,
+            KPIRecord.date >= month_start,
+            KPIRecord.date < next_month_start,
+            KPIRecord.metric_name == "Tonnes Treated",
+            or_(KPIRecord.subtype != 'fixed_input', KPIRecord.subtype == None)
+        )
+        for tt in session.exec(pfg_tt_stmt).all():
+            if tt.data and tt.data.get('daily_forecast') is not None:
+                pfg_fcst_tonnes_by_date[tt.date] = parse_float(tt.data.get('daily_forecast'))
+
     # For Toll Grade, MTD Actual/Forecast are tonne-weighted averages of the
     # daily grade, weighted by the Toll Tonnes recorded for the same date.
     # Pre-fetch the Toll Tonnes daily records so the loop can look them up.
@@ -1406,7 +1423,14 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
         elif department == "Milling_CIL" and metric_name == "Plant Feed Grade":
             # MTD Forecast = GC_MTD_Forecast / (accrued daily_forecast_tonnes) * 31.1035
             # GC_MTD_Forecast = sum of Gold Contained daily_forecast up to current date
-            daily_fcst_tonnes = parse_float(d.get('daily_forecast_tonnes'))
+            # The daily forecast tonnage is sourced from the Tonnes Treated metric
+            # for the same date, falling back to the record's own
+            # daily_forecast_tonnes when no Tonnes Treated record exists.
+            if r.date in pfg_fcst_tonnes_by_date:
+                daily_fcst_tonnes = pfg_fcst_tonnes_by_date[r.date]
+                d['daily_forecast_tonnes'] = daily_fcst_tonnes
+            else:
+                daily_fcst_tonnes = parse_float(d.get('daily_forecast_tonnes'))
             running_fcst += daily_fcst_tonnes
             gc_running = gc_fcst_by_date.get(r.date, 0.0)
             if running_fcst != 0 and gc_running != 0:
@@ -1823,11 +1847,26 @@ def get_summary_dashboard(
                 mtd_forecast = sum_prod / sum_weights if (sum_weights and sum_weights != 0) else None
             elif dept == "Milling_CIL" and metric_name == "Plant Feed Grade":
                 # MTD Forecast = GC_MTD_Forecast / (accrued daily_forecast_tonnes) * 31.1035
+                # The daily forecast tonnage is sourced from the Tonnes Treated metric
+                # for the same date, falling back to the record's own
+                # daily_forecast_tonnes when no Tonnes Treated record exists.
                 # Use parse_float consistently (matching recalculate_metric_month) so
                 # missing values are treated as 0.0 rather than None.
                 gc_daily = [r for r in dept_records if r.metric_name == "Gold Contained" and r.subtype != 'fixed_input' and r.date >= month_start and r.date <= target_date]
                 gc_mtd_fcst = sum(parse_float(r.data.get('daily_forecast')) for r in gc_daily)
-                pfg_fcst_tonnes = sum(parse_float(r.data.get('daily_forecast_tonnes')) for r in daily_records)
+                tt_fcst_by_date = {
+                    r.date: parse_float(r.data.get('daily_forecast'))
+                    for r in dept_records
+                    if r.metric_name == "Tonnes Treated"
+                    and r.subtype != 'fixed_input'
+                    and r.date >= month_start
+                    and r.date <= target_date
+                    and r.data.get('daily_forecast') is not None
+                }
+                pfg_fcst_tonnes = sum(
+                    tt_fcst_by_date.get(r.date, parse_float(r.data.get('daily_forecast_tonnes')))
+                    for r in daily_records
+                )
                 if gc_mtd_fcst != 0 and pfg_fcst_tonnes != 0:
                     mtd_forecast = (gc_mtd_fcst / pfg_fcst_tonnes) * 31.1035
                 else:
@@ -2340,6 +2379,10 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 # If Toll Tonnes changed, also recalculate Toll Grade (weighted by it)
                 if department == "Milling_CIL" and existing.metric_name == "Toll Tonnes":
                     recalculate_metric_month(department, "Toll Grade", rec_date.year, rec_date.month, session)
+                # If Tonnes Treated changed, also recalculate Plant Feed Grade
+                # (its daily forecast tonnage is sourced from Tonnes Treated).
+                if department == "Milling_CIL" and existing.metric_name == "Tonnes Treated":
+                    recalculate_metric_month(department, "Plant Feed Grade", rec_date.year, rec_date.month, session)
                 session.commit()
                 session.refresh(existing)
                 
@@ -2365,6 +2408,10 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 # If Toll Tonnes changed, also recalculate Toll Grade (weighted by it)
                 if department == "Milling_CIL" and record.metric_name == "Toll Tonnes":
                     recalculate_metric_month(department, "Toll Grade", rec_date.year, rec_date.month, session)
+                # If Tonnes Treated changed, also recalculate Plant Feed Grade
+                # (its daily forecast tonnage is sourced from Tonnes Treated).
+                if department == "Milling_CIL" and record.metric_name == "Tonnes Treated":
+                    recalculate_metric_month(department, "Plant Feed Grade", rec_date.year, rec_date.month, session)
                 session.commit()
                 session.refresh(record)
                 
@@ -2476,6 +2523,7 @@ def import_kpi_records(
     # Recalculate mutated metric months
     recovery_months = set()
     toll_grade_months = set()
+    plant_feed_grade_months = set()
     for m_name, y, m in mutated_keys:
         try:
             recalculate_metric_month(department, m_name, y, m, session)
@@ -2483,6 +2531,8 @@ def import_kpi_records(
                 recovery_months.add((y, m))
             if department == "Milling_CIL" and m_name == "Toll Tonnes":
                 toll_grade_months.add((y, m))
+            if department == "Milling_CIL" and m_name == "Tonnes Treated":
+                plant_feed_grade_months.add((y, m))
         except Exception as e:
             print(f"Error recalculating imported metric {m_name} in {y}-{m}: {e}")
 
@@ -2499,6 +2549,14 @@ def import_kpi_records(
             recalculate_metric_month(department, "Toll Grade", y, m, session)
         except Exception as e:
             print(f"Error recalculating Toll Grade after import in {y}-{m}: {e}")
+
+    # Recalculate Plant Feed Grade for any months where Tonnes Treated changed
+    # (its daily forecast tonnage is sourced from Tonnes Treated).
+    for y, m in plant_feed_grade_months:
+        try:
+            recalculate_metric_month(department, "Plant Feed Grade", y, m, session)
+        except Exception as e:
+            print(f"Error recalculating Plant Feed Grade after import in {y}-{m}: {e}")
             
     if mutated_keys:
         session.commit()
@@ -2560,6 +2618,10 @@ def delete_kpi_record(record_id: int, session: Session = Depends(get_session), _
             # If Toll Tonnes deleted, also recalculate Toll Grade (weighted by it)
             if dept == "Milling_CIL" and metric_name == "Toll Tonnes":
                 recalculate_metric_month(dept, "Toll Grade", rec_date.year, rec_date.month, session)
+            # If Tonnes Treated deleted, also recalculate Plant Feed Grade
+            # (its daily forecast tonnage is sourced from Tonnes Treated).
+            if dept == "Milling_CIL" and metric_name == "Tonnes Treated":
+                recalculate_metric_month(dept, "Plant Feed Grade", rec_date.year, rec_date.month, session)
             session.commit()
         except Exception as e:
             print(f"Error recalculating metric month after deletion: {e}")
@@ -2714,6 +2776,10 @@ def cascade_fixed_input(
             # If Toll Tonnes cascade, also recalculate Toll Grade (weighted by it)
             if department == "Milling_CIL" and payload.metric_name == "Toll Tonnes":
                 recalculate_metric_month(department, "Toll Grade", year, month, session)
+            # If Tonnes Treated cascade, also recalculate Plant Feed Grade
+            # (its daily forecast tonnage is sourced from Tonnes Treated).
+            if department == "Milling_CIL" and payload.metric_name == "Tonnes Treated":
+                recalculate_metric_month(department, "Plant Feed Grade", year, month, session)
             session.commit()
         except Exception as e:
             print(f"Error recalculating metric month after cascade: {e}")

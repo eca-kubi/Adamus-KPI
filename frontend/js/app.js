@@ -297,8 +297,8 @@ const DEPT_METRICS = {
         "Gold Contained",
         "Gold Recovered",
         "Recovery",
-        "Plant Feed Grade",
         "Tonnes Treated",
+        "Plant Feed Grade",
         "Runtime",
         "Throughput",
         "Toll Tonnes",
@@ -6608,6 +6608,29 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
     card.appendChild(grid);
 
     // ================== LOGIC INJECTION START ==================
+    // Populate this form's Daily Forecast(t) from the Tonnes Treated sheet for the
+    // selected date. The tonnage forecast used to weight Plant Feed Grade is the
+    // one recorded against Tonnes Treated, so it is sourced from there. When the
+    // Tonnes Treated record for the date has no daily forecast, any value already
+    // present on the saved Plant Feed Grade record is kept.
+    const populateForecastTonnesFromTonnesTreated = async () => {
+        const dateVal = date.input.value;
+        if (!dateVal) return;
+        try {
+            const records = await fetchKPIRecords(dept);
+            const ttRecord = records.find(r =>
+                r.metric_name === 'Tonnes Treated' &&
+                r.subtype !== 'fixed_input' &&
+                r.date === dateVal
+            );
+            if (ttRecord && ttRecord.data && ttRecord.data.daily_forecast !== undefined && ttRecord.data.daily_forecast !== null) {
+                setFormInputValue(dFcstT.input, ttRecord.data.daily_forecast);
+            }
+        } catch (e) {
+            console.warn('Failed to populate Plant Feed Grade tonnage forecast from Tonnes Treated', e);
+        }
+    };
+
     // Auto-populate form when date changes (load existing daily record if any)
     date.input.addEventListener('change', async () => {
         await autoPopulateDailyForm(dept, metricName, date.input.value, {
@@ -6618,6 +6641,9 @@ function renderMillingPlantFeedGradeForm(dept, metricName, card) {
             day2: `input-${dept}-day2`,
             day2_forecast: `input-${dept}-day2-forecast`
         });
+        // Tonnes Treated is the source of truth for the Daily Forecast(t), so
+        // resolve it after the saved Plant Feed Grade record has been restored.
+        await populateForecastTonnesFromTonnesTreated();
         dActT.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcstT.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -14174,7 +14200,7 @@ const METRIC_UNITS = {
 
 const SUMMARY_METRIC_ORDER = {
     "OHS": ["Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
-    "Milling_CIL": ["Gold Contained", "Gold Recovered", "Recovery", "Plant Feed Grade", "Tonnes Treated", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
+    "Milling_CIL": ["Gold Contained", "Gold Recovered", "Recovery", "Tonnes Treated", "Plant Feed Grade", "Runtime", "Throughput", "Toll Tonnes", "Toll Grade"],
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Geology": ["Exploration Drilling (RC)", "Exploration Drilling (DD)", "Grade Control Drilling", "Toll"],
