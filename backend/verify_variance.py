@@ -1,7 +1,7 @@
 import sys
 import os
 from datetime import date
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from backend.models import KPIRecord
 from backend.main import cascade_fixed_input, recalculate_metric_month, CascadeFixedRequest
 
@@ -647,7 +647,201 @@ def verify_toll_grade_zero_weight_days():
         print("\nSUCCESS: Toll Grade zero-weight-day handling verified!")
 
 
+def verify_throughput_rate_mtd():
+    """Throughput MTD Actual is tonnes treated / runtime hours; MTD Forecast mirrors the daily forecast."""
+    throughput_engine = create_engine("sqlite:///:memory:")
+    SQLModel.metadata.create_all(throughput_engine)
+
+    with Session(throughput_engine) as session:
+        dept = "Milling_CIL"
+        throughput_records = [
+            KPIRecord(
+                department=dept,
+                metric_name="Throughput",
+                date=date(2026, 1, 1),
+                subtype="daily_input",
+                data={"daily_actual": 400, "daily_forecast": 400},
+            ),
+            KPIRecord(
+                department=dept,
+                metric_name="Throughput",
+                date=date(2026, 1, 2),
+                subtype="daily_input",
+                data={"daily_actual": 480, "daily_forecast": 420},
+            ),
+            # Day 3 has no Runtime record, so it cannot carry a rate.
+            KPIRecord(
+                department=dept,
+                metric_name="Throughput",
+                date=date(2026, 1, 3),
+                subtype="daily_input",
+                data={"daily_actual": 450, "daily_forecast": 400},
+            ),
+            # Day 4 has zero runtime hours, so it cannot carry a rate either.
+            KPIRecord(
+                department=dept,
+                metric_name="Throughput",
+                date=date(2026, 1, 4),
+                subtype="daily_input",
+                data={"daily_actual": 500, "daily_forecast": 400},
+            ),
+        ]
+        tonnes_records = [
+            KPIRecord(
+                department=dept,
+                metric_name="Tonnes Treated",
+                date=date(2026, 1, 1),
+                subtype="daily_input",
+                data={"daily_actual": 8000, "daily_forecast": 8000},
+            ),
+            KPIRecord(
+                department=dept,
+                metric_name="Tonnes Treated",
+                date=date(2026, 1, 2),
+                subtype="daily_input",
+                data={"daily_actual": 12000, "daily_forecast": 8000},
+            ),
+            KPIRecord(
+                department=dept,
+                metric_name="Tonnes Treated",
+                date=date(2026, 1, 3),
+                subtype="daily_input",
+                data={"daily_actual": 5000, "daily_forecast": 8000},
+            ),
+            KPIRecord(
+                department=dept,
+                metric_name="Tonnes Treated",
+                date=date(2026, 1, 4),
+                subtype="daily_input",
+                data={"daily_actual": 1000, "daily_forecast": 8000},
+            ),
+        ]
+        runtime_records = [
+            KPIRecord(
+                department=dept,
+                metric_name="Runtime",
+                date=date(2026, 1, 1),
+                subtype="daily_input",
+                data={"daily_actual": 20, "daily_forecast": 20},
+            ),
+            KPIRecord(
+                department=dept,
+                metric_name="Runtime",
+                date=date(2026, 1, 2),
+                subtype="daily_input",
+                data={"daily_actual": 24, "daily_forecast": 20},
+            ),
+            KPIRecord(
+                department=dept,
+                metric_name="Runtime",
+                date=date(2026, 1, 4),
+                subtype="daily_input",
+                data={"daily_actual": 0, "daily_forecast": 20},
+            ),
+        ]
+        for rec in throughput_records + tonnes_records + runtime_records:
+            session.add(rec)
+        session.commit()
+
+        recalculate_metric_month(dept, "Throughput", 2026, 1, session)
+        session.commit()
+
+        for rec in throughput_records:
+            session.refresh(rec)
+
+        day1, day2, day3, day4 = throughput_records
+
+        print("\n--- Verifying Milling_CIL Throughput (tonnes / runtime rate) ---")
+        # Day 1: 8000 t / 20 h = 400 t/hr
+        print(f"Day 1 MTD Actual (Expected 400): {day1.data.get('mtd_actual')}")
+        print(f"Day 1 MTD Forecast (Expected daily forecast 400): {day1.data.get('mtd_forecast')}")
+        # Day 2: (8000 + 12000) / (20 + 24) = 20000 / 44 = 454.55
+        print(f"Day 2 MTD Actual (Expected 454.55): {day2.data.get('mtd_actual')}")
+        print(f"Day 2 MTD Forecast (Expected daily forecast 420): {day2.data.get('mtd_forecast')}")
+        # Day 3: no Runtime record -> skipped, so the MTD is unchanged.
+        print(f"Day 3 MTD Actual (Expected 454.55): {day3.data.get('mtd_actual')}")
+        # Day 4: zero runtime hours -> skipped, so the MTD is unchanged.
+        print(f"Day 4 MTD Actual (Expected 454.55): {day4.data.get('mtd_actual')}")
+        print(f"Day 4 MTD Forecast (Expected daily forecast 400): {day4.data.get('mtd_forecast')}")
+        # Outlook / Full Forecast / Budget are not meaningful for a t/hr rate.
+        print(f"Day 4 Outlook (Expected '-'): {day4.data.get('outlook')}")
+        print(f"Day 4 Full Forecast (Expected '-'): {day4.data.get('full_forecast')}")
+
+        assert day1.data.get("mtd_actual") == 400
+        assert day1.data.get("mtd_forecast") == 400
+        assert day2.data.get("mtd_actual") == 454.55
+        assert day2.data.get("mtd_forecast") == 420
+        assert day3.data.get("mtd_actual") == 454.55
+        assert day4.data.get("mtd_actual") == 454.55
+        assert day4.data.get("mtd_forecast") == 400
+        assert day4.data.get("outlook") == "-"
+        assert day4.data.get("full_forecast") == "-"
+        assert day4.data.get("var2") != "-"
+
+        print("\nSUCCESS: Throughput rate-based MTD verified!")
+
+
+def verify_throughput_forecast_fallback():
+    """When a Throughput day has no daily forecast, MTD Forecast falls back to full_forecast / num_days."""
+    fallback_engine = create_engine("sqlite:///:memory:")
+    SQLModel.metadata.create_all(fallback_engine)
+
+    with Session(fallback_engine) as session:
+        dept = "Milling_CIL"
+        session.add(KPIRecord(
+            department=dept,
+            metric_name="Throughput",
+            date=date(2026, 1, 1),
+            subtype="fixed_input",
+            data={"full_forecast": 12400, "full_budget": 12000, "num_days": 31},
+        ))
+        session.add(KPIRecord(
+            department=dept,
+            metric_name="Throughput",
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 500},
+        ))
+        session.add(KPIRecord(
+            department=dept,
+            metric_name="Tonnes Treated",
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 10000},
+        ))
+        session.add(KPIRecord(
+            department=dept,
+            metric_name="Runtime",
+            date=date(2026, 1, 2),
+            subtype="daily_input",
+            data={"daily_actual": 20},
+        ))
+        session.commit()
+
+        recalculate_metric_month(dept, "Throughput", 2026, 1, session)
+        session.commit()
+
+        day = session.exec(
+            select(KPIRecord).where(
+                KPIRecord.metric_name == "Throughput",
+                KPIRecord.date == date(2026, 1, 2),
+            )
+        ).one()
+        session.refresh(day)
+
+        print("\n--- Verifying Throughput MTD Forecast fallback (no daily forecast saved) ---")
+        print(f"MTD Actual (Expected 500): {day.data.get('mtd_actual')}")
+        print(f"MTD Forecast (Expected 400 = 12400 / 31): {day.data.get('mtd_forecast')}")
+
+        assert day.data.get("mtd_actual") == 500
+        assert day.data.get("mtd_forecast") == 400
+
+        print("\nSUCCESS: Throughput MTD Forecast fallback verified!")
+
+
 if __name__ == "__main__":
     verify_toll_grade_weighted_mtd()
     verify_toll_grade_zero_weight_days()
+    verify_throughput_rate_mtd()
+    verify_throughput_forecast_fallback()
     verify_variance_logic()

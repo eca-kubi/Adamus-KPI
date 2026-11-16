@@ -30,7 +30,7 @@ DEPARTMENTS = {
         "Grade Control Drilling", "Toll", "Exploration Drilling (RC)", "Exploration Drilling (DD)"
     ],
     "Engineering": [
-        "Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", 
+        "Tipper Trucks", "Prime Excavators", "Ancillary Excavators", "Rigid Dump Trucks",
         "Articulated Dump Trucks", "Wheel Loaders", "Graders", "Dozers", "Crusher", "Mill", "Light Vehicles",
         "Dewatering Pumps", "Drill Rigs"
     ]
@@ -101,6 +101,9 @@ def seed_data():
                     actual_val = generate_random_val(metric)
                     if dept == "OHS" or metric in ("Near Pit Ore Stockpile", "Main Rompad Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Ore Stockpile Grade"):
                         forecast_val = 0
+                    elif metric == "Rigid Dump Trucks":
+                        # Consolidated fleet target: 85% availability.
+                        forecast_val = 85
                     else:
                         forecast_val = generate_random_val(metric)
                     
@@ -260,7 +263,9 @@ def seed_data():
  
                     # Add specific sub-fields
                     if dept == "Engineering":
-                        data["qty_available"] = random.randint(0, 10)
+                        # Rigid Dump Trucks is the consolidated CAT 777E /
+                        # Liebherr T236 fleet of 16 units.
+                        data["qty_available"] = 16 if metric == "Rigid Dump Trucks" else random.randint(0, 10)
                     if dept == "Milling_CIL":
                         data["day_2"] = format_val(generate_random_val(metric), metric)
                         data["day_2_forecast"] = format_val(generate_random_val(metric), metric)

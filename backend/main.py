@@ -619,7 +619,7 @@ DEPARTMENT_METRICS = {
     "Mining": ["Fixed Inputs", "Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Crushing": ["Fixed Inputs", "Grade - Ore Crushed", "Ore Crushed"],
     "OHS": ["Fixed Inputs", "Safety Incidents", "Environmental Incidents", "Property Damage", "Near Miss"],
-    "Engineering": ["Fixed Inputs", "Tipper Trucks", "Light Vehicles", "Prime Excavators", "Ancillary Excavators", "Articulated Dump Trucks", "Drill Rigs", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Dozers", "Graders", "Wheel Loaders", "Dewatering Pumps", "Crusher", "Mill"]
+    "Engineering": ["Fixed Inputs", "Tipper Trucks", "Light Vehicles", "Prime Excavators", "Ancillary Excavators", "Articulated Dump Trucks", "Drill Rigs", "Rigid Dump Trucks", "Dozers", "Graders", "Wheel Loaders", "Dewatering Pumps", "Crusher", "Mill"]
 }
 
 def get_allowed_metrics_for_departments(departments: List[str]) -> List[str]:
@@ -1286,6 +1286,9 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
     # own accumulator plus a count of the days that actually had an actual.
     eng_act_sum = 0.0
     eng_act_days = 0
+    # Throughput accumulates tonnes treated and runtime hours to derive t/hr.
+    throughput_tonnes_sum = 0.0
+    throughput_hours_sum = 0.0
 
     # For Ore Mined Grade: pre-fetch Ore Mined daily records to look up
     # actual and forecast tonnes per date for weighting.
@@ -1374,6 +1377,29 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 toll_tonnes_act_by_date[tt.date] = parse_float(tt.data.get('daily_actual'))
                 toll_tonnes_fcst_by_date[tt.date] = parse_float(tt.data.get('daily_forecast'))
 
+    # Throughput MTD Actual is the ratio of tonnes treated to runtime hours
+    # accrued so far in the month (t/hr is a rate, so a running total would be
+    # meaningless). Pre-fetch both inputs per date; a day that is missing either
+    # value cannot carry a rate and is skipped.
+    throughput_tonnes_by_date: dict[date, float] = {}
+    throughput_hours_by_date: dict[date, float] = {}
+    if department == "Milling_CIL" and metric_name == "Throughput":
+        for source_metric, source_map in (
+            ("Tonnes Treated", throughput_tonnes_by_date),
+            ("Runtime", throughput_hours_by_date),
+        ):
+            source_stmt = select(KPIRecord).where(
+                KPIRecord.department == department,
+                KPIRecord.date >= month_start,
+                KPIRecord.date < next_month_start,
+                KPIRecord.metric_name == source_metric,
+                or_(KPIRecord.subtype != 'fixed_input', KPIRecord.subtype == None)
+            )
+            for source_rec in session.exec(source_stmt).all():
+                source_val = parse_optional_float(source_rec.data.get('daily_actual')) if source_rec.data else None
+                if source_val is not None:
+                    source_map[source_rec.date] = source_val
+
     for idx, r in enumerate(daily_records):
         d = dict(r.data)
         
@@ -1446,6 +1472,15 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             running_fcst_wsum += (daily_fcst * tt_fcst_tonnes)
             running_fcst_weights += tt_fcst_tonnes
             mtd_forecast = running_fcst_wsum / running_fcst_weights if running_fcst_weights != 0 else 0.0
+        elif department == "Milling_CIL" and metric_name == "Throughput":
+            # A rate KPI: MTD Forecast mirrors the day's forecast (driven by the
+            # monthly Fixed Input) instead of accumulating the month's forecasts.
+            if d.get('daily_forecast') not in (None, "", "-"):
+                mtd_forecast = daily_fcst
+            else:
+                fcst_days = parse_float(fixed_input.data.get('num_days')) if (fixed_input and fixed_input.data) else 0.0
+                fcst_days = fcst_days if fcst_days > 0 else total_days
+                mtd_forecast = full_fcst / fcst_days if fcst_days else 0.0
         elif department == "Engineering":
             # Engineering MTD Forecast mirrors the single daily forecast for the
             # day (it is driven by the monthly Fixed Input), not a running sum.
@@ -1496,6 +1531,16 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             running_weighted_sum += (daily_act * tt_act_tonnes)
             running_weights += tt_act_tonnes
             mtd_actual = running_weighted_sum / running_weights if running_weights != 0 else 0.0
+        elif department == "Milling_CIL" and metric_name == "Throughput":
+            # MTD Actual = Σ tonnes treated / Σ runtime hours so far this month.
+            # Days missing Tonnes Treated or Runtime are skipped, as are days
+            # with no runtime hours (a rate cannot be divided by zero hours).
+            tonnes_for_day = throughput_tonnes_by_date.get(r.date)
+            hours_for_day = throughput_hours_by_date.get(r.date)
+            if tonnes_for_day is not None and hours_for_day is not None and hours_for_day > 0:
+                throughput_tonnes_sum += tonnes_for_day
+                throughput_hours_sum += hours_for_day
+            mtd_actual = (throughput_tonnes_sum / throughput_hours_sum) if throughput_hours_sum > 0 else 0.0
         elif department == "Engineering":
             # Engineering MTD Actual = plain (unweighted) average of the
             # daily_actual values entered so far this month. This mirrors the
@@ -1651,7 +1696,7 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
                 if d.get("full_budget") is None:
                     d["full_budget"] = round(full_budg, 2) if full_budg % 1 else int(full_budg)
             
-        if metric_name in ("Runtime", "Throughput"):
+        if metric_name == "Runtime":
             d["mtd_actual"] = "-"
             d["mtd_forecast"] = "-"
             d["outlook"] = "-"
@@ -1659,6 +1704,14 @@ def recalculate_metric_month(department: str, metric_name: str, year: int, month
             d["full_budget"] = "-"
             d["var2"] = "-"
             d["mtd_var"] = "-"
+            d["var3"] = "-"
+            d["budget_var"] = "-"
+        elif metric_name == "Throughput":
+            # Throughput keeps its rate-based MTD pair, but Outlook / Full
+            # Forecast / Budget are not meaningful for a t/hr rate.
+            d["outlook"] = "-"
+            d["full_forecast"] = "-"
+            d["full_budget"] = "-"
             d["var3"] = "-"
             d["budget_var"] = "-"
         elif department == "Mining" and metric_name in (
@@ -1879,6 +1932,15 @@ def get_summary_dashboard(
                 sum_prod = sum(parse_float(r.data.get('daily_forecast')) * tt_fcst_by_date.get(r.date, 0.0) for r in daily_records)
                 sum_weights = sum(tt_fcst_by_date.get(r.date, 0.0) for r in daily_records)
                 mtd_forecast = sum_prod / sum_weights if sum_weights != 0 else 0.0
+            elif dept == "Milling_CIL" and metric_name == "Throughput":
+                # A rate KPI: MTD Forecast mirrors the day's forecast (driven by
+                # the monthly Fixed Input) rather than summing the month.
+                if daily_forecast is not None and daily_forecast != "-":
+                    mtd_forecast = parse_float(daily_forecast)
+                else:
+                    fcst_days = parse_float(fixed_input.data.get('num_days')) if (fixed_input and fixed_input.data) else 0.0
+                    fcst_days = fcst_days if fcst_days > 0 else total_days
+                    mtd_forecast = full_fcst / fcst_days if fcst_days else 0.0
             elif dept == "Engineering":
                 # Engineering MTD Forecast mirrors the single daily forecast for the
                 # target date, matching recalculate_metric_month and the entry forms.
@@ -1930,6 +1992,33 @@ def get_summary_dashboard(
                 sum_prod = sum(parse_float(r.data.get('daily_actual')) * tt_act_by_date.get(r.date, 0.0) for r in daily_records)
                 sum_weights = sum(tt_act_by_date.get(r.date, 0.0) for r in daily_records)
                 mtd_actual = sum_prod / sum_weights if sum_weights != 0 else 0.0
+            elif dept == "Milling_CIL" and metric_name == "Throughput":
+                # MTD Actual = Σ tonnes treated / Σ runtime hours up to the
+                # target date. Days missing either input (or carrying no runtime
+                # hours) are skipped because no rate can be derived for them.
+                tonnes_by_date = {
+                    r.date: parse_optional_float(r.data.get('daily_actual'))
+                    for r in dept_records
+                    if r.metric_name == "Tonnes Treated"
+                    and r.subtype != 'fixed_input'
+                    and month_start <= r.date <= target_date
+                }
+                hours_by_date = {
+                    r.date: parse_optional_float(r.data.get('daily_actual'))
+                    for r in dept_records
+                    if r.metric_name == "Runtime"
+                    and r.subtype != 'fixed_input'
+                    and month_start <= r.date <= target_date
+                }
+                throughput_tonnes = 0.0
+                throughput_hours = 0.0
+                for day_rec in daily_records:
+                    day_tonnes = tonnes_by_date.get(day_rec.date)
+                    day_hours = hours_by_date.get(day_rec.date)
+                    if day_tonnes is not None and day_hours is not None and day_hours > 0:
+                        throughput_tonnes += day_tonnes
+                        throughput_hours += day_hours
+                mtd_actual = (throughput_tonnes / throughput_hours) if throughput_hours > 0 else 0.0
             elif dept == "Engineering":
                 # Engineering MTD Actual = plain (unweighted) average of the
                 # daily_actual values entered up to the target date, matching
@@ -2036,7 +2125,25 @@ def get_summary_dashboard(
             if dept != "Engineering":
                 day2_var = calc_var(day2, day2_forecast, is_ohs_dept, use_act_denom=is_ohs_dept)
 
-            if metric_name in ("Runtime", "Throughput") or dept == "Engineering":
+            if metric_name == "Throughput":
+                # Throughput keeps its rate-based MTD pair on the dashboard, but
+                # Outlook / Full Forecast / Budget stay blank for a t/hr rate.
+                data = {
+                    "daily_actual": daily_actual,
+                    "daily_forecast": daily_forecast if daily_actual is not None else None,
+                    "var1": var1,
+                    "daily_var": var1,
+                    "mtd_actual": round(mtd_actual, 2) if (mtd_actual is not None and mtd_actual % 1) else (int(mtd_actual) if mtd_actual is not None else "-"),
+                    "mtd_forecast": round(mtd_forecast, 2) if (mtd_forecast is not None and mtd_forecast % 1) else (int(mtd_forecast) if mtd_forecast is not None else "-"),
+                    "var2": var2,
+                    "mtd_var": var2,
+                    "outlook": "-",
+                    "full_forecast": "-",
+                    "full_budget": "-",
+                    "var3": "-",
+                    "budget_var": "-",
+                }
+            elif metric_name == "Runtime" or dept == "Engineering":
                 data = {
                     "daily_actual": daily_actual,
                     "daily_forecast": daily_forecast if daily_actual is not None else None,
@@ -2383,6 +2490,10 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 # (its daily forecast tonnage is sourced from Tonnes Treated).
                 if department == "Milling_CIL" and existing.metric_name == "Tonnes Treated":
                     recalculate_metric_month(department, "Plant Feed Grade", rec_date.year, rec_date.month, session)
+                # If Tonnes Treated or Runtime changed, also recalculate Throughput
+                # (its MTD Actual is their tonnes / hours ratio).
+                if department == "Milling_CIL" and existing.metric_name in ("Tonnes Treated", "Runtime"):
+                    recalculate_metric_month(department, "Throughput", rec_date.year, rec_date.month, session)
                 session.commit()
                 session.refresh(existing)
                 
@@ -2412,6 +2523,10 @@ def create_kpi_record(department: str, record: KPIRecord, session: Session = Dep
                 # (its daily forecast tonnage is sourced from Tonnes Treated).
                 if department == "Milling_CIL" and record.metric_name == "Tonnes Treated":
                     recalculate_metric_month(department, "Plant Feed Grade", rec_date.year, rec_date.month, session)
+                # If Tonnes Treated or Runtime changed, also recalculate Throughput
+                # (its MTD Actual is their tonnes / hours ratio).
+                if department == "Milling_CIL" and record.metric_name in ("Tonnes Treated", "Runtime"):
+                    recalculate_metric_month(department, "Throughput", rec_date.year, rec_date.month, session)
                 session.commit()
                 session.refresh(record)
                 
@@ -2524,6 +2639,7 @@ def import_kpi_records(
     recovery_months = set()
     toll_grade_months = set()
     plant_feed_grade_months = set()
+    throughput_months = set()
     for m_name, y, m in mutated_keys:
         try:
             recalculate_metric_month(department, m_name, y, m, session)
@@ -2533,6 +2649,8 @@ def import_kpi_records(
                 toll_grade_months.add((y, m))
             if department == "Milling_CIL" and m_name == "Tonnes Treated":
                 plant_feed_grade_months.add((y, m))
+            if department == "Milling_CIL" and m_name in ("Tonnes Treated", "Runtime"):
+                throughput_months.add((y, m))
         except Exception as e:
             print(f"Error recalculating imported metric {m_name} in {y}-{m}: {e}")
 
@@ -2557,6 +2675,14 @@ def import_kpi_records(
             recalculate_metric_month(department, "Plant Feed Grade", y, m, session)
         except Exception as e:
             print(f"Error recalculating Plant Feed Grade after import in {y}-{m}: {e}")
+
+    # Recalculate Throughput for any months where Tonnes Treated or Runtime
+    # changed (its MTD Actual is their tonnes / hours ratio).
+    for y, m in throughput_months:
+        try:
+            recalculate_metric_month(department, "Throughput", y, m, session)
+        except Exception as e:
+            print(f"Error recalculating Throughput after import in {y}-{m}: {e}")
             
     if mutated_keys:
         session.commit()
@@ -2622,6 +2748,10 @@ def delete_kpi_record(record_id: int, session: Session = Depends(get_session), _
             # (its daily forecast tonnage is sourced from Tonnes Treated).
             if dept == "Milling_CIL" and metric_name == "Tonnes Treated":
                 recalculate_metric_month(dept, "Plant Feed Grade", rec_date.year, rec_date.month, session)
+            # If Tonnes Treated or Runtime deleted, also recalculate Throughput
+            # (its MTD Actual is their tonnes / hours ratio).
+            if dept == "Milling_CIL" and metric_name in ("Tonnes Treated", "Runtime"):
+                recalculate_metric_month(dept, "Throughput", rec_date.year, rec_date.month, session)
             session.commit()
         except Exception as e:
             print(f"Error recalculating metric month after deletion: {e}")
@@ -2780,6 +2910,10 @@ def cascade_fixed_input(
             # (its daily forecast tonnage is sourced from Tonnes Treated).
             if department == "Milling_CIL" and payload.metric_name == "Tonnes Treated":
                 recalculate_metric_month(department, "Plant Feed Grade", year, month, session)
+            # If Tonnes Treated or Runtime cascade, also recalculate Throughput
+            # (its MTD Actual is their tonnes / hours ratio).
+            if department == "Milling_CIL" and payload.metric_name in ("Tonnes Treated", "Runtime"):
+                recalculate_metric_month(department, "Throughput", year, month, session)
             session.commit()
         except Exception as e:
             print(f"Error recalculating metric month after cascade: {e}")

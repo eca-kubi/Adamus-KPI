@@ -356,8 +356,7 @@ const DEPT_METRICS = {
         "Ancillary Excavators",
         "Articulated Dump Trucks",
         "Drill Rigs",
-        "Dump Truck (CAT 777E)",
-        "Dump Truck (Liebherr T236)",
+        "Rigid Dump Trucks",
         "Dozers",
         "Graders",
         "Wheel Loaders",
@@ -547,7 +546,7 @@ const IMPORT_CONFIGS = {
 };
 
 // Engineering metrics mapping
-['Light Vehicles', 'Tipper Trucks', 'Dewatering Pumps', 'Drill Rigs', 'Prime Excavators', 'Ancillary Excavators', 'Dump Truck (CAT 777E)', 'Dump Truck (Liebherr T236)', 'Articulated Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
+['Light Vehicles', 'Tipper Trucks', 'Dewatering Pumps', 'Drill Rigs', 'Prime Excavators', 'Ancillary Excavators', 'Rigid Dump Trucks', 'Articulated Dump Trucks', 'Wheel Loaders', 'Graders', 'Dozers'].forEach(m => {
     IMPORT_CONFIGS[m] = {
         headers: ['Date (YYYY-MM-DD)', 'Qty Available', 'Daily Actual(%)', 'Daily Forecast(%)', 'Full Forecast', 'Full Budget'],
         keys: ['date', 'qty_available', 'daily_actual', 'daily_forecast', 'full_forecast', 'full_budget']
@@ -1802,7 +1801,7 @@ window.loadMetricView = async function (metric) {
                 <th style="padding: 12px; text-align: left;">Budget Var %</th>
                 <th style="padding: 12px; text-align: center;">Status</th>
             `;
-        } else if ((metric === "Dewatering Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Ancillary Excavators" || metric === "Dump Truck (CAT 777E)" || metric === "Dump Truck (Liebherr T236)" || metric === "Articulated Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
+        } else if ((metric === "Dewatering Pumps" || metric === "Drill Rigs" || metric === "Light Vehicles" || metric === "Tipper Trucks" || metric === "Prime Excavators" || metric === "Ancillary Excavators" || metric === "Rigid Dump Trucks" || metric === "Articulated Dump Trucks" || metric === "Wheel Loaders" || metric === "Graders" || metric === "Dozers") && STATE.currentDept === "Engineering") {
             tableHead.innerHTML = `
                 <th style="padding: 12px; text-align: left;">KPI</th>
                 <th style="padding: 12px; text-align: left;">Date</th>
@@ -2050,8 +2049,8 @@ function renderKPIForm(dept, metricName) {
         renderEngineeringPrimeExcavatorsForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Ancillary Excavators") {
         renderEngineeringAncillaryExcavatorsForm(dept, metricName, body);
-    } else if (dept === "Engineering" && (metricName === "Dump Truck (CAT 777E)" || metricName === "Dump Truck (Liebherr T236)")) {
-        renderEngineeringDumpTruckForm(dept, metricName, body);
+    } else if (dept === "Engineering" && metricName === "Rigid Dump Trucks") {
+        renderEngineeringRigidDumpTrucksForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Articulated Dump Trucks") {
         renderEngineeringArticulatedDumpTrucksForm(dept, metricName, body);
     } else if (dept === "Engineering" && metricName === "Wheel Loaders") {
@@ -9387,7 +9386,13 @@ function renderEngineeringAncillaryExcavatorsForm(dept, metricName, card) {
     card.appendChild(btnContainer);
 }
 
-function renderEngineeringDumpTruckForm(dept, metricName, card) {
+// Rigid Dump Trucks consolidates the CAT 777E and Liebherr T236 fleets into a
+// single equipment category: one set of KPI inputs for a 16-unit fleet whose
+// daily forecast target is 85% availability.
+const RIGID_DUMP_TRUCKS_FLEET_SIZE = 16;
+const RIGID_DUMP_TRUCKS_TARGET_AVAILABILITY = 85;
+
+function renderEngineeringRigidDumpTrucksForm(dept, metricName, card) {
     const grid = document.createElement('div');
     grid.className = 'kpi-form-grid';
 
@@ -9410,7 +9415,21 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
     dVar.input.readOnly = true;
     attachVarianceListener(dAct.input, dFcst.input, dVar.input);
 
-    // Auto-Fetch Fixed Inputs on Date Change for Dump Trucks
+    // Baseline for the consolidated fleet: 16 units available and an 85%
+    // availability target. Both fields stay editable so a day with a reduced
+    // fleet can still be recorded, and a monthly Fixed Input (loaded below)
+    // takes precedence over the default target.
+    const applyRigidDumpTrucksDefaults = () => {
+        if (!dQty.input.value) {
+            dQty.input.value = String(RIGID_DUMP_TRUCKS_FLEET_SIZE);
+        }
+        if (!dFcst.input.value) {
+            dFcst.input.value = `${RIGID_DUMP_TRUCKS_TARGET_AVAILABILITY}%`;
+            dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    };
+
+    // Auto-Fetch Fixed Inputs on Date Change for Rigid Dump Trucks
     date.input.addEventListener('change', async () => {
         const dateVal = date.input.value;
         if (!dateVal) return;
@@ -9470,6 +9489,7 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
             daily_actual: `input-${dept}-daily-act-pct`,
             daily_forecast: `input-${dept}-daily-fcst-pct`
         }, { preserveKeys: ['daily_forecast'] });
+        applyRigidDumpTrucksDefaults();
         if (typeof dQty !== 'undefined') dQty.input.dispatchEvent(new Event('input', { bubbles: true }));
         dAct.input.dispatchEvent(new Event('input', { bubbles: true }));
         dFcst.input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -9646,6 +9666,7 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
             fullFcst.input.value = '';
             fullBudg.input.value = '';
             // date.input.value = ''; // Keep date selected or clear?
+            applyRigidDumpTrucksDefaults();
 
         } catch (error) {
             console.error(error);
@@ -9654,6 +9675,8 @@ function renderEngineeringDumpTruckForm(dept, metricName, card) {
     });
     btnContainer.appendChild(saveBtn);
     card.appendChild(btnContainer);
+
+    applyRigidDumpTrucksDefaults();
 }
 
 function renderEngineeringArticulatedDumpTrucksForm(dept, metricName, card) {
@@ -12843,8 +12866,8 @@ async function loadRecentRecords(dept) {
             return;
         }
 
-        // Handling for Ancillary Excavators OR Dump Truck (CAT 777E) OR Dump Truck (Liebherr T236) OR Articulated Dump Trucks OR Wheel Loaders OR Graders (Identical columns)
-        if (STATE.currentMetric === 'Ancillary Excavators' || STATE.currentMetric === 'Dump Truck (CAT 777E)' || STATE.currentMetric === 'Dump Truck (Liebherr T236)' || STATE.currentMetric === 'Articulated Dump Trucks' || STATE.currentMetric === 'Wheel Loaders' || STATE.currentMetric === 'Graders') {
+        // Handling for Ancillary Excavators OR Rigid Dump Trucks OR Articulated Dump Trucks OR Wheel Loaders OR Graders (Identical columns)
+        if (STATE.currentMetric === 'Ancillary Excavators' || STATE.currentMetric === 'Rigid Dump Trucks' || STATE.currentMetric === 'Articulated Dump Trucks' || STATE.currentMetric === 'Wheel Loaders' || STATE.currentMetric === 'Graders') {
             filteredRecords = records.filter(r => r.metric_name === STATE.currentMetric && r.subtype !== 'fixed_input');
 
             // Date | Qty Avail | D.Act(%) | D.Fcst(%) | Var% | MTD.Act | MTD.Fcst | Var% | F.Fcst | F.Budg | Action
@@ -14185,8 +14208,7 @@ const METRIC_UNITS = {
     "Tipper Trucks": "%",
     "Prime Excavators": "%",
     "Ancillary Excavators": "%",
-    "Dump Truck (CAT 777E)": "%",
-    "Dump Truck (Liebherr T236)": "%",
+    "Rigid Dump Trucks": "%",
     "Articulated Dump Trucks": "%",
     "Wheel Loaders": "%",
     "Graders": "%",
@@ -14204,7 +14226,7 @@ const SUMMARY_METRIC_ORDER = {
     "Crushing": ["Ore Crushed", "Grade - Ore Crushed"],
     "Mining": ["Total Material Mined", "Ore Mined", "Ore Mined Grade", "Rehandle", "Rehandle Grade", "Near Pit Ore Stockpile", "Near Pit Ore Stockpile Grade", "Main Rompad Stockpile", "Main Rompad Ore Stockpile Grade", "Availability - Dump Trucks", "Utilization - Dump Trucks", "Productivity - Dump Trucks", "Availability - Excavators", "Utilization - Excavators", "Productivity - Excavators", "Availability - Tipper Trucks", "Utilization - Tipper Trucks", "Productivity - Tipper Trucks", "Availability - Drill Rigs", "Utilization - Drill Rigs", "Productivity - Drill Rigs", "Blast Hole Drilling"],
     "Geology": ["Exploration Drilling (RC)", "Exploration Drilling (DD)", "Grade Control Drilling", "Toll"],
-    "Engineering": ["Tipper Trucks", "Light Vehicles", "Prime Excavators", "Ancillary Excavators", "Articulated Dump Trucks", "Drill Rigs", "Dump Truck (CAT 777E)", "Dump Truck (Liebherr T236)", "Dozers", "Graders", "Wheel Loaders", "Dewatering Pumps", "Crusher", "Mill"]
+    "Engineering": ["Tipper Trucks", "Light Vehicles", "Prime Excavators", "Ancillary Excavators", "Articulated Dump Trucks", "Drill Rigs", "Rigid Dump Trucks", "Dozers", "Graders", "Wheel Loaders", "Dewatering Pumps", "Crusher", "Mill"]
 };
 
 // Mining base metric -> associated grade metric. On the summary dashboard the
@@ -14325,6 +14347,16 @@ function isGradeMetric(metricName) {
     return metricName === 'Main Rompad Ore Stockpile Grade'
         || metricName === 'Ore Mined Grade'
         || metricName === 'Rehandle Grade';
+}
+
+/**
+ * Returns true for the metrics that are always displayed with exactly two
+ * decimal places on the summary dashboard (and its comments/export views)
+ * but are not grade metrics: the Milling/CIL Runtime (hr) and Recovery (%)
+ * figures. Grades keep their own `isGradeMetric` handling.
+ */
+function isTwoDecimalMetric(metricName) {
+    return metricName === 'Runtime' || metricName === 'Recovery';
 }
 
 function getSecondaryVal(dept, data, metric) {
@@ -16364,8 +16396,12 @@ function renderSummaryTable(departments) {
                 m.metric_name === 'Near Pit Ore Stockpile' ||
                 m.metric_name === 'Near Pit Ore Stockpile Grade'
             );
+            // Runtime and the Mining availability/utilization ratios have no
+            // meaningful MTD or Outlook figures. Throughput keeps its
+            // rate-based MTD pair (tonnes treated / runtime hours) but not the
+            // Outlook / Full Forecast / Budget columns.
             const isRuntimeThroughput = (
-                m.metric_name === 'Runtime' || m.metric_name === 'Throughput' ||
+                m.metric_name === 'Runtime' ||
                 m.metric_name === 'Availability - Dump Trucks' ||
                 m.metric_name === 'Utilization - Dump Trucks' ||
                 m.metric_name === 'Availability - Excavators' ||
@@ -16375,9 +16411,15 @@ function renderSummaryTable(departments) {
                 m.metric_name === 'Availability - Drill Rigs' ||
                 m.metric_name === 'Utilization - Drill Rigs'
             );
+            const isThroughput = m.metric_name === 'Throughput';
             const isRehandleMetric = (
                 m.metric_name === 'Rehandle' || m.metric_name === 'Rehandle Grade'
             );
+            const hideMtd = isStockpileMetric || isRuntimeThroughput;
+            const hideTail = hideMtd || isThroughput || isRehandleMetric;
+            // Runtime and Recovery are shown with exactly two decimal places.
+            const twoDp = isTwoDecimalMetric(m.metric_name);
+            const fmtFig = (v) => (twoDp ? fmtGradeVal(v) : fmtVal(v, isOHS));
 
             if (groupRole === 'groupStart') {
                 html += `<td style="font-weight:500;vertical-align:middle;" rowspan="2">${displayName}</td>`;
@@ -16387,10 +16429,10 @@ function renderSummaryTable(departments) {
             // groupMember rows intentionally omit the KPI cell because it is
             // spanned from the preceding base-metric row.
             html += `<td class="unit-cell" style="font-size:0.65rem;color:#666;">${unit}</td>`;
-            const secVal = isStockpileMetric ? '' : getSecondaryVal(dept, d, m.metric_name);
-            const secVal2 = isStockpileMetric ? '' : getSecondaryVal2(dept, d, m.metric_name);
-            const daFormatted = isGradeMetric(m.metric_name) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS);
-            const dfFormatted = fmtVal(d.daily_forecast, isOHS);
+            const secVal = isStockpileMetric ? '' : fmtFig(d.day2 ?? d.day_2 ?? '');
+            const secVal2 = isStockpileMetric ? '' : fmtFig(d.day2_forecast ?? d.day_2_forecast ?? '');
+            const daFormatted = (twoDp || isGradeMetric(m.metric_name)) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS);
+            const dfFormatted = fmtFig(d.daily_forecast);
             html += `<td class="num-cell">${isEng ? '-' : (secVal2 || '-')}</td>`;
             html += `<td class="num-cell">${isEng ? '-' : (secVal || '-')}</td>`;
             html += `<td class="${isEng ? 'num-cell' : svarClass(d.day2_var)}">${isEng ? (['Crusher', 'Mill'].includes(m.metric_name) ? '-' : fmtVal(d.qty_available ?? '')) : (fmtVal(d.day2_var, isOHS) || '-')}</td>`;
@@ -16398,15 +16440,15 @@ function renderSummaryTable(departments) {
             html += `<td class="num-cell">${isStockpileMetric ? '-' : (isEng && dfFormatted ? dfFormatted.replace(/%$/, '') + '%' : dfFormatted)}</td>`;
             html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
             html += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : (isGradeMetric(m.metric_name) ? fmtGradeVal(d.mtd_actual) : fmtVal(d.mtd_actual, isOHS)))}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(d.mtd_forecast, isOHS))}</td>`;
-            html += `<td class="${(isStockpileMetric || isRuntimeThroughput) ? 'svar-na' : svarClass(v2)}">${isStockpileMetric || isRuntimeThroughput ? '-' : (isEng ? '-' : fmtVal(v2, isOHS))}</td>`;
-            html += `<td style="text-align:right;">${isStockpileMetric || isRuntimeThroughput ? '' : (isEng ? '' : sstatusHtml(v2))}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.outlook ?? '', isOHS))}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.full_forecast ?? '', isOHS))}</td>`;
-            html += `<td class="num-cell">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(d.full_budget ?? '', isOHS))}</td>`;
-            html += `<td class="${(isStockpileMetric || isRuntimeThroughput || isRehandleMetric) ? 'svar-na' : svarClass(v3)}">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '-' : (isEng ? '-' : fmtVal(v3, isOHS))}</td>`;
-            html += `<td style="text-align:right;">${isStockpileMetric || isRuntimeThroughput || isRehandleMetric ? '' : (isEng ? '' : sstatusHtml(v3))}</td>`;
+            html += `<td class="num-cell">${hideMtd ? '-' : (isEng ? '-' : ((twoDp || isGradeMetric(m.metric_name)) ? fmtGradeVal(d.mtd_actual) : fmtVal(d.mtd_actual, isOHS)))}</td>`;
+            html += `<td class="num-cell">${hideMtd ? '-' : (isEng ? '-' : fmtFig(d.mtd_forecast))}</td>`;
+            html += `<td class="${hideMtd ? 'svar-na' : svarClass(v2)}">${hideMtd ? '-' : (isEng ? '-' : fmtVal(v2, isOHS))}</td>`;
+            html += `<td style="text-align:right;">${hideMtd ? '' : (isEng ? '' : sstatusHtml(v2))}</td>`;
+            html += `<td class="num-cell">${hideTail ? '-' : (isEng ? '-' : fmtFig(d.outlook ?? ''))}</td>`;
+            html += `<td class="num-cell">${hideTail ? '-' : (isEng ? '-' : fmtFig(d.full_forecast ?? ''))}</td>`;
+            html += `<td class="num-cell">${hideTail ? '-' : (isEng ? '-' : fmtFig(d.full_budget ?? ''))}</td>`;
+            html += `<td class="${hideTail ? 'svar-na' : svarClass(v3)}">${hideTail ? '-' : (isEng ? '-' : fmtVal(v3, isOHS))}</td>`;
+            html += `<td style="text-align:right;">${hideTail ? '' : (isEng ? '' : sstatusHtml(v3))}</td>`;
             html += `<td class="trend-cell">${summarySparkline(m.trend, isOHS)}</td>`;
 
             html += '</tr>';
@@ -16540,12 +16582,14 @@ function renderCommentsTable(departments, dateStr) {
             html += `<td class="summary-area-cell area-${deptKey}" rowspan="${deptRowCount[dept]}">${deptLabel}</td>`;
             lastDept = dept;
         }
+        const twoDp = isTwoDecimalMetric(metricName);
+        const cmtFmt = (v) => (twoDp ? fmtGradeVal(v) : fmtVal(v, isOHS));
         html += `<td style="font-weight:500;">${displayName}</td>`;
-        const daFormattedCmt = isGradeMetric(metricName) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS);
-        html += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal(dept, d, metricName) || '-')}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal2(dept, d, metricName) || '-')}</td>`;
+        const daFormattedCmt = (twoDp || isGradeMetric(metricName)) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS);
+        html += `<td class="num-cell">${isStockpileMetric ? '' : (cmtFmt(d.day2 ?? d.day_2 ?? '') || '-')}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '' : (cmtFmt(d.day2_forecast ?? d.day_2_forecast ?? '') || '-')}</td>`;
         html += `<td class="num-cell">${dept === 'Engineering' && daFormattedCmt ? daFormattedCmt.replace(/%$/, '') + '%' : daFormattedCmt}</td>`;
-        html += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
+        html += `<td class="num-cell">${isStockpileMetric ? '-' : cmtFmt(d.daily_forecast)}</td>`;
         html += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         html += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
         html += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
@@ -16567,10 +16611,10 @@ function renderCommentsTable(departments, dateStr) {
         exportRowsHtml += '<tr>';
         exportRowsHtml += `<td class="summary-area-cell area-${deptKey}">${deptLabel}</td>`;
         exportRowsHtml += `<td style="font-weight:500;">${displayName}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal(dept, d, metricName) || '-')}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : (getSecondaryVal2(dept, d, metricName) || '-')}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isGradeMetric(metricName) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS)}</td>`;
-        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : fmtVal(d.daily_forecast, isOHS)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : ((isTwoDecimalMetric(metricName) ? fmtGradeVal(d.day2 ?? d.day_2 ?? '') : getSecondaryVal(dept, d, metricName)) || '-')}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '' : ((isTwoDecimalMetric(metricName) ? fmtGradeVal(d.day2_forecast ?? d.day_2_forecast ?? '') : getSecondaryVal2(dept, d, metricName)) || '-')}</td>`;
+        exportRowsHtml += `<td class="num-cell">${(isTwoDecimalMetric(metricName) || isGradeMetric(metricName)) ? fmtGradeVal(d.daily_actual) : fmtVal(d.daily_actual, isOHS)}</td>`;
+        exportRowsHtml += `<td class="num-cell">${isStockpileMetric ? '-' : (isTwoDecimalMetric(metricName) ? fmtGradeVal(d.daily_forecast) : fmtVal(d.daily_forecast, isOHS))}</td>`;
         exportRowsHtml += `<td class="${isStockpileMetric ? 'svar-na' : svarClass(v1)}">${isStockpileMetric ? '-' : fmtVal(v1, isOHS)}</td>`;
         exportRowsHtml += `<td style="text-align:right;">${isStockpileMetric ? '' : sstatusHtml(v1)}</td>`;
         exportRowsHtml += `<td class="comment-cell">${comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
@@ -16843,6 +16887,10 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         // the separate Toll Tonnes metric. The import batch does not carry the
         // per-day Toll Tonnes values, so leave these unset here and let the
         // backend (recalculate_metric_month) compute them after import.
+    } else if (metric === 'Throughput') {
+        // Throughput MTD Actual is the tonnes treated / runtime hours ratio and
+        // MTD Forecast mirrors the daily forecast. Both need records outside
+        // this import batch, so leave them to the backend recalculation.
     } else if (metric === 'Near Pit Ore Stockpile' || metric === 'Main Rompad Stockpile') {
         if (d.daily_actual !== undefined) {
             d.mtd_actual = parseFloat(d.daily_actual) || 0;
@@ -16866,7 +16914,7 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         d.mtd_forecast = parseFloat(d.daily_forecast) || 0;
     } else if (metric === 'Availability - Dump Trucks' || metric === 'Utilization - Dump Trucks' || metric === 'Availability - Excavators' || metric === 'Utilization - Excavators' || metric === 'Availability - Tipper Trucks' || metric === 'Utilization - Tipper Trucks' || metric === 'Availability - Drill Rigs' || metric === 'Utilization - Drill Rigs') {
         d.mtd_forecast = "-";
-    } else if (metric !== "Rehandle Grade" && metric !== "Toll Grade") {
+    } else if (metric !== "Rehandle Grade" && metric !== "Toll Grade" && metric !== "Throughput") {
         if (d.daily_forecast !== undefined) {
             const prevMtdFcst = pd ? (parseFloat(pd.mtd_forecast) || 0) : 0;
             d.mtd_forecast = prevMtdFcst + parseFloat(d.daily_forecast);
@@ -16954,11 +17002,19 @@ async function computeImportRecord(dept, metric, record, prevRecord, fixedInputs
         }
     }
 
-    if (metric === 'Runtime' || metric === 'Throughput') {
+    if (metric === 'Runtime') {
         d.mtd_actual = "-";
         d.mtd_forecast = "-";
         d.var2 = "-";
         d.mtd_var = "-";
+        d.outlook = "-";
+        d.full_forecast = "-";
+        d.full_budget = "-";
+        d.var3 = "-";
+        d.budget_var = "-";
+    } else if (metric === 'Throughput') {
+        // MTD Actual/Forecast are computed by the backend after import; only the
+        // Outlook / Full Forecast / Budget columns are blank for this t/hr rate.
         d.outlook = "-";
         d.full_forecast = "-";
         d.full_budget = "-";

@@ -1,0 +1,73 @@
+# Gitleaks configuration for the Adamus KPI Portal.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# The stock Gitleaks ruleset does NOT flag a bare, low-entropy password
+# assignment such as `password=bob123`. Two built-in rules could cover it and
+# both deliberately miss it:
+#
+#   * generic-api-key       -> value must be 10-150 chars AND entropy >= 3.5
+#                              ("bob123" is 6 chars, entropy ~2.25)
+#   * hashicorp-tf-password -> value must be DOUBLE QUOTED and 8-20 chars
+#                              ("bob123" is unquoted)
+#
+# So `password=bob123` slipped through `pre-commit` and was committed.
+# This file extends the defaults with rules that catch that shape of leak.
+# It is picked up automatically because it lives at the repository root.
+
+[extend]
+# Keep every built-in rule; we only ADD to the default ruleset.
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# 1. Password / secret assigned a literal value (quoted OR bare).
+# ---------------------------------------------------------------------------
+# Catches:  password=bob123   password = "hunter2"   pwd: Svc2024!
+#
+# The captured value must contain at least one digit or symbol
+# (`[0-9!@%^&*+\-]`). That single requirement removes almost all code noise:
+#   `SECRET_KEY = os.getenv(...)` -> value starts "os."      -> rejected
+#   `password = Config`           -> no digit/symbol         -> rejected
+#   `api_key = resend_api_key`    -> underscores only        -> rejected
+#   `password = $body`            -> '$' not in value charset-> rejected
+#   `password = bob123`           -> contains digits         -> REJECTED LEAK
+# (Go's RE2 engine has no lookahead, so the "must contain a digit/symbol"
+#  constraint is expressed by repeating the allowed charset around the
+#  mandatory character instead of using `(?=...)`.)
+[[rules]]
+id = "credential-value-assignment"
+description = "Password or secret assigned a literal value"
+regex = '''(?i)\b(?:pass(?:word|wd|phrase)?|pwd|secret[_-]?key|secret|api[_-]?key|auth[_-]?token|access[_-]?token)\b\s*[:=]\s*["']?([A-Za-z0-9_!@%^&*+\-]*[0-9!@%^&*+\-][A-Za-z0-9_!@%^&*+\-]*)["']?'''
+secretGroup = 1
+entropy = 2.0
+keywords = [
+    "password", "passwd", "pwd", "secret", "apikey", "api_key", "token",
+]
+
+# ---------------------------------------------------------------------------
+# 2. File whose NAME indicates stored credentials.
+# ---------------------------------------------------------------------------
+# This is the rule that would have blocked `admin_password` outright.
+[[rules]]
+id = "credential-file-name"
+description = "File name that indicates stored credentials"
+path = '''(?i)(?:^|/)[^/]*(?:password|passwd|credential|secret|\.pem$|\.p12$|\.pfx$|\.keystore$|id_rsa|id_ed25519)'''
+
+# ---------------------------------------------------------------------------
+# Allowlist: placeholders, templates and documentation only.
+# ---------------------------------------------------------------------------
+[allowlist]
+description = "Documentation placeholders and example templates"
+paths = [
+    '''(?i)\.env\.example$''',
+    '''(?i)(?:^|/)\.gitleaks\.toml$''',
+    '''(?i)(?:^|/)AGENTS\.md$''',
+    '''(?i)(?:^|/)ONBOARDING\.md$''',
+    '''(?i)(?:^|/)README\.md$''',
+]
+regexes = [
+    # Known placeholder shipped in the tracked environment template.
+    '''your-smtp-password''',
+    # Obvious non-secrets.
+    '''(?i)^(?:changeme|change[_-]?me|placeholder|example|dummy|redacted|not[_-]?a[_-]?secret|your[_-]|<[^>]+>)$''',
+]
